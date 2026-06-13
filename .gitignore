@@ -1,5 +1,10 @@
 # dependencies
 node_modules/
+node_modules.tar
+node_modules.tar.gz
+
+# large archives
+deploy_production.zip
 
 # Next.js
 .next/
