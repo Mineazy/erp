@@ -1,0 +1,250 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogFooter } from '@/components/ui/dialog';
+import { Building2, Plus, Search, Edit2, Trash2, Phone, Mail } from 'lucide-react';
+
+interface Supplier {
+  id: string;
+  code: string;
+  name: string;
+  contactPerson: string;
+  email: string;
+  phone: string;
+  city: string;
+  paymentTerms: string;
+  balance: number;
+  isActive: boolean;
+}
+
+const paymentTermsColors: Record<string, string> = {
+  'Net 15': 'bg-amber-50 text-amber-700',
+  'Net 30': 'bg-blue-50 text-blue-700',
+  'Net 45': 'bg-green-50 text-green-700',
+  'Net 60': 'bg-purple-50 text-purple-700',
+};
+
+const emptyForm = { code: '', name: '', contactPerson: '', email: '', phone: '', city: '', paymentTerms: 'Net 30', taxId: '' };
+
+export default function SuppliersPage() {
+  const [data, setData] = useState<Supplier[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [form, setForm] = useState(emptyForm);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (search) params.set('search', search);
+      const res = await fetch(`/api/crm/suppliers?${params}`);
+      if (!res.ok) throw new Error('Failed to fetch');
+      const json = await res.json();
+      setData(json);
+    } catch (e) {
+      console.error('Failed to fetch suppliers', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchData(); }, [search]);
+
+  const openCreate = () => {
+    setEditingSupplier(null);
+    setForm(emptyForm);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (supplier: Supplier) => {
+    setEditingSupplier(supplier);
+    setForm({ code: supplier.code, name: supplier.name, contactPerson: supplier.contactPerson, email: supplier.email, phone: supplier.phone, city: supplier.city, paymentTerms: supplier.paymentTerms, taxId: (supplier as any).taxId || '' });
+    setDialogOpen(true);
+  };
+
+  const handleSave = async () => {
+    try {
+      let res;
+      if (editingSupplier) {
+        res = await fetch(`/api/crm/suppliers/${editingSupplier.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form),
+        });
+      } else {
+        res = await fetch('/api/crm/suppliers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form),
+        });
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Save failed' }));
+        alert(err.error || 'Failed to save supplier');
+        return;
+      }
+      setDialogOpen(false);
+      setEditingSupplier(null);
+      fetchData();
+    } catch (e) {
+      alert('Network error. Please try again.');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this supplier?')) return;
+    try {
+      const res = await fetch(`/api/crm/suppliers/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Delete failed' }));
+        alert(err.error || 'Failed to delete supplier');
+        return;
+      }
+      fetchData();
+    } catch (e) {
+      alert('Network error. Please try again.');
+    }
+  };
+
+  if (loading) return <div className="p-6 text-slate-500">Loading...</div>;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Suppliers</h2>
+          <p className="text-slate-500 mt-1">Manage your supplier relationships and procurement</p>
+        </div>
+        <Button onClick={openCreate}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Supplier
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-slate-500">Total Suppliers</p>
+            <p className="text-xl font-bold text-slate-900">{data.length}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-slate-500">Active</p>
+            <p className="text-xl font-bold text-green-600">{data.filter(s => s.isActive).length}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-slate-500">Outstanding Payable</p>
+            <p className="text-xl font-bold text-red-600">${data.reduce((s, c) => s + c.balance, 0).toLocaleString()}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-slate-500">Net 30 Terms</p>
+            <p className="text-xl font-bold text-mine-blue-800">{data.filter(s => s.paymentTerms === 'Net 30').length}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-mine-blue-800" />
+              Supplier List
+            </CardTitle>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input type="text" placeholder="Search suppliers..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-mine-blue-500 w-64" />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Code</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Contact</TableHead>
+                <TableHead>Email / Phone</TableHead>
+                <TableHead>City</TableHead>
+                <TableHead>Payment Terms</TableHead>
+                <TableHead className="text-right">Balance</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.map((supplier) => (
+                <TableRow key={supplier.id} className={!supplier.isActive ? 'opacity-60' : ''}>
+                  <TableCell className="font-mono text-xs">{supplier.code}</TableCell>
+                  <TableCell className="font-medium">{supplier.name}</TableCell>
+                  <TableCell className="text-xs text-slate-600">{supplier.contactPerson}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col text-xs">
+                      <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{supplier.email}</span>
+                      <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{supplier.phone}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>{supplier.city}</TableCell>
+                  <TableCell>
+                    <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${paymentTermsColors[supplier.paymentTerms] || 'bg-slate-50 text-slate-700'}`}>
+                      {supplier.paymentTerms}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right font-mono font-semibold">${supplier.balance.toLocaleString()}</TableCell>
+                  <TableCell>
+                    <Badge variant={supplier.isActive ? 'success' : 'secondary'}>
+                      {supplier.isActive ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => openEdit(supplier)} className="p-1.5 hover:bg-slate-100 rounded"><Edit2 className="h-4 w-4 text-slate-400" /></button>
+                      <button onClick={() => handleDelete(supplier.id)} className="p-1.5 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4 text-red-400" /></button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Dialog open={dialogOpen} onClose={() => { setDialogOpen(false); setEditingSupplier(null); }} title={editingSupplier ? 'Edit Supplier' : 'Add Supplier'} size="lg">
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Supplier Code" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="e.g. SUP-006" />
+            <Input label="Supplier Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. New Supplier Ltd" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Contact Person" value={form.contactPerson} onChange={(e) => setForm({ ...form, contactPerson: e.target.value })} placeholder="Full name" />
+            <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="email@supplier.com" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+263 71 234 5678" />
+            <Input label="City" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Harare" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Select label="Payment Terms" options={[{ value: 'Net 15', label: 'Net 15' }, { value: 'Net 30', label: 'Net 30' }, { value: 'Net 45', label: 'Net 45' }, { value: 'Net 60', label: 'Net 60' }]} value={form.paymentTerms} onChange={(e) => setForm({ ...form, paymentTerms: e.target.value })} />
+            <Input label="Tax ID" value={form.taxId} onChange={(e) => setForm({ ...form, taxId: e.target.value })} placeholder="e.g. 123456789" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { setDialogOpen(false); setEditingSupplier(null); }}>Cancel</Button>
+          <Button onClick={handleSave}>{editingSupplier ? 'Update' : 'Create'}</Button>
+        </DialogFooter>
+      </Dialog>
+    </div>
+  );
+}

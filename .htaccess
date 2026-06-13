@@ -1,0 +1,19 @@
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
+PassengerAppRoot "/home9/npivfupq/erp"
+PassengerBaseURI "/"
+PassengerNodejs "/home9/npivfupq/nodevenv/payroll/20/bin/node"
+PassengerAppType node
+PassengerStartupFile server.cjs
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
+RewriteEngine On
+RewriteCond %{REQUEST_URI} \.php$ [NC]
+RewriteRule .* - [L,E=no-passenger:1]
+# DO NOT REMOVE OR MODIFY. CLOUDLINUX ENV VARS CONFIGURATION BEGIN
+<IfModule Litespeed>
+SetEnv NODE_ENV production
+SetEnv PORT 3002
+SetEnv DATABASE_URL "mysql://npivfupq_payuser:Mining2026@localhost/npivfupq_payroll"
+SetEnv NEXTAUTH_SECRET "erp-mineazy-secret-key-a8f656293861373470464f340f83b1d6"
+SetEnv NEXTAUTH_URL "https://erp.mineazy.co.zw"
+</IfModule>
+# DO NOT REMOVE OR MODIFY. CLOUDLINUX ENV VARS CONFIGURATION END

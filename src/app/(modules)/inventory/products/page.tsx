@@ -1,0 +1,253 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogFooter } from '@/components/ui/dialog';
+import { Package, Plus, Search, Edit2, Trash2, AlertTriangle } from 'lucide-react';
+
+interface Product {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+  unit: string;
+  costPrice: number;
+  sellingPrice: number;
+  stock: number;
+  minStock: number;
+  isActive: boolean;
+}
+
+const emptyForm = { code: '', name: '', category: '', unit: '', costPrice: 0, sellingPrice: 0, stock: 0, minStock: 0, location: '' };
+
+export default function ProductsPage() {
+  const [data, setData] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [form, setForm] = useState(emptyForm);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (search) params.set('search', search);
+      const res = await fetch(`/api/inventory/products?${params}`);
+      if (!res.ok) throw new Error('Failed to fetch');
+      const json = await res.json();
+      setData(json);
+    } catch (e) {
+      console.error('Failed to fetch products', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchData(); }, [search]);
+
+  const lowStock = data.filter((p) => p.isActive && p.stock <= p.minStock);
+  const outOfStock = data.filter((p) => !p.isActive || p.stock === 0);
+
+  const openCreate = () => {
+    setEditingProduct(null);
+    setForm(emptyForm);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (product: Product) => {
+    setEditingProduct(product);
+    setForm({ code: product.code, name: product.name, category: product.category, unit: product.unit, costPrice: product.costPrice, sellingPrice: product.sellingPrice, stock: product.stock, minStock: product.minStock, location: (product as any).location || '' });
+    setDialogOpen(true);
+  };
+
+  const handleSave = async () => {
+    try {
+      let res;
+      if (editingProduct) {
+        res = await fetch(`/api/inventory/products/${editingProduct.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form),
+        });
+      } else {
+        res = await fetch('/api/inventory/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form),
+        });
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Save failed' }));
+        alert(err.error || 'Failed to save product');
+        return;
+      }
+      setDialogOpen(false);
+      setEditingProduct(null);
+      fetchData();
+    } catch (e) {
+      alert('Network error. Please try again.');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this product?')) return;
+    try {
+      const res = await fetch(`/api/inventory/products/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Delete failed' }));
+        alert(err.error || 'Failed to delete product');
+        return;
+      }
+      fetchData();
+    } catch (e) {
+      alert('Network error. Please try again.');
+    }
+  };
+
+  if (loading) return <div className="p-6 text-slate-500">Loading...</div>;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Products</h2>
+          <p className="text-slate-500 mt-1">Manage your product catalog and inventory</p>
+        </div>
+        <Button onClick={openCreate}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Product
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-slate-500">Total Products</p>
+              <p className="text-xl font-bold text-slate-900">{data.length}</p>
+            </div>
+            <div className="p-2 bg-blue-50 rounded-lg"><Package className="h-5 w-5 text-mine-blue-800" /></div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-slate-500">Low Stock Items</p>
+              <p className="text-xl font-bold text-amber-600">{lowStock.length}</p>
+            </div>
+            <div className="p-2 bg-amber-50 rounded-lg"><AlertTriangle className="h-5 w-5 text-amber-600" /></div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm text-slate-500">Out of Stock</p>
+              <p className="text-xl font-bold text-red-600">{outOfStock.length}</p>
+            </div>
+            <div className="p-2 bg-red-50 rounded-lg"><AlertTriangle className="h-5 w-5 text-red-600" /></div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Package className="h-5 w-5 text-mine-blue-800" />
+              Product List
+            </CardTitle>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input type="text" placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-mine-blue-500 w-64" />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Code</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Unit</TableHead>
+                <TableHead className="text-right">Cost Price</TableHead>
+                <TableHead className="text-right">Selling Price</TableHead>
+                <TableHead className="text-right">Stock</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.map((product) => (
+                <TableRow key={product.id} className={!product.isActive ? 'opacity-60' : ''}>
+                  <TableCell className="font-mono text-xs font-medium">{product.code}</TableCell>
+                  <TableCell className="font-medium">{product.name}</TableCell>
+                  <TableCell>{product.category}</TableCell>
+                  <TableCell>{product.unit}</TableCell>
+                  <TableCell className="text-right font-mono">${product.costPrice.toLocaleString()}</TableCell>
+                  <TableCell className="text-right font-mono">${product.sellingPrice.toLocaleString()}</TableCell>
+                  <TableCell className="text-right">
+                    <span className={`font-mono font-medium ${product.stock <= product.minStock && product.isActive ? 'text-amber-600' : product.stock === 0 ? 'text-red-600' : 'text-slate-900'}`}>
+                      {product.stock}
+                    </span>
+                    {product.stock <= product.minStock && product.stock > 0 && (
+                      <span className="ml-1 text-xs text-amber-500">(Low)</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={product.isActive ? 'success' : 'secondary'}>
+                      {product.isActive ? 'Active' : 'Discontinued'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => openEdit(product)} className="p-1.5 hover:bg-slate-100 rounded"><Edit2 className="h-4 w-4 text-slate-400" /></button>
+                      <button onClick={() => handleDelete(product.id)} className="p-1.5 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4 text-red-400" /></button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Dialog
+        open={dialogOpen}
+        onClose={() => { setDialogOpen(false); setEditingProduct(null); }}
+        title={editingProduct ? 'Edit Product' : 'Add Product'}
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Product Code" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="e.g. MIN-008" />
+            <Input label="Product Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Mining Lamp" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Select label="Category" options={[{ value: 'Raw Materials', label: 'Raw Materials' }, { value: 'Equipment', label: 'Equipment' }, { value: 'Safety Gear', label: 'Safety Gear' }, { value: 'Consumables', label: 'Consumables' }]} placeholder="Select category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
+            <Select label="Unit" options={[{ value: 'each', label: 'Each' }, { value: 'kg', label: 'Kilogram' }, { value: 'ton', label: 'Ton' }, { value: 'liter', label: 'Liter' }, { value: 'meter', label: 'Meter' }, { value: 'box', label: 'Box' }]} placeholder="Select unit" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Cost Price" type="number" step="0.01" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: parseFloat(e.target.value) || 0 })} />
+            <Input label="Selling Price" type="number" step="0.01" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: parseFloat(e.target.value) || 0 })} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Current Stock" type="number" step="0.01" value={form.stock} onChange={(e) => setForm({ ...form, stock: parseFloat(e.target.value) || 0 })} />
+            <Input label="Min Stock Level" type="number" step="0.01" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: parseFloat(e.target.value) || 0 })} />
+          </div>
+          <Input label="Location / Warehouse" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="e.g. Warehouse A, Rack 12" />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { setDialogOpen(false); setEditingProduct(null); }}>Cancel</Button>
+          <Button onClick={handleSave}>{editingProduct ? 'Update' : 'Create'}</Button>
+        </DialogFooter>
+      </Dialog>
+    </div>
+  );
+}
