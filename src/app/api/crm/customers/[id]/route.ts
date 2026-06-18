@@ -2,20 +2,22 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, unauthorized, notFound, ok, getBody } from '@/lib/api';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const item = await prisma.erpCustomer.findUnique({ where: { id: params.id } });
+  const item = await prisma.erpCustomer.findUnique({ where: { id: id } });
   if (!item) return notFound('Customer not found');
   return ok(item);
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const existing = await prisma.erpCustomer.findUnique({ where: { id: params.id } });
+  const existing = await prisma.erpCustomer.findUnique({ where: { id: id } });
   if (!existing) return notFound('Customer not found');
 
   const body = await getBody(request);
@@ -37,19 +39,20 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   if (isActive !== undefined) data.isActive = Boolean(isActive);
 
   const item = await prisma.erpCustomer.update({
-    where: { id: params.id },
+    where: { id: id },
     data: data as any,
   });
   return ok(item);
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const existing = await prisma.erpCustomer.findUnique({ where: { id: params.id } });
+  const existing = await prisma.erpCustomer.findUnique({ where: { id: id } });
   if (!existing) return notFound('Customer not found');
 
-  await prisma.erpCustomer.delete({ where: { id: params.id } });
+  await prisma.erpCustomer.delete({ where: { id: id } });
   return ok({ deleted: true });
 }

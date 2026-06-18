@@ -7,6 +7,135 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ============ AUDIT TRAIL (Immutable) ============
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  action     String
+  userId     String   @map("user_id")
+  userName   String   @map("user_name")
+  changes    Json
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("audit_logs")
+}
+
+// ============ MULTI-CURRENCY ============
+
+model CurrencyRate {
+  id        String   @id @default(uuid())
+  fromCurrency String @map("from_currency")
+  toCurrency   String @map("to_currency")
+  rate      Decimal  @db.Decimal(15, 6)
+  date      DateTime @default(now())
+  source    String   @default("manual")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("currency_rates")
+}
+
+// ============ ZIMRA TAX ENGINE ============
+
+model TaxType {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  category  String
+  rate      Decimal  @db.Decimal(5, 2)
+  isActive  Boolean  @default(true) @map("is_active")
+  rules     Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  transactions   TaxTransaction[]
+
+  @@map("tax_types")
+}
+
+model TaxTransaction {
+  id            String   @id @default(uuid())
+  reference     String
+  referenceType String   @map("reference_type")
+  taxTypeId     String   @map("tax_type_id")
+  taxType       TaxType  @relation(fields: [taxTypeId], references: [id])
+  taxableAmount Decimal  @db.Decimal(15, 2) @map("taxable_amount")
+  taxAmount     Decimal  @db.Decimal(15, 2) @map("tax_amount")
+  rate          Decimal  @db.Decimal(5, 2)
+  currency      String   @default("USD")
+  exchangeRate  Decimal  @default(1) @db.Decimal(15, 6) @map("exchange_rate")
+  postedToTaRMS Boolean  @default(false) @map("posted_to_tarms")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("tax_transactions")
+}
+
+model WithholdingTaxCertificate {
+  id             String   @id @default(uuid())
+  certificateNo  String   @unique @map("certificate_no")
+  supplierId     String   @map("supplier_id")
+  supplierName   String   @map("supplier_name")
+  supplierTin    String?  @map("supplier_tin")
+  invoiceRef     String   @map("invoice_ref")
+  grossAmount    Decimal  @db.Decimal(15, 2) @map("gross_amount")
+  whtAmount      Decimal  @db.Decimal(15, 2) @map("wht_amount")
+  rate           Decimal  @db.Decimal(5, 2)
+  itf263Verified Boolean  @default(false) @map("itf263_verified")
+  period         String
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("withholding_tax_certificates")
+}
+
+// ============ FDMS FISCALISATION ============
+
+model FdmsDevice {
+  id              String   @id @default(uuid())
+  deviceId        String   @unique @map("device_id")
+  serialNo        String   @unique @map("serial_no")
+  activationKey   String?  @map("activation_key")
+  certificate     String?  @db.Text
+  privateKey      String?  @db.Text @map("private_key")
+  status          String   @default("registered")
+  fiscalDayNo     Int      @default(0) @map("fiscal_day_no")
+  receiptCounter  Int      @default(0) @map("receipt_counter")
+  receiptGlobalNo Int      @default(0) @map("receipt_global_no")
+  lastSyncAt      DateTime? @map("last_sync_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  fiscalisedDocuments FiscalisedDocument[]
+
+  @@map("fdms_devices")
+}
+
+model FiscalisedDocument {
+  id            String   @id @default(uuid())
+  documentType  String   @map("document_type")
+  documentRef   String   @map("document_ref")
+  deviceId      String   @map("device_id")
+  device        FdmsDevice @relation(fields: [deviceId], references: [id])
+  fiscalDayNo   Int      @map("fiscal_day_no")
+  receiptNo     Int      @map("receipt_no")
+  receiptGlobalNo Int    @map("receipt_global_no")
+  authCode      String?  @map("auth_code")
+  qrCodeData    String?  @map("qr_code_data")
+  qrCodeUrl     String?  @map("qr_code_url")
+  submittedAt   DateTime? @map("submitted_at")
+  status        String   @default("pending")
+  errorMessage  String?  @map("error_message")
+  retryCount    Int      @default(0) @map("retry_count")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  posTransaction ErpPosTransaction?
+
+  @@map("fiscalised_documents")
+}
+
 // ============ CORE FINANCIAL ============
 
 model ErpChartOfAccounts {
@@ -15,7 +144,7 @@ model ErpChartOfAccounts {
   name      String
   type      String
   category  String?
-  isHeader  Boolean  @default(false)
+  isHeader  Boolean  @default(false) @map("is_header")
   parentId  String?  @map("parent_id")
   parent    ErpChartOfAccounts?  @relation("ChartOfAccountsTree", fields: [parentId], references: [id])
   children  ErpChartOfAccounts[] @relation("ChartOfAccountsTree")
@@ -25,7 +154,7 @@ model ErpChartOfAccounts {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  journalLines ErpJournalLine[]
+  journalLines  ErpJournalLine[]
 
   @@map("erp_chart_of_accounts")
 }
@@ -39,6 +168,8 @@ model ErpJournalEntry {
   status      String   @default("draft")
   postedAt    DateTime? @map("posted_at")
   postedBy    String?  @map("posted_by")
+  currency    String   @default("USD")
+  exchangeRate Decimal @default(1) @db.Decimal(15, 6) @map("exchange_rate")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -77,6 +208,7 @@ model ErpAccountReceivable {
   currency      String   @default("USD")
   description   String?
   journalEntryId String? @map("journal_entry_id")
+  fiscalisedDocId String? @map("fiscalised_doc_id")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
@@ -112,6 +244,7 @@ model ErpCashbook {
   description String
   amount      Decimal  @db.Decimal(15, 2)
   currency    String   @default("USD")
+  exchangeRate Decimal @default(1) @db.Decimal(15, 6) @map("exchange_rate")
   reference   String?
   status      String   @default("posted")
   createdAt   DateTime @default(now()) @map("created_at")
@@ -128,16 +261,24 @@ model ErpProduct {
   name        String
   description String?
   categoryId  String?  @map("category_id")
+  category    ErpProductCategory? @relation(fields: [categoryId], references: [id])
   unit        String   @default("each")
   costPrice   Decimal  @default(0) @db.Decimal(15, 2) @map("cost_price")
   sellingPrice Decimal @default(0) @db.Decimal(15, 2) @map("selling_price")
   stock       Decimal  @default(0) @db.Decimal(15, 2)
   minStock    Decimal  @default(0) @db.Decimal(15, 2) @map("min_stock")
+  maxStock    Decimal? @default(0) @db.Decimal(15, 2) @map("max_stock")
   location    String?
   barcode     String?
+  costingMethod String @default("weighted_average") @map("costing_method")
   isActive    Boolean  @default(true) @map("is_active")
+  grade       String?
+  purity      Decimal? @db.Decimal(5, 2)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
+
+  batches          ErpProductBatch[]
+  warehouseStocks  ErpWarehouseStock[]
 
   @@map("erp_products")
 }
@@ -146,9 +287,26 @@ model ErpProductCategory {
   id        String   @id @default(uuid())
   name      String
   parentId  String?  @map("parent_id")
+  products  ErpProduct[]
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("erp_product_categories")
+}
+
+model ErpProductBatch {
+  id          String   @id @default(uuid())
+  productId   String   @map("product_id")
+  product     ErpProduct @relation(fields: [productId], references: [id])
+  batchNo     String   @map("batch_no")
+  serialNo    String?  @map("serial_no")
+  quantity    Decimal  @db.Decimal(15, 2)
+  costPrice   Decimal  @db.Decimal(15, 2) @map("cost_price")
+  receivedAt  DateTime @default(now()) @map("received_at")
+  expiryDate  DateTime? @map("expiry_date")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("erp_product_batches")
 }
 
 model ErpSalesOrder {
@@ -163,6 +321,7 @@ model ErpSalesOrder {
   discount    Decimal  @default(0) @db.Decimal(15, 2)
   total       Decimal  @db.Decimal(15, 2)
   currency    String   @default("USD")
+  exchangeRate Decimal @default(1) @db.Decimal(15, 6) @map("exchange_rate")
   notes       String?
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -198,11 +357,15 @@ model ErpPurchaseOrder {
   taxAmount   Decimal  @default(0) @db.Decimal(15, 2) @map("tax_amount")
   total       Decimal  @db.Decimal(15, 2)
   currency    String   @default("USD")
+  exchangeRate Decimal @default(1) @db.Decimal(15, 6) @map("exchange_rate")
   notes       String?
+  requisitionId String? @map("requisition_id")
+  requisition   ErpPurchaseRequisition? @relation(fields: [requisitionId], references: [id])
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  lines ErpPurchaseOrderLine[]
+  lines    ErpPurchaseOrderLine[]
+  receipts ErpGoodsReceipt[]
 
   @@map("erp_purchase_orders")
 }
@@ -213,12 +376,79 @@ model ErpPurchaseOrderLine {
   productId String  @map("product_id")
   productName String @map("product_name")
   quantity  Decimal @db.Decimal(15, 2)
+  receivedQty Decimal @default(0) @db.Decimal(15, 2) @map("received_qty")
   unitPrice Decimal @db.Decimal(15, 2) @map("unit_price")
   total     Decimal @db.Decimal(15, 2)
 
   po ErpPurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
 
   @@map("erp_purchase_order_lines")
+}
+
+model ErpGoodsReceipt {
+  id          String   @id @default(uuid())
+  receiptNo   String   @unique @map("receipt_no")
+  poId        String   @map("po_id")
+  po          ErpPurchaseOrder @relation(fields: [poId], references: [id])
+  receivedAt  DateTime @default(now()) @map("received_at")
+  status      String   @default("pending")
+  notes       String?
+  inspectedBy String?  @map("inspected_by")
+  inspectionStatus String? @map("inspection_status")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  lines ErpGoodsReceiptLine[]
+
+  @@map("erp_goods_receipts")
+}
+
+model ErpGoodsReceiptLine {
+  id          String  @id @default(uuid())
+  receiptId   String  @map("receipt_id")
+  receipt     ErpGoodsReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  productId   String  @map("product_id")
+  productName String  @map("product_name")
+  poLineId    String  @map("po_line_id")
+  quantity    Decimal @db.Decimal(15, 2)
+  batchNo     String? @map("batch_no")
+  serialNo    String? @map("serial_no")
+  location    String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("erp_goods_receipt_lines")
+}
+
+model ErpPurchaseRequisition {
+  id             String   @id @default(uuid())
+  requisitionNo  String   @unique @map("requisition_no")
+  requestedBy    String   @map("requested_by")
+  department     String
+  requiredDate   DateTime @map("required_date")
+  status         String   @default("draft")
+  notes          String?
+  approvedBy     String?  @map("approved_by")
+  approvedAt     DateTime? @map("approved_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  items ErpPurchaseRequisitionItem[]
+  pos   ErpPurchaseOrder[]
+
+  @@map("erp_purchase_requisitions")
+}
+
+model ErpPurchaseRequisitionItem {
+  id           String  @id @default(uuid())
+  requisitionId String @map("requisition_id")
+  requisition  ErpPurchaseRequisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
+  productId    String  @map("product_id")
+  productName  String  @map("product_name")
+  quantity     Decimal @db.Decimal(15, 2)
+  estimatedCost Decimal @db.Decimal(15, 2) @map("estimated_cost")
+  notes        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("erp_purchase_requisition_items")
 }
 
 // ============ CRM ============
@@ -228,6 +458,7 @@ model ErpCustomer {
   code        String   @unique
   name        String
   type        String   @default("company")
+  segment     String?  @default("retail")
   contactPerson String? @map("contact_person")
   email       String?
   phone       String?
@@ -236,6 +467,8 @@ model ErpCustomer {
   city        String?
   country     String?
   taxId       String?  @map("tax_id")
+  vatNumber   String?  @map("vat_number")
+  tinNumber   String?  @map("tin_number")
   creditLimit Decimal  @default(0) @db.Decimal(15, 2) @map("credit_limit")
   balance     Decimal  @default(0) @db.Decimal(15, 2)
   notes       String?
@@ -243,33 +476,196 @@ model ErpCustomer {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  leads ErpLead[]
+
   @@map("erp_customers")
 }
 
-model ErpSupplier {
+model ErpLead {
   id          String   @id @default(uuid())
-  code        String   @unique
-  name        String
-  contactPerson String? @map("contact_person")
+  customerId  String?  @map("customer_id")
+  customer    ErpCustomer? @relation(fields: [customerId], references: [id])
+  companyName String   @map("company_name")
+  contactName String   @map("contact_name")
   email       String?
   phone       String?
-  address     String?
-  city        String?
-  country     String?
-  taxId       String?  @map("tax_id")
-  paymentTerms String?  @map("payment_terms")
-  balance     Decimal  @default(0) @db.Decimal(15, 2)
+  source      String?
+  stage       String   @default("new")
+  value       Decimal  @default(0) @db.Decimal(15, 2)
+  probability Int      @default(0)
+  assignedTo  String?  @map("assigned_to")
   notes       String?
-  isActive    Boolean  @default(true) @map("is_active")
+  expectedCloseDate DateTime? @map("expected_close_date")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
+
+  interactions ErpLeadInteraction[]
+
+  @@map("erp_leads")
+}
+
+model ErpLeadInteraction {
+  id        String   @id @default(uuid())
+  leadId    String   @map("lead_id")
+  lead      ErpLead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  type      String
+  subject   String
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("erp_lead_interactions")
+}
+
+// ============ SUPPLIER MANAGEMENT ============
+
+model ErpSupplier {
+  id              String   @id @default(uuid())
+  code            String   @unique
+  name            String
+  contactPerson   String?  @map("contact_person")
+  email           String?
+  phone           String?
+  address         String?
+  city            String?
+  country         String?
+  taxId           String?  @map("tax_id")
+  vatNumber       String?  @map("vat_number")
+  tinNumber       String?  @map("tin_number")
+  itf263Status    String   @default("unknown") @map("itf263_status")
+  itf263Expiry    DateTime? @map("itf263_expiry")
+  itf263DocUrl    String?  @map("itf263_doc_url")
+  paymentTerms    String?  @map("payment_terms")
+  balance         Decimal  @default(0) @db.Decimal(15, 2)
+  performanceScore Int?    @map("performance_score")
+  category        String?  @default("general")
+  blacklisted     Boolean  @default(false)
+  notes           String?
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  contracts ErpSupplierContract[]
 
   @@map("erp_suppliers")
 }
 
-// ============ USERS & AUTH ============
+model ErpSupplierContract {
+  id          String   @id @default(uuid())
+  supplierId  String   @map("supplier_id")
+  supplier    ErpSupplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  contractNo  String   @unique @map("contract_no")
+  title       String
+  startDate   DateTime @map("start_date")
+  endDate     DateTime @map("end_date")
+  value       Decimal  @db.Decimal(15, 2)
+  currency    String   @default("USD")
+  status      String   @default("active")
+  terms       String?
+  docUrl      String?  @map("doc_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-// ============ POINT OF SALE ============
+  @@map("erp_supplier_contracts")
+}
+
+// ============ WAREHOUSE MANAGEMENT ============
+
+model ErpWarehouse {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  location    String?
+  type        String   @default("standard")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  zones  ErpWarehouseZone[]
+  stocks ErpWarehouseStock[]
+  counts ErpCycleCount[]
+
+  @@map("erp_warehouses")
+}
+
+model ErpWarehouseZone {
+  id          String   @id @default(uuid())
+  warehouseId String   @map("warehouse_id")
+  warehouse   ErpWarehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  code        String
+  name        String
+  type        String   @default("storage")
+  capacity    Decimal? @db.Decimal(15, 2)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("erp_warehouse_zones")
+}
+
+model ErpWarehouseStock {
+  id          String  @id @default(uuid())
+  warehouseId String  @map("warehouse_id")
+  warehouse   ErpWarehouse @relation(fields: [warehouseId], references: [id])
+  productId   String  @map("product_id")
+  product     ErpProduct @relation(fields: [productId], references: [id])
+  quantity    Decimal @default(0) @db.Decimal(15, 2)
+  location    String?
+  batchNo     String? @map("batch_no")
+  serialNo    String? @map("serial_no")
+
+  @@unique([warehouseId, productId, batchNo])
+  @@map("erp_warehouse_stocks")
+}
+
+model ErpStockMovement {
+  id          String   @id @default(uuid())
+  movementNo  String   @unique @map("movement_no")
+  type        String
+  productId   String   @map("product_id")
+  productName String   @map("product_name")
+  quantity    Decimal  @db.Decimal(15, 2)
+  fromWarehouseId String? @map("from_warehouse_id")
+  toWarehouseId   String? @map("to_warehouse_id")
+  referenceType String? @map("reference_type")
+  referenceId   String? @map("reference_id")
+  notes       String?
+  userId      String   @map("user_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("erp_stock_movements")
+}
+
+model ErpCycleCount {
+  id          String   @id @default(uuid())
+  countNo     String   @unique @map("count_no")
+  warehouseId String   @map("warehouse_id")
+  warehouse   ErpWarehouse @relation(fields: [warehouseId], references: [id])
+  status      String   @default("draft")
+  countedBy   String   @map("counted_by")
+  countedAt   DateTime @default(now()) @map("counted_at")
+  approvedBy  String?  @map("approved_by")
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  lines ErpCycleCountLine[]
+
+  @@map("erp_cycle_counts")
+}
+
+model ErpCycleCountLine {
+  id          String  @id @default(uuid())
+  countId     String  @map("count_id")
+  count       ErpCycleCount @relation(fields: [countId], references: [id], onDelete: Cascade)
+  productId   String  @map("product_id")
+  productName String  @map("product_name")
+  expectedQty Decimal @db.Decimal(15, 2) @map("expected_qty")
+  countedQty  Decimal @db.Decimal(15, 2) @map("counted_qty")
+  variance    Decimal @db.Decimal(15, 2)
+  notes       String?
+
+  @@map("erp_cycle_count_lines")
+}
+
+// ============ POS ============
 
 model ErpPosSession {
   id             String   @id @default(uuid())
@@ -283,6 +679,11 @@ model ErpPosSession {
   closingBalance Decimal? @db.Decimal(15, 2) @map("closing_balance")
   totalSales     Decimal  @default(0) @db.Decimal(15, 2) @map("total_sales")
   totalRefunds   Decimal  @default(0) @db.Decimal(15, 2) @map("total_refunds")
+  cashSales      Decimal  @default(0) @db.Decimal(15, 2) @map("cash_sales")
+  cardSales      Decimal  @default(0) @db.Decimal(15, 2) @map("card_sales")
+  mobileSales    Decimal  @default(0) @db.Decimal(15, 2) @map("mobile_sales")
+  creditSales    Decimal  @default(0) @db.Decimal(15, 2) @map("credit_sales")
+  currency       String   @default("USD")
   notes          String?
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
@@ -307,13 +708,19 @@ model ErpPosTransaction {
   changeAmount      Decimal  @default(0) @db.Decimal(15, 2) @map("change_amount")
   paymentMethod     String   @default("cash") @map("payment_method")
   status            String   @default("completed")
-  notes             String?
+  currency          String   @default("USD")
+  exchangeRate      Decimal  @default(1) @db.Decimal(15, 6) @map("exchange_rate")
+  fiscalisedDocId   String?  @unique @map("fiscalised_doc_id")
   postedToJournal   Boolean  @default(false) @map("posted_to_journal")
+  notes             String?
+  isOffline         Boolean  @default(false) @map("is_offline")
+  syncedAt          DateTime? @map("synced_at")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
-  lines    ErpPosTransactionLine[]
-  payments ErpPosPayment[]
+  lines        ErpPosTransactionLine[]
+  payments     ErpPosPayment[]
+  fiscalisedDoc FiscalisedDocument? @relation(fields: [fiscalisedDocId], references: [id])
 
   @@map("erp_pos_transactions")
 }
@@ -327,6 +734,7 @@ model ErpPosTransactionLine {
   quantity      Decimal @db.Decimal(15, 2)
   unitPrice     Decimal @db.Decimal(15, 2) @map("unit_price")
   total         Decimal @db.Decimal(15, 2)
+  batchNo       String? @map("batch_no")
   createdAt     DateTime @default(now()) @map("created_at")
 
   @@map("erp_pos_transaction_lines")
@@ -344,17 +752,303 @@ model ErpPosPayment {
   @@map("erp_pos_payments")
 }
 
+// ============ HR ============
+
+model ErpEmployee {
+  id              String   @id @default(uuid())
+  employeeNo      String   @unique @map("employee_no")
+  firstName       String   @map("first_name")
+  lastName        String   @map("last_name")
+  email           String?
+  phone           String?
+  address         String?
+  department      String?
+  position        String?
+  employmentType  String   @default("permanent") @map("employment_type")
+  dateHired       DateTime @map("date_hired")
+  tinNumber       String?  @map("tin_number")
+  nssaNumber      String?  @map("nssa_number")
+  necNumber       String?  @map("nec_number")
+  zimdefNumber    String?  @map("zimdef_number")
+  basicSalary     Decimal  @db.Decimal(15, 2) @map("basic_salary")
+  currency        String   @default("USD")
+  bankName        String?  @map("bank_name")
+  bankAccount     String?  @map("bank_account")
+  isActive        Boolean  @default(true) @map("is_active")
+  userId          String?  @map("user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  payrollEntries  ErpPayrollEntry[]
+  attendance      ErpAttendance[]
+  leaveRequests   ErpLeaveRequest[]
+
+  @@map("erp_employees")
+}
+
+model ErpPayrollEntry {
+  id              String   @id @default(uuid())
+  employeeId      String   @map("employee_id")
+  employee        ErpEmployee @relation(fields: [employeeId], references: [id])
+  period          String
+  basicPay        Decimal  @db.Decimal(15, 2) @map("basic_pay")
+  overtime        Decimal  @default(0) @db.Decimal(15, 2)
+  allowances      Decimal  @default(0) @db.Decimal(15, 2)
+  grossPay        Decimal  @db.Decimal(15, 2) @map("gross_pay")
+  payeTax         Decimal  @default(0) @db.Decimal(15, 2) @map("paye_tax")
+  aidsLevy        Decimal  @default(0) @db.Decimal(15, 2) @map("aids_levy")
+  nssaDeduction   Decimal  @default(0) @db.Decimal(15, 2) @map("nssa_deduction")
+  necDeduction    Decimal  @default(0) @db.Decimal(15, 2) @map("nec_deduction")
+  zimdefDeduction Decimal  @default(0) @db.Decimal(15, 2) @map("zimdef_deduction")
+  otherDeductions Decimal  @default(0) @db.Decimal(15, 2) @map("other_deductions")
+  netPay          Decimal  @db.Decimal(15, 2) @map("net_pay")
+  currency        String   @default("USD")
+  status          String   @default("draft")
+  paidAt          DateTime? @map("paid_at")
+  postedToZimra   Boolean  @default(false) @map("posted_to_zimra")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("erp_payroll_entries")
+}
+
+model ErpAttendance {
+  id         String   @id @default(uuid())
+  employeeId String   @map("employee_id")
+  employee   ErpEmployee @relation(fields: [employeeId], references: [id])
+  date       DateTime
+  checkIn    DateTime? @map("check_in")
+  checkOut   DateTime? @map("check_out")
+  status     String   @default("present")
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("erp_attendance")
+}
+
+model ErpLeaveRequest {
+  id          String   @id @default(uuid())
+  employeeId  String   @map("employee_id")
+  employee    ErpEmployee @relation(fields: [employeeId], references: [id])
+  leaveType   String   @map("leave_type")
+  startDate   DateTime @map("start_date")
+  endDate     DateTime @map("end_date")
+  days        Int
+  reason      String?
+  status      String   @default("pending")
+  approvedBy  String?  @map("approved_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("erp_leave_requests")
+}
+
+// ============ FLEET MANAGEMENT ============
+
+model ErpVehicle {
+  id            String   @id @default(uuid())
+  plateNumber   String   @unique @map("plate_number")
+  model         String
+  make          String
+  year          Int?
+  vin           String?  @map("vin")
+  type          String   @default("light_vehicle")
+  fuelType      String?  @map("fuel_type")
+  capacity      Decimal? @db.Decimal(15, 2)
+  insurancePolicy String? @map("insurance_policy")
+  insuranceExpiry DateTime? @map("insurance_expiry")
+  licenceExpiry DateTime? @map("licence_expiry")
+  status        String   @default("active")
+  assignedDriver String? @map("assigned_driver")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  refuels    ErpFuelRecord[]
+  services   ErpServiceRecord[]
+  dispatches ErpVehicleDispatch[]
+
+  @@map("erp_vehicles")
+}
+
+model ErpFuelRecord {
+  id          String   @id @default(uuid())
+  vehicleId   String   @map("vehicle_id")
+  vehicle     ErpVehicle @relation(fields: [vehicleId], references: [id])
+  refuelDate  DateTime @map("refuel_date")
+  quantity    Decimal  @db.Decimal(15, 2)
+  unitCost    Decimal  @db.Decimal(15, 2) @map("unit_cost")
+  totalCost   Decimal  @db.Decimal(15, 2) @map("total_cost")
+  odometer    Int?
+  fuelType    String?  @map("fuel_type")
+  vendor      String?
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("erp_fuel_records")
+}
+
+model ErpServiceRecord {
+  id            String   @id @default(uuid())
+  vehicleId     String   @map("vehicle_id")
+  vehicle       ErpVehicle @relation(fields: [vehicleId], references: [id])
+  serviceDate   DateTime @map("service_date")
+  serviceType   String   @map("service_type")
+  description   String?
+  odometer      Int?
+  cost          Decimal  @db.Decimal(15, 2)
+  vendor        String?
+  nextServiceDate DateTime? @map("next_service_date")
+  nextServiceOdometer Int? @map("next_service_odometer")
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("erp_service_records")
+}
+
+model ErpVehicleDispatch {
+  id              String   @id @default(uuid())
+  vehicleId       String   @map("vehicle_id")
+  vehicle         ErpVehicle @relation(fields: [vehicleId], references: [id])
+  dispatchedAt    DateTime @default(now()) @map("dispatched_at")
+  returnedAt      DateTime? @map("returned_at")
+  driverName      String   @map("driver_name")
+  driverContact   String?  @map("driver_contact")
+  origin          String
+  destination     String
+  purpose         String?
+  startOdometer   Int?     @map("start_odometer")
+  endOdometer     Int?     @map("end_odometer")
+  distanceKm      Decimal? @db.Decimal(10, 2) @map("distance_km")
+  status          String   @default("in_transit")
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("erp_vehicle_dispatches")
+}
+
+// ============ ENGINEERING WORKSHOP ============
+
+model ErpEquipment {
+  id           String   @id @default(uuid())
+  code         String   @unique
+  name         String
+  type         String
+  model        String?
+  manufacturer String?
+  serialNo     String?  @map("serial_no")
+  location     String?
+  purchaseDate DateTime? @map("purchase_date")
+  purchaseCost Decimal?  @db.Decimal(15, 2) @map("purchase_cost")
+  status       String   @default("operational")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  workOrders ErpWorkOrder[]
+
+  @@map("erp_equipment")
+}
+
+model ErpWorkOrder {
+  id           String   @id @default(uuid())
+  woNumber     String   @unique @map("wo_number")
+  equipmentId  String   @map("equipment_id")
+  equipment    ErpEquipment @relation(fields: [equipmentId], references: [id])
+  type         String
+  priority     String   @default("medium")
+  description  String
+  assignedTo   String?  @map("assigned_to")
+  scheduledDate DateTime? @map("scheduled_date")
+  completedAt  DateTime? @map("completed_at")
+  labourHours  Decimal? @db.Decimal(10, 2) @map("labour_hours")
+  labourCost   Decimal? @db.Decimal(15, 2) @map("labour_cost")
+  partsCost    Decimal? @db.Decimal(15, 2) @map("parts_cost")
+  totalCost    Decimal? @db.Decimal(15, 2) @map("total_cost")
+  status       String   @default("open")
+  failureMode  String?  @map("failure_mode")
+  downtimeHours Decimal? @db.Decimal(10, 2) @map("downtime_hours")
+  notes        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  parts ErpWorkOrderPart[]
+
+  @@map("erp_work_orders")
+}
+
+model ErpWorkOrderPart {
+  id          String  @id @default(uuid())
+  woId        String  @map("wo_id")
+  wo          ErpWorkOrder @relation(fields: [woId], references: [id], onDelete: Cascade)
+  productId   String  @map("product_id")
+  productName String  @map("product_name")
+  quantity    Decimal @db.Decimal(15, 2)
+  unitCost    Decimal @db.Decimal(15, 2) @map("unit_cost")
+  totalCost   Decimal @db.Decimal(15, 2) @map("total_cost")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("erp_work_order_parts")
+}
+
 // ============ USERS & AUTH ============
 
 model ErpUser {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String
-  role      String   @default("user")
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password      String
+  name          String
+  role          String   @default("user")
+  department    String?
+  mfaEnabled    Boolean  @default(false) @map("mfa_enabled")
+  mfaSecret     String?  @map("mfa_secret")
+  isActive      Boolean  @default(true) @map("is_active")
+  lastLogin     DateTime? @map("last_login")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   @@map("erp_users")
+}
+
+// ============ SYSTEM SETTINGS ============
+
+model SystemSetting {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       Json
+  category    String   @default("general")
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
+
+model FiscalPeriod {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+  isClosed  Boolean  @default(false) @map("is_closed")
+  fiscalYear String  @map("fiscal_year")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("fiscal_periods")
+}
+
+// ============ REPORTING ============
+
+model SavedReport {
+  id          String   @id @default(uuid())
+  name        String
+  type        String
+  config      Json
+  createdBy   String   @map("created_by")
+  isPublic    Boolean  @default(false) @map("is_public")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("saved_reports")
 }

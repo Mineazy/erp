@@ -1,5 +1,6 @@
 'use client';
 
+import { toast, dismissToast } from '@/components/ui/toast';
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -110,41 +111,55 @@ export default function POSTerminalPage() {
 
   const openSession = async () => {
     try {
-      const res = await fetch('/api/pos/sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ openingBalance: 0 }),
-      });
+      const tid = toast('Saving session...', 'info', 120000);
+      let res;
+      try {
+        res = await fetch('/api/pos/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ openingBalance: 0 }),
+        });
+      } catch (e) { dismissToast(tid); throw e; }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        alert(err.error || 'Failed to open session');
+        dismissToast(tid);
+        toast(err.error || 'Failed to open session', 'error');
         return;
       }
       const data = await res.json();
+      dismissToast(tid);
+      toast('Session created successfully', 'success');
       setSession(data.data || data);
     } catch {
-      alert('Failed to open session');
+      toast('Failed to open session', 'error');
     }
   };
 
   const closeSession = async () => {
     if (!session) return;
     try {
-      const res = await fetch(`/api/pos/sessions/${session.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ closingBalance: session.totalSales || 0 }),
-      });
+      const tid = toast('Updating session...', 'info', 120000);
+      let res;
+      try {
+        res = await fetch(`/api/pos/sessions/${session.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ closingBalance: session.totalSales || 0 }),
+        });
+      } catch (e) { dismissToast(tid); throw e; }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        alert(err.error || 'Failed to close session');
+        dismissToast(tid);
+        toast(err.error || 'Failed to close session', 'error');
         return;
       }
       const data = await res.json();
+      dismissToast(tid);
+      toast('Session updated successfully', 'success');
       setSession(data.data || { ...session, status: 'closed', closedAt: new Date().toISOString() });
       setCart([]);
     } catch {
-      alert('Failed to close session');
+      toast('Failed to close session', 'error');
     }
   };
 

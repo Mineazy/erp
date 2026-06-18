@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
   const body = await getBody(request);
   const { entryDate, type, accountId, description, amount, currency, reference } = body;
 
-  if (!type || !accountId || !description || !amount) return badRequest('Type, account, description, and amount are required');
+  if (!type || !accountId || !description || amount === undefined || amount === null) return badRequest('Type, account, description, and amount are required');
 
   const entryNumber = await getNextSequence(prisma, 'erpCashbook', 'entryNumber', 'CB');
 

@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
   const [items, total] = await Promise.all([
     prisma.erpProduct.findMany({
       where,
+      include: { category: true },
       orderBy: orderBy as any,
       skip: (page - 1) * limit,
       take: limit,

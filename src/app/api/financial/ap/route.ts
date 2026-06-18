@@ -28,14 +28,15 @@ export async function POST(request: NextRequest) {
   const body = await getBody(request);
   const { supplierId, supplierName, billDate, dueDate, amount, currency, description } = body;
 
-  if (!supplierId || !supplierName || !amount) return badRequest('Supplier, name, and amount are required');
+  if (!supplierName || amount === undefined || amount === null) return badRequest('Supplier name and amount are required');
 
   const billNumber = await getNextSequence(prisma, 'erpAccountPayable', 'billNumber', 'BILL');
+  const finalSupplierId = (supplierId as string) || `SUP-${(supplierName as string).replace(/[^a-zA-Z0-9]/g, '-').toUpperCase().replace(/-+/g, '-').replace(/^-|-$/g, '')}`;
 
   const item = await prisma.erpAccountPayable.create({
     data: {
       billNumber,
-      supplierId: supplierId as string,
+      supplierId: finalSupplierId,
       supplierName: supplierName as string,
       billDate: new Date(billDate as string),
       dueDate: new Date(dueDate as string),

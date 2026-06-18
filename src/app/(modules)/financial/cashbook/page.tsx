@@ -1,5 +1,6 @@
 'use client';
 
+import { toast, dismissToast } from '@/components/ui/toast';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,14 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
 import { Wallet, Plus, Search, Download, ArrowUpRight, ArrowDownRight, ArrowLeftRight } from 'lucide-react';
+
+interface Account {
+  id: string;
+  code: string;
+  name: string;
+  type: string;
+  children?: Account[];
+}
 
 interface CashbookEntry {
   id: string;
@@ -24,7 +33,7 @@ interface CashbookEntry {
 const typeIcons = { receipt: ArrowUpRight, payment: ArrowDownRight, transfer: ArrowLeftRight };
 const typeColors = { receipt: 'text-green-600 bg-green-50', payment: 'text-red-600 bg-red-50', transfer: 'text-blue-600 bg-blue-50' };
 
-const emptyForm = { entryDate: '', type: 'receipt', description: '', amount: 0, reference: '' };
+const emptyForm = { entryDate: '', type: 'receipt', description: '', amount: 0, reference: '', accountId: '' };
 
 export default function CashbookPage() {
   const [data, setData] = useState<CashbookEntry[]>([]);
@@ -33,6 +42,23 @@ export default function CashbookPage() {
   const [typeFilter, setTypeFilter] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+
+  useEffect(() => {
+    fetch('/api/financial/coa')
+      .then(r => r.json())
+      .then(setAccounts)
+      .catch(() => {});
+  }, []);
+
+  function flattenAccounts(list: Account[], depth = 0): { value: string; label: string }[] {
+    const result: { value: string; label: string }[] = [];
+    for (const a of list) {
+      result.push({ value: a.id, label: `${'  '.repeat(depth)}${a.code} - ${a.name}` });
+      if (a.children?.length) result.push(...flattenAccounts(a.children, depth + 1));
+    }
+    return result;
+  }
 
   const fetchData = async () => {
     try {
@@ -55,21 +81,28 @@ export default function CashbookPage() {
 
   const handleCreate = async () => {
     try {
-      const res = await fetch('/api/financial/cashbook', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
+      const tid = toast('Saving entry...', 'info', 120000);
+      let res;
+      try {
+        res = await fetch('/api/financial/cashbook', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form),
+        });
+      } catch (e) { dismissToast(tid); throw e; }
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Create failed' }));
-        alert(err.error || 'Failed to create entry');
+        dismissToast(tid);
+        toast(err.error || 'Failed to create entry', 'error');
         return;
       }
+      dismissToast(tid);
+      toast('Entry created successfully', 'success');
       setDialogOpen(false);
       setForm(emptyForm);
       fetchData();
     } catch (e) {
-      alert('Network error. Please try again.');
+      toast('Network error. Please try again.', 'error');
     }
   };
 
@@ -179,6 +212,7 @@ export default function CashbookPage() {
         <div className="space-y-4">
           <Input label="Date" type="date" value={form.entryDate} onChange={(e) => setForm({ ...form, entryDate: e.target.value })} />
           <Select label="Type" options={[{ value: 'receipt', label: 'Receipt' }, { value: 'payment', label: 'Payment' }, { value: 'transfer', label: 'Transfer' }]} value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} />
+          <Select label="Account" options={flattenAccounts(accounts)} value={form.accountId} onChange={(e) => setForm({ ...form, accountId: e.target.value })} />
           <Input label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="e.g. Customer payment" />
           <Input label="Amount" type="number" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: parseFloat(e.target.value) || 0 })} />
           <Input label="Reference" value={form.reference} onChange={(e) => setForm({ ...form, reference: e.target.value })} placeholder="e.g. INV-2026-0001" />

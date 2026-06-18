@@ -1,5 +1,7 @@
 'use client';
 
+import { toast, dismissToast } from '@/components/ui/toast';
+import { confirmDialog } from '@/components/ui/confirm-dialog';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -68,52 +70,69 @@ export default function CoaPage() {
   };
 
   const handleDelete = async (account: Account) => {
-    if (!confirm(`Delete account "${account.name}" (${account.code})? This cannot be undone.`)) return;
+    const ok = await confirmDialog({ title: 'Delete Account', message: `Delete account "${account.name}" (${account.code})? This cannot be undone.`, variant: 'danger' }); if (!ok) return;
     try {
-      const res = await fetch(`/api/financial/coa/${account.id}`, { method: 'DELETE' });
+      const tid = toast('Deleting account...', 'info', 120000);
+      let res;
+      try {
+        res = await fetch(`/api/financial/coa/${account.id}`, { method: 'DELETE' });
+      } catch (e) { dismissToast(tid); throw e; }
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Delete failed' }));
-        alert(err.error || 'Failed to delete account');
+        dismissToast(tid);
+        toast(err.error || 'Failed to delete account', 'error');
         return;
       }
+      dismissToast(tid);
+      toast('Account deleted successfully', 'success');
       fetchData();
     } catch (e) {
-      alert('Network error. Please try again.');
+      toast('Network error. Please try again.', 'error');
     }
   };
 
   const handleSave = async () => {
     if (!form.code || !form.name || !form.type) {
-      alert('Code, name, and type are required');
+      toast('Code, name, and type are required', 'warning');
       return;
     }
     try {
       const payload = { ...form, parentId };
       let res;
+      let tid;
       if (editingAccount) {
-        res = await fetch(`/api/financial/coa/${editingAccount.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
+        tid = toast('Updating account...', 'info', 120000);
+        try {
+          res = await fetch(`/api/financial/coa/${editingAccount.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        } catch (e) { dismissToast(tid); throw e; }
       } else {
-        res = await fetch('/api/financial/coa', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
+        tid = toast('Saving account...', 'info', 120000);
+        try {
+          res = await fetch('/api/financial/coa', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        } catch (e) { dismissToast(tid); throw e; }
       }
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Save failed' }));
-        alert(err.error || 'Failed to save account');
+        dismissToast(tid);
+        toast(err.error || 'Failed to save account', 'error');
         return;
       }
+      dismissToast(tid);
+      toast((editingAccount ? 'Account updated' : 'Account created') + ' successfully', 'success');
       setDialogOpen(false);
       setEditingAccount(null);
       setParentId(undefined);
       fetchData();
     } catch (e) {
-      alert('Network error. Please try again.');
+      toast('Network error. Please try again.', 'error');
     }
   };
 

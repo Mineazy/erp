@@ -2,12 +2,13 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, unauthorized, notFound, badRequest, ok, getBody } from '@/lib/api';
 
-export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
   const transaction = await prisma.erpPosTransaction.findUnique({
-    where: { id: params.id },
+    where: { id: id },
     include: { lines: true, payments: true, session: true },
   });
 
@@ -15,12 +16,13 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
   return ok(transaction);
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
   const existing = await prisma.erpPosTransaction.findUnique({
-    where: { id: params.id },
+    where: { id: id },
     include: { session: true },
   });
   if (!existing) return notFound('Transaction not found');
@@ -30,7 +32,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   const { notes, status } = body;
 
   const transaction = await prisma.erpPosTransaction.update({
-    where: { id: params.id },
+    where: { id: id },
     data: {
       ...(notes !== undefined && { notes: notes as string }),
       ...(status !== undefined && { status: status as string }),
@@ -41,12 +43,13 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   return ok(transaction);
 }
 
-export async function DELETE(_request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
   const existing = await prisma.erpPosTransaction.findUnique({
-    where: { id: params.id },
+    where: { id: id },
     include: { lines: true, session: true },
   });
   if (!existing) return notFound('Transaction not found');
@@ -66,6 +69,6 @@ export async function DELETE(_request: NextRequest, { params }: { params: { id: 
     data: { totalSales: { decrement: existing.total } },
   });
 
-  await prisma.erpPosTransaction.delete({ where: { id: params.id } });
+  await prisma.erpPosTransaction.delete({ where: { id: id } });
   return ok({ success: true });
 }

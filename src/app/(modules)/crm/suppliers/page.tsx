@@ -1,5 +1,7 @@
 'use client';
 
+import { toast, dismissToast } from '@/components/ui/toast';
+import { confirmDialog } from '@/components/ui/confirm-dialog';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -73,44 +75,61 @@ export default function SuppliersPage() {
   const handleSave = async () => {
     try {
       let res;
+      let tid;
       if (editingSupplier) {
-        res = await fetch(`/api/crm/suppliers/${editingSupplier.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form),
-        });
+        tid = toast('Updating supplier...', 'info', 120000);
+        try {
+          res = await fetch(`/api/crm/suppliers/${editingSupplier.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(form),
+          });
+        } catch (e) { dismissToast(tid); throw e; }
       } else {
-        res = await fetch('/api/crm/suppliers', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form),
-        });
+        tid = toast('Saving supplier...', 'info', 120000);
+        try {
+          res = await fetch('/api/crm/suppliers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(form),
+          });
+        } catch (e) { dismissToast(tid); throw e; }
       }
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Save failed' }));
-        alert(err.error || 'Failed to save supplier');
+        dismissToast(tid);
+        toast(err.error || 'Failed to save supplier', 'error');
         return;
       }
+      dismissToast(tid);
+      toast((editingSupplier ? 'Supplier updated' : 'Supplier created') + ' successfully', 'success');
       setDialogOpen(false);
       setEditingSupplier(null);
       fetchData();
     } catch (e) {
-      alert('Network error. Please try again.');
+      toast('Network error. Please try again.', 'error');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this supplier?')) return;
+    const ok = await confirmDialog({ title: 'Delete Supplier', message: 'Are you sure you want to delete this supplier?', variant: 'danger' }); if (!ok) return;
     try {
-      const res = await fetch(`/api/crm/suppliers/${id}`, { method: 'DELETE' });
+      const tid = toast('Deleting supplier...', 'info', 120000);
+      let res;
+      try {
+        res = await fetch(`/api/crm/suppliers/${id}`, { method: 'DELETE' });
+      } catch (e) { dismissToast(tid); throw e; }
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Delete failed' }));
-        alert(err.error || 'Failed to delete supplier');
+        dismissToast(tid);
+        toast(err.error || 'Failed to delete supplier', 'error');
         return;
       }
+      dismissToast(tid);
+      toast('Supplier deleted successfully', 'success');
       fetchData();
     } catch (e) {
-      alert('Network error. Please try again.');
+      toast('Network error. Please try again.', 'error');
     }
   };
 

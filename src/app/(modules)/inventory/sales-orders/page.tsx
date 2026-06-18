@@ -1,5 +1,7 @@
 'use client';
 
+import { toast, dismissToast } from '@/components/ui/toast';
+import { confirmDialog } from '@/components/ui/confirm-dialog';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -51,7 +53,7 @@ export default function SalesOrdersPage() {
       const res = await fetch(`/api/inventory/sales-orders?${params}`);
       if (!res.ok) throw new Error('Failed to fetch');
       const json = await res.json();
-      setData(json);
+      setData(json.items ?? json);
     } catch (e) {
       console.error('Failed to fetch sales orders', e);
     } finally {
@@ -63,21 +65,28 @@ export default function SalesOrdersPage() {
 
   const handleCreate = async () => {
     try {
-      const res = await fetch('/api/inventory/sales-orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
+      const tid = toast('Saving sales order...', 'info', 120000);
+      let res;
+      try {
+        res = await fetch('/api/inventory/sales-orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form),
+        });
+      } catch (e) { dismissToast(tid); throw e; }
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Create failed' }));
-        alert(err.error || 'Failed to create sales order');
+        dismissToast(tid);
+        toast(err.error || 'Failed to create sales order', 'error');
         return;
       }
+      dismissToast(tid);
+      toast('Sales order created successfully', 'success');
       setDialogOpen(false);
       setForm(emptyForm);
       fetchData();
     } catch (e) {
-      alert('Network error. Please try again.');
+      toast('Network error. Please try again.', 'error');
     }
   };
 
@@ -86,39 +95,43 @@ export default function SalesOrdersPage() {
       const res = await fetch(`/api/inventory/sales-orders/${id}/confirm`, { method: 'POST' });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Confirm failed' }));
-        alert(err.error || 'Failed to confirm order');
+        toast(err.error || 'Failed to confirm order', 'error');
         return;
       }
       fetchData();
     } catch (e) {
-      alert('Network error. Please try again.');
+      toast('Network error. Please try again.', 'error');
     }
   };
 
   const handleCancel = async (id: string) => {
-    if (!confirm('Cancel this sales order?')) return;
+    const ok = await confirmDialog({ title: 'Cancel Sales Order', message: 'Cancel this sales order?', variant: 'danger' }); if (!ok) return;
     try {
       const res = await fetch(`/api/inventory/sales-orders/${id}/cancel`, { method: 'POST' });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Cancel failed' }));
-        alert(err.error || 'Failed to cancel order');
+        toast(err.error || 'Failed to cancel order', 'error');
         return;
       }
       fetchData();
     } catch (e) {
-      alert('Network error. Please try again.');
+      toast('Network error. Please try again.', 'error');
     }
   };
 
   const openView = async (id: string) => {
     try {
       const res = await fetch(`/api/inventory/sales-orders/${id}`);
-      if (!res.ok) throw new Error('Failed to fetch');
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(`Failed to fetch (${res.status}): ${err.error || 'Unknown'}`);
+      }
       const so = await res.json();
       setViewSo(so);
       setViewOpen(true);
     } catch (e) {
       console.error('Failed to fetch SO details', e);
+      toast(String(e), 'error');
     }
   };
 

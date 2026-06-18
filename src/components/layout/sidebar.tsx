@@ -7,81 +7,117 @@ import { cn } from '@/lib/utils';
 import { canAccessModule } from '@/lib/authz';
 import type { UserRole } from '@/lib/authz';
 import {
-  LayoutDashboard,
-  BookOpen,
-  FileText,
-  Book,
-  Scale,
-  Receipt,
-  CreditCard,
-  Wallet,
-  Package,
-  ShoppingCart,
-  Truck,
-  Users,
-  Building2,
-  ChevronDown,
-  ChevronRight,
-  LucideIcon,
+  LayoutDashboard, BookOpen, FileText, Book, Scale, Receipt, CreditCard, Wallet,
+  Package, ShoppingCart, Truck, Users, Building2, ChevronDown, ChevronRight,
+  LucideIcon, Target, Percent, ClipboardList, Warehouse, ArrowLeftRight,
+  ClipboardCheck, Wrench, QrCode, BarChart3, Shield, Settings, FolderTree,
 } from 'lucide-react';
 import { useState } from 'react';
 
 const iconMap: Record<string, LucideIcon> = {
-  LayoutDashboard,
-  BookOpen,
-  FileText,
-  Book,
-  Scale,
-  Receipt,
-  CreditCard,
-  Wallet,
-  Package,
-  ShoppingCart,
-  Truck,
-  Users,
-  Building2,
+  LayoutDashboard, BookOpen, FileText, Book, Scale, Receipt, CreditCard, Wallet,
+  Package, ShoppingCart, Truck, Users, Building2, Target, Percent, ClipboardList,
+  Warehouse, ArrowLeftRight, ClipboardCheck, Wrench, QrCode, BarChart3, Shield, Settings,
 };
 
 const navGroups = [
   {
     group: 'Main',
+    module: 'main',
     items: [
       { label: 'Dashboard', href: '/dashboard', icon: 'LayoutDashboard' },
     ],
   },
   {
     group: 'Financial',
+    module: 'financial',
     items: [
       { label: 'Chart of Accounts', href: '/financial/coa', icon: 'BookOpen' },
       { label: 'Journal Entries', href: '/financial/journal', icon: 'FileText' },
       { label: 'General Ledger', href: '/financial/ledger', icon: 'Book' },
       { label: 'Trial Balance', href: '/financial/trial-balance', icon: 'Scale' },
       { label: 'Accounts Receivable', href: '/financial/ar', icon: 'Receipt' },
+      { label: 'Sales Journal', href: '/financial/sales-journal', icon: 'Book' },
+      { label: 'Sales Ledger', href: '/financial/sales-ledger', icon: 'Receipt' },
       { label: 'Accounts Payable', href: '/financial/ap', icon: 'CreditCard' },
+      { label: 'Purchases Journal', href: '/financial/purchases-journal', icon: 'FileText' },
+      { label: 'Purchases Ledger', href: '/financial/purchases-ledger', icon: 'BookOpen' },
       { label: 'Cashbook', href: '/financial/cashbook', icon: 'Wallet' },
+      { label: 'Tax Engine', href: '/tax', icon: 'Percent' },
+    ],
+  },
+  {
+    group: 'CRM',
+    module: 'crm',
+    items: [
+      { label: 'Customers', href: '/crm/customers', icon: 'Users' },
+      { label: 'Leads', href: '/crm/leads', icon: 'Target' },
+      { label: 'Suppliers', href: '/suppliers', icon: 'Building2' },
     ],
   },
   {
     group: 'Inventory',
+    module: 'inventory',
     items: [
       { label: 'Products', href: '/inventory/products', icon: 'Package' },
+      { label: 'Categories', href: '/inventory/categories', icon: 'FolderTree' },
       { label: 'Sales Orders', href: '/inventory/sales-orders', icon: 'ShoppingCart' },
       { label: 'Purchase Orders', href: '/inventory/purchase-orders', icon: 'Truck' },
     ],
   },
   {
-    group: 'CRM',
+    group: 'Purchasing',
+    module: 'purchasing',
     items: [
-      { label: 'Customers', href: '/crm/customers', icon: 'Users' },
-      { label: 'Suppliers', href: '/crm/suppliers', icon: 'Building2' },
+      { label: 'Requisitions', href: '/purchasing/requisitions', icon: 'ClipboardList' },
+    ],
+  },
+  {
+    group: 'Warehouse',
+    module: 'warehouse',
+    items: [
+      { label: 'Warehouses', href: '/warehouse', icon: 'Warehouse' },
+      { label: 'Stock Movements', href: '/warehouse/movements', icon: 'ArrowLeftRight' },
+      { label: 'Cycle Counts', href: '/warehouse/cycle-counts', icon: 'ClipboardCheck' },
     ],
   },
   {
     group: 'POS',
+    module: 'pos',
     items: [
       { label: 'POS Terminal', href: '/pos', icon: 'ShoppingCart' },
       { label: 'Sessions', href: '/pos/sessions', icon: 'Receipt' },
       { label: 'History', href: '/pos/history', icon: 'FileText' },
+    ],
+  },
+  {
+    group: 'Workshop',
+    module: 'workshop',
+    items: [
+      { label: 'Equipment', href: '/workshop/equipment', icon: 'Wrench' },
+      { label: 'Work Orders', href: '/workshop/work-orders', icon: 'ClipboardList' },
+    ],
+  },
+  {
+    group: 'FDMS',
+    module: 'fdms',
+    items: [
+      { label: 'Fiscalisation', href: '/fdms', icon: 'QrCode' },
+    ],
+  },
+  {
+    group: 'Reports',
+    module: 'reports',
+    items: [
+      { label: 'Reports & Analytics', href: '/reports', icon: 'BarChart3' },
+    ],
+  },
+  {
+    group: 'Admin',
+    module: 'admin',
+    items: [
+      { label: 'Users', href: '/admin/users', icon: 'Shield' },
+      { label: 'Settings', href: '/admin/settings', icon: 'Settings' },
     ],
   },
 ];
@@ -97,20 +133,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const role = (session?.user as { role?: string } | undefined)?.role as UserRole | undefined;
   const isLoading = status === 'loading';
 
-  const moduleMap: Record<string, string> = {
-    Financial: 'financial',
-    Inventory: 'inventory',
-    CRM: 'crm',
-    POS: 'pos',
-    Main: 'main',
-  };
-
   const visibleGroups = isLoading
     ? navGroups
     : navGroups.filter((group) => {
-        const mod = moduleMap[group.group];
-        if (!mod || mod === 'main') return true;
-        return canAccessModule(mod, role);
+        if (!group.module || group.module === 'main') return true;
+        return canAccessModule(group.module, role);
       });
 
   const [expandedGroups, setExpandedGroups] = useState<string[]>(
@@ -144,7 +171,6 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
         {visibleGroups.map((group) => {
           const isExpanded = expandedGroups.includes(group.group);
-          const Icon = iconMap[group.items[0]?.icon] || ChevronDown;
 
           return (
             <div key={group.group}>

@@ -1,5 +1,6 @@
 'use client';
 
+import { toast, dismissToast } from '@/components/ui/toast';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -46,20 +47,27 @@ export default function SessionsPage() {
 
   const openNewSession = async () => {
     try {
-      const res = await fetch('/api/pos/sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ openingBalance: 0 }),
-      });
+      const tid = toast('Saving session...', 'info', 120000);
+      let res;
+      try {
+        res = await fetch('/api/pos/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ openingBalance: 0 }),
+        });
+      } catch (e) { dismissToast(tid); throw e; }
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Failed to create session' }));
-        alert(err.error || 'Failed to create session');
+        dismissToast(tid);
+        toast(err.error || 'Failed to create session', 'error');
         return;
       }
       const data = await res.json();
+      dismissToast(tid);
+      toast('Session created successfully', 'success');
       setSessions((prev) => [data.data || data, ...prev]);
     } catch {
-      alert('Network error. Please try again.');
+      toast('Network error. Please try again.', 'error');
     }
   };
 

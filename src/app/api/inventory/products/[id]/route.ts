@@ -2,28 +2,30 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, unauthorized, notFound, ok, getBody } from '@/lib/api';
 
-export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const product = await prisma.erpProduct.findUnique({ where: { id: params.id } });
+  const product = await prisma.erpProduct.findUnique({ where: { id: id } });
   if (!product) return notFound('Product not found');
 
   return ok(product);
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const existing = await prisma.erpProduct.findUnique({ where: { id: params.id } });
+  const existing = await prisma.erpProduct.findUnique({ where: { id: id } });
   if (!existing) return notFound('Product not found');
 
   const body = await getBody(request);
   const { name, description, categoryId, unit, costPrice, sellingPrice, stock, minStock, location, barcode, isActive } = body;
 
   const product = await prisma.erpProduct.update({
-    where: { id: params.id },
+    where: { id: id },
     data: {
       ...(name !== undefined && { name: name as string }),
       ...(description !== undefined && { description: description as string | null }),
@@ -42,13 +44,14 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   return ok(product);
 }
 
-export async function DELETE(_request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const existing = await prisma.erpProduct.findUnique({ where: { id: params.id } });
+  const existing = await prisma.erpProduct.findUnique({ where: { id: id } });
   if (!existing) return notFound('Product not found');
 
-  await prisma.erpProduct.delete({ where: { id: params.id } });
+  await prisma.erpProduct.delete({ where: { id: id } });
   return ok({ success: true });
 }

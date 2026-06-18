@@ -2,12 +2,13 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, unauthorized, notFound, badRequest, ok, getBody } from '@/lib/api';
 
-export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
   const posSession = await prisma.erpPosSession.findUnique({
-    where: { id: params.id },
+    where: { id: id },
     include: {
       transactions: {
         include: { lines: true, payments: true },
@@ -21,11 +22,12 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
   return ok(posSession);
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const existing = await prisma.erpPosSession.findUnique({ where: { id: params.id } });
+  const existing = await prisma.erpPosSession.findUnique({ where: { id: id } });
   if (!existing) return notFound('POS session not found');
   if (existing.status !== 'open') return badRequest('Session is already closed');
 
@@ -35,7 +37,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   if (closingBalance === undefined) return badRequest('Closing balance is required');
 
   const posSession = await prisma.erpPosSession.update({
-    where: { id: params.id },
+    where: { id: id },
     data: {
       status: 'closed',
       closedAt: new Date(),
@@ -48,13 +50,14 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   return ok(posSession);
 }
 
-export async function DELETE(_request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const existing = await prisma.erpPosSession.findUnique({ where: { id: params.id } });
+  const existing = await prisma.erpPosSession.findUnique({ where: { id: id } });
   if (!existing) return notFound('POS session not found');
 
-  await prisma.erpPosSession.delete({ where: { id: params.id } });
+  await prisma.erpPosSession.delete({ where: { id: id } });
   return ok({ success: true });
 }
