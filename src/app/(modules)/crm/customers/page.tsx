@@ -1,5 +1,7 @@
 'use client';
 
+import { toast, dismissToast } from '@/components/ui/toast';
+import { confirmDialog } from '@/components/ui/confirm-dialog';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -66,44 +68,61 @@ export default function CustomersPage() {
   const handleSave = async () => {
     try {
       let res;
+      let tid;
       if (editingCustomer) {
-        res = await fetch(`/api/crm/customers/${editingCustomer.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form),
-        });
+        tid = toast('Updating customer...', 'info', 120000);
+        try {
+          res = await fetch(`/api/crm/customers/${editingCustomer.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(form),
+          });
+        } catch (e) { dismissToast(tid); throw e; }
       } else {
-        res = await fetch('/api/crm/customers', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form),
-        });
+        tid = toast('Saving customer...', 'info', 120000);
+        try {
+          res = await fetch('/api/crm/customers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(form),
+          });
+        } catch (e) { dismissToast(tid); throw e; }
       }
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Save failed' }));
-        alert(err.error || 'Failed to save customer');
+        dismissToast(tid);
+        toast(err.error || 'Failed to save customer', 'error');
         return;
       }
+      dismissToast(tid);
+      toast((editingCustomer ? 'Customer updated' : 'Customer created') + ' successfully', 'success');
       setDialogOpen(false);
       setEditingCustomer(null);
       fetchData();
     } catch (e) {
-      alert('Network error. Please try again.');
+      toast('Network error. Please try again.', 'error');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this customer?')) return;
+    const ok = await confirmDialog({ title: 'Delete Customer', message: 'Are you sure you want to delete this customer?', variant: 'danger' }); if (!ok) return;
     try {
-      const res = await fetch(`/api/crm/customers/${id}`, { method: 'DELETE' });
+      const tid = toast('Deleting customer...', 'info', 120000);
+      let res;
+      try {
+        res = await fetch(`/api/crm/customers/${id}`, { method: 'DELETE' });
+      } catch (e) { dismissToast(tid); throw e; }
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Delete failed' }));
-        alert(err.error || 'Failed to delete customer');
+        dismissToast(tid);
+        toast(err.error || 'Failed to delete customer', 'error');
         return;
       }
+      dismissToast(tid);
+      toast('Customer deleted successfully', 'success');
       fetchData();
     } catch (e) {
-      alert('Network error. Please try again.');
+      toast('Network error. Please try again.', 'error');
     }
   };
 

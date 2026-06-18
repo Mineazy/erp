@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { ChevronDown } from 'lucide-react';
 
 interface DropdownMenuProps {
   trigger: React.ReactNode;
@@ -12,6 +11,8 @@ interface DropdownMenuProps {
 export function DropdownMenu({ trigger, children, align = 'right', className }: DropdownMenuProps) {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
+  const openRef = React.useRef(open);
+  openRef.current = open;
 
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -25,19 +26,27 @@ export function DropdownMenu({ trigger, children, align = 'right', className }: 
 
   return (
     <div ref={ref} className="relative inline-block">
-      <div onClick={() => setOpen(!open)} className="cursor-pointer">
+      <div onClick={() => setOpen(true)} className="cursor-pointer">
         {trigger}
       </div>
       {open && (
         <div
           className={cn(
-            'absolute z-50 mt-2 min-w-[12rem] rounded-md border border-slate-200 bg-white p-1 shadow-lg animate-in fade-in-0 zoom-in-95',
+            'absolute z-50 mt-2 min-w-[12rem] rounded-md border border-slate-200 bg-white p-1 shadow-lg',
             align === 'right' ? 'right-0' : 'left-0',
             className
           )}
-          onClick={() => setOpen(false)}
         >
-          {children}
+          {React.Children.map(children, (child) => {
+            if (!React.isValidElement(child)) return child;
+            const originalOnClick = (child.props as any).onClick;
+            return React.cloneElement(child as React.ReactElement<{ onClick?: () => void }>, {
+              onClick: (...args: any[]) => {
+                setOpen(false);
+                originalOnClick?.(...args);
+              },
+            });
+          })}
         </div>
       )}
     </div>

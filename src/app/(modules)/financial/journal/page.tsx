@@ -1,5 +1,7 @@
 'use client';
 
+import { toast, dismissToast } from '@/components/ui/toast';
+import { confirmDialog } from '@/components/ui/confirm-dialog';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -78,20 +80,27 @@ export default function JournalPage() {
 
   const handleSubmit = async (formData: { entryDate: string; description: string; lines: any[] }) => {
     try {
-      const res = await fetch('/api/financial/journal', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
+      const tid = toast('Saving journal entry...', 'info', 120000);
+      let res;
+      try {
+        res = await fetch('/api/financial/journal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        });
+      } catch (e) { dismissToast(tid); throw e; }
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Create failed' }));
-        alert(err.error || 'Failed to create journal entry');
+        dismissToast(tid);
+        toast(err.error || 'Failed to create journal entry', 'error');
         return;
       }
+      dismissToast(tid);
+      toast('Journal entry created successfully', 'success');
       setShowForm(false);
       fetchData();
     } catch (e) {
-      alert('Network error. Please try again.');
+      toast('Network error. Please try again.', 'error');
     }
   };
 
@@ -100,27 +109,27 @@ export default function JournalPage() {
       const res = await fetch(`/api/financial/journal/${id}/post`, { method: 'POST' });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Post failed' }));
-        alert(err.error || 'Failed to post entry');
+        toast(err.error || 'Failed to post entry', 'error');
         return;
       }
       fetchData();
     } catch (e) {
-      alert('Network error. Please try again.');
+      toast('Network error. Please try again.', 'error');
     }
   };
 
   const handleVoid = async (id: string) => {
-    if (!confirm('Void this journal entry?')) return;
+    const ok = await confirmDialog({ title: 'Void Journal Entry', message: 'Void this journal entry?', variant: 'danger' }); if (!ok) return;
     try {
       const res = await fetch(`/api/financial/journal/${id}/void`, { method: 'POST' });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Void failed' }));
-        alert(err.error || 'Failed to void entry');
+        toast(err.error || 'Failed to void entry', 'error');
         return;
       }
       fetchData();
     } catch (e) {
-      alert('Network error. Please try again.');
+      toast('Network error. Please try again.', 'error');
     }
   };
 

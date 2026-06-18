@@ -2,24 +2,26 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, unauthorized, notFound, badRequest, ok, getBody } from '@/lib/api';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
   const entry = await prisma.erpJournalEntry.findUnique({
-    where: { id: params.id },
+    where: { id: id },
     include: { lines: { include: { account: true } } },
   });
   if (!entry) return notFound('Journal entry not found');
   return ok(entry);
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
   const existing = await prisma.erpJournalEntry.findUnique({
-    where: { id: params.id },
+    where: { id: id },
     include: { lines: true },
   });
   if (!existing) return notFound('Journal entry not found');
@@ -42,10 +44,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
   if (Math.abs(totalDebit - totalCredit) > 0.01) return badRequest('Debits must equal credits');
 
-  await prisma.erpJournalLine.deleteMany({ where: { entryId: params.id } });
+  await prisma.erpJournalLine.deleteMany({ where: { entryId: id } });
 
   const entry = await prisma.erpJournalEntry.update({
-    where: { id: params.id },
+    where: { id: id },
     data: {
       description: description as string,
       entryDate: new Date(entryDate as string),
@@ -57,29 +59,31 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   return ok(entry);
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const existing = await prisma.erpJournalEntry.findUnique({ where: { id: params.id } });
+  const existing = await prisma.erpJournalEntry.findUnique({ where: { id: id } });
   if (!existing) return notFound('Journal entry not found');
   if (existing.status === 'posted') return badRequest('Cannot delete a posted entry');
 
-  await prisma.erpJournalEntry.delete({ where: { id: params.id } });
+  await prisma.erpJournalEntry.delete({ where: { id: id } });
   return ok({ deleted: true });
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const existing = await prisma.erpJournalEntry.findUnique({ where: { id: params.id } });
+  const existing = await prisma.erpJournalEntry.findUnique({ where: { id: id } });
   if (!existing) return notFound('Journal entry not found');
   if (existing.status === 'posted') return badRequest('Entry is already posted');
 
   const user = session.user as { name?: string };
   const entry = await prisma.erpJournalEntry.update({
-    where: { id: params.id },
+    where: { id: id },
     data: {
       status: 'posted',
       postedAt: new Date(),

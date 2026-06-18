@@ -54,12 +54,15 @@ export async function POST(request: NextRequest) {
 
   const entryNumber = await getNextSequence(prisma, 'erpJournalEntry', 'entryNumber', 'JE');
 
+  const entryDateObj = new Date(entryDate as string);
+  const entryPeriod = (period as string) || `${entryDateObj.getFullYear()}-${String(entryDateObj.getMonth() + 1).padStart(2, '0')}`;
+
   const entry = await prisma.erpJournalEntry.create({
     data: {
       entryNumber,
       description: description as string,
-      entryDate: new Date(entryDate as string),
-      period: period as string,
+      entryDate: entryDateObj,
+      period: entryPeriod,
       lines: { create: lineData },
     },
     include: { lines: { include: { account: true } } },

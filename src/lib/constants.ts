@@ -83,6 +83,60 @@ export const USER_ROLES = [
   { value: 'user', label: 'User' },
 ] as const;
 
+export const EQUIPMENT_TYPES = [
+  { value: 'crusher', label: 'Crusher' },
+  { value: 'mill', label: 'Mill' },
+  { value: 'conveyor', label: 'Conveyor' },
+  { value: 'loader', label: 'Loader' },
+  { value: 'excavator', label: 'Excavator' },
+  { value: 'drill', label: 'Drill' },
+  { value: 'pump', label: 'Pump' },
+  { value: 'generator', label: 'Generator' },
+] as const;
+
+export const WORK_ORDER_TYPES = [
+  { value: 'preventive', label: 'Preventive' },
+  { value: 'corrective', label: 'Corrective' },
+  { value: 'emergency', label: 'Emergency' },
+  { value: 'predictive', label: 'Predictive' },
+] as const;
+
+export const ITF263_STATUS = [
+  { value: 'valid', label: 'Valid' },
+  { value: 'expired', label: 'Expired' },
+  { value: 'unknown', label: 'Unknown' },
+  { value: 'not_required', label: 'Not Required' },
+] as const;
+
+export const SUPPLIER_CATEGORIES = [
+  { value: 'general', label: 'General' },
+  { value: 'mining_equipment', label: 'Mining Equipment' },
+  { value: 'chemicals', label: 'Chemicals' },
+  { value: 'safety_gear', label: 'Safety Gear' },
+  { value: 'spare_parts', label: 'Spare Parts' },
+  { value: 'transport', label: 'Transport' },
+  { value: 'services', label: 'Services' },
+] as const;
+
+export const TAX_CATEGORIES = [
+  { value: 'vat', label: 'VAT' },
+  { value: 'paye', label: 'PAYE' },
+  { value: 'corporate_tax', label: 'Corporate Income Tax' },
+  { value: 'withholding_tax', label: 'Withholding Tax' },
+  { value: 'capital_gains_tax', label: 'Capital Gains Tax' },
+  { value: 'aids_levy', label: 'AIDS Levy' },
+  { value: 'nssa', label: 'NSSA' },
+  { value: 'nec', label: 'NEC' },
+  { value: 'zimdef', label: 'ZIMDEF' },
+] as const;
+
+export const CURRENCIES = [
+  { value: 'USD', label: 'US Dollar (USD)' },
+  { value: 'ZiG', label: 'Zimbabwe Gold (ZiG)' },
+  { value: 'ZWL', label: 'Zimbabwe Dollar (ZWL)' },
+  { value: 'ZAR', label: 'South African Rand (ZAR)' },
+] as const;
+
 export const NAV_ITEMS = [
   {
     group: 'Main',
@@ -100,6 +154,15 @@ export const NAV_ITEMS = [
       { label: 'Accounts Receivable', href: '/financial/ar', icon: 'Receipt' },
       { label: 'Accounts Payable', href: '/financial/ap', icon: 'CreditCard' },
       { label: 'Cashbook', href: '/financial/cashbook', icon: 'Wallet' },
+      { label: 'Tax Engine', href: '/tax', icon: 'Percent' },
+    ],
+  },
+  {
+    group: 'CRM',
+    items: [
+      { label: 'Customers', href: '/crm/customers', icon: 'Users' },
+      { label: 'Leads', href: '/crm/leads', icon: 'Target' },
+      { label: 'Suppliers', href: '/suppliers', icon: 'Building2' },
     ],
   },
   {
@@ -111,10 +174,51 @@ export const NAV_ITEMS = [
     ],
   },
   {
-    group: 'CRM',
+    group: 'Purchasing',
     items: [
-      { label: 'Customers', href: '/crm/customers', icon: 'Users' },
-      { label: 'Suppliers', href: '/crm/suppliers', icon: 'Building2' },
+      { label: 'Requisitions', href: '/purchasing/requisitions', icon: 'ClipboardList' },
+    ],
+  },
+  {
+    group: 'Warehouse',
+    items: [
+      { label: 'Warehouses', href: '/warehouse', icon: 'Warehouse' },
+      { label: 'Stock Movements', href: '/warehouse/movements', icon: 'ArrowLeftRight' },
+      { label: 'Cycle Counts', href: '/warehouse/cycle-counts', icon: 'ClipboardCheck' },
+    ],
+  },
+  {
+    group: 'POS',
+    items: [
+      { label: 'POS Terminal', href: '/pos', icon: 'ShoppingCart' },
+      { label: 'Sessions', href: '/pos/sessions', icon: 'Receipt' },
+      { label: 'History', href: '/pos/history', icon: 'FileText' },
+    ],
+  },
+  {
+    group: 'Workshop',
+    items: [
+      { label: 'Equipment', href: '/workshop/equipment', icon: 'Wrench' },
+      { label: 'Work Orders', href: '/workshop/work-orders', icon: 'ClipboardList' },
+    ],
+  },
+  {
+    group: 'FDMS',
+    items: [
+      { label: 'Fiscalisation', href: '/fdms', icon: 'QrCode' },
+    ],
+  },
+  {
+    group: 'Reports',
+    items: [
+      { label: 'Reports & Analytics', href: '/reports', icon: 'BarChart3' },
+    ],
+  },
+  {
+    group: 'Admin',
+    items: [
+      { label: 'Users', href: '/admin/users', icon: 'Shield' },
+      { label: 'Settings', href: '/admin/settings', icon: 'Settings' },
     ],
   },
 ];

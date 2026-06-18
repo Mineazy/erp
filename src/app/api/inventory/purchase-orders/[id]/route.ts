@@ -2,12 +2,13 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, unauthorized, notFound, ok, getBody, badRequest } from '@/lib/api';
 
-export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
   const order = await prisma.erpPurchaseOrder.findUnique({
-    where: { id: params.id },
+    where: { id: id },
     include: { lines: true },
   });
   if (!order) return notFound('Purchase order not found');
@@ -15,11 +16,12 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
   return ok(order);
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const existing = await prisma.erpPurchaseOrder.findUnique({ where: { id: params.id } });
+  const existing = await prisma.erpPurchaseOrder.findUnique({ where: { id: id } });
   if (!existing) return notFound('Purchase order not found');
 
   const body = await getBody(request);
@@ -45,10 +47,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const tx = parseFloat((taxAmount as string) || '0');
     const total = subtotal + tx;
 
-    await prisma.erpPurchaseOrderLine.deleteMany({ where: { poId: params.id } });
+    await prisma.erpPurchaseOrderLine.deleteMany({ where: { poId: id } });
 
     const order = await prisma.erpPurchaseOrder.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         ...(supplierId !== undefined && { supplierId: supplierId as string }),
         ...(supplierName !== undefined && { supplierName: supplierName as string }),
@@ -68,7 +70,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 
   const order = await prisma.erpPurchaseOrder.update({
-    where: { id: params.id },
+    where: { id: id },
     data: {
       ...(supplierId !== undefined && { supplierId: supplierId as string }),
       ...(supplierName !== undefined && { supplierName: supplierName as string }),
@@ -83,13 +85,14 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   return ok(order);
 }
 
-export async function DELETE(_request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const existing = await prisma.erpPurchaseOrder.findUnique({ where: { id: params.id } });
+  const existing = await prisma.erpPurchaseOrder.findUnique({ where: { id: id } });
   if (!existing) return notFound('Purchase order not found');
 
-  await prisma.erpPurchaseOrder.delete({ where: { id: params.id } });
+  await prisma.erpPurchaseOrder.delete({ where: { id: id } });
   return ok({ success: true });
 }

@@ -1,5 +1,7 @@
 'use client';
 
+import { toast, dismissToast } from '@/components/ui/toast';
+import { confirmDialog } from '@/components/ui/confirm-dialog';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +16,7 @@ interface Product {
   id: string;
   code: string;
   name: string;
-  category: string;
+  category?: { id: string; name: string };
   unit: string;
   costPrice: number;
   sellingPrice: number;
@@ -23,10 +25,16 @@ interface Product {
   isActive: boolean;
 }
 
-const emptyForm = { code: '', name: '', category: '', unit: '', costPrice: 0, sellingPrice: 0, stock: 0, minStock: 0, location: '' };
+interface ProductCategory {
+  id: string;
+  name: string;
+}
+
+const emptyForm = { code: '', name: '', categoryId: '', unit: '', costPrice: 0, sellingPrice: 0, stock: 0, minStock: 0, location: '' };
 
 export default function ProductsPage() {
   const [data, setData] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -41,7 +49,7 @@ export default function ProductsPage() {
       const res = await fetch(`/api/inventory/products?${params}`);
       if (!res.ok) throw new Error('Failed to fetch');
       const json = await res.json();
-      setData(json);
+      setData(json.items ?? json);
     } catch (e) {
       console.error('Failed to fetch products', e);
     } finally {
@@ -49,7 +57,20 @@ export default function ProductsPage() {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch('/api/inventory/categories');
+      if (res.ok) {
+        const json = await res.json();
+        setCategories(json);
+      }
+    } catch (e) {
+      console.error('Failed to fetch categories', e);
+    }
+  };
+
   useEffect(() => { fetchData(); }, [search]);
+  useEffect(() => { fetchCategories(); }, []);
 
   const lowStock = data.filter((p) => p.isActive && p.stock <= p.minStock);
   const outOfStock = data.filter((p) => !p.isActive || p.stock === 0);
@@ -62,51 +83,68 @@ export default function ProductsPage() {
 
   const openEdit = (product: Product) => {
     setEditingProduct(product);
-    setForm({ code: product.code, name: product.name, category: product.category, unit: product.unit, costPrice: product.costPrice, sellingPrice: product.sellingPrice, stock: product.stock, minStock: product.minStock, location: (product as any).location || '' });
+    setForm({ code: product.code, name: product.name, categoryId: product.category?.id || '', unit: product.unit, costPrice: product.costPrice, sellingPrice: product.sellingPrice, stock: product.stock, minStock: product.minStock, location: (product as any).location || '' });
     setDialogOpen(true);
   };
 
   const handleSave = async () => {
     try {
       let res;
+      let tid;
       if (editingProduct) {
-        res = await fetch(`/api/inventory/products/${editingProduct.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form),
-        });
+        tid = toast('Updating product...', 'info', 120000);
+        try {
+          res = await fetch(`/api/inventory/products/${editingProduct.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(form),
+          });
+        } catch (e) { dismissToast(tid); throw e; }
       } else {
-        res = await fetch('/api/inventory/products', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form),
-        });
+        tid = toast('Saving product...', 'info', 120000);
+        try {
+          res = await fetch('/api/inventory/products', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(form),
+          });
+        } catch (e) { dismissToast(tid); throw e; }
       }
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Save failed' }));
-        alert(err.error || 'Failed to save product');
+        dismissToast(tid);
+        toast(err.error || 'Failed to save product', 'error');
         return;
       }
+      dismissToast(tid);
+      toast((editingProduct ? 'Product updated' : 'Product created') + ' successfully', 'success');
       setDialogOpen(false);
       setEditingProduct(null);
       fetchData();
     } catch (e) {
-      alert('Network error. Please try again.');
+      toast('Network error. Please try again.', 'error');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this product?')) return;
+    const ok = await confirmDialog({ title: 'Delete Product', message: 'Are you sure you want to delete this product?', variant: 'danger' }); if (!ok) return;
     try {
-      const res = await fetch(`/api/inventory/products/${id}`, { method: 'DELETE' });
+      const tid = toast('Deleting product...', 'info', 120000);
+      let res;
+      try {
+        res = await fetch(`/api/inventory/products/${id}`, { method: 'DELETE' });
+      } catch (e) { dismissToast(tid); throw e; }
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Delete failed' }));
-        alert(err.error || 'Failed to delete product');
+        dismissToast(tid);
+        toast(err.error || 'Failed to delete product', 'error');
         return;
       }
+      dismissToast(tid);
+      toast('Product deleted successfully', 'success');
       fetchData();
     } catch (e) {
-      alert('Network error. Please try again.');
+      toast('Network error. Please try again.', 'error');
     }
   };
 
@@ -188,7 +226,7 @@ export default function ProductsPage() {
                 <TableRow key={product.id} className={!product.isActive ? 'opacity-60' : ''}>
                   <TableCell className="font-mono text-xs font-medium">{product.code}</TableCell>
                   <TableCell className="font-medium">{product.name}</TableCell>
-                  <TableCell>{product.category}</TableCell>
+                  <TableCell>{product.category?.name || '—'}</TableCell>
                   <TableCell>{product.unit}</TableCell>
                   <TableCell className="text-right font-mono">${product.costPrice.toLocaleString()}</TableCell>
                   <TableCell className="text-right font-mono">${product.sellingPrice.toLocaleString()}</TableCell>
@@ -230,7 +268,7 @@ export default function ProductsPage() {
             <Input label="Product Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Mining Lamp" />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <Select label="Category" options={[{ value: 'Raw Materials', label: 'Raw Materials' }, { value: 'Equipment', label: 'Equipment' }, { value: 'Safety Gear', label: 'Safety Gear' }, { value: 'Consumables', label: 'Consumables' }]} placeholder="Select category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
+            <Select label="Category" options={categories.map((c) => ({ value: c.id, label: c.name }))} placeholder="Select category" value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })} />
             <Select label="Unit" options={[{ value: 'each', label: 'Each' }, { value: 'kg', label: 'Kilogram' }, { value: 'ton', label: 'Ton' }, { value: 'liter', label: 'Liter' }, { value: 'meter', label: 'Meter' }, { value: 'box', label: 'Box' }]} placeholder="Select unit" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
           </div>
           <div className="grid grid-cols-2 gap-4">

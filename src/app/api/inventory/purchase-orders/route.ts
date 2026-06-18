@@ -46,10 +46,11 @@ export async function POST(request: NextRequest) {
 
   const body = await getBody(request);
   const { supplierId, supplierName, orderDate, expectedDate, notes, taxAmount } = body;
-  const lines = body.lines as any[];
-  if (!supplierId || !supplierName || !lines?.length) return badRequest('Supplier and line items required');
+  const lines = (body.lines || []) as any[];
+  if (!supplierName) return badRequest('Supplier name is required');
 
   const poNumber = await getNextSequence(prisma, 'erpPurchaseOrder', 'poNumber', 'PO');
+  const finalSupplierId = (supplierId as string) || `SUP-${(supplierName as string).replace(/[^a-zA-Z0-9]/g, '-').toUpperCase().replace(/-+/g, '-').replace(/^-|-$/g, '')}`;
   let subtotal = 0;
   const lineData = lines.map((l: any) => {
     const total = parseFloat(l.quantity) * parseFloat(l.unitPrice);
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
   const order = await prisma.erpPurchaseOrder.create({
     data: {
       poNumber,
-      supplierId: supplierId as string,
+      supplierId: finalSupplierId,
       supplierName: supplierName as string,
       orderDate: new Date(orderDate as string),
       expectedDate: expectedDate ? new Date(expectedDate as string) : null,
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
       taxAmount: tx,
       total,
       notes: notes as string | undefined,
-      lines: { create: lineData },
+      lines: lineData.length ? { create: lineData } : undefined,
     },
     include: { lines: true },
   });

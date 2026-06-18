@@ -2,20 +2,22 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, unauthorized, notFound, ok, getBody } from '@/lib/api';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const item = await prisma.erpAccountPayable.findUnique({ where: { id: params.id } });
+  const item = await prisma.erpAccountPayable.findUnique({ where: { id: id } });
   if (!item) return notFound('AP record not found');
   return ok(item);
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const existing = await prisma.erpAccountPayable.findUnique({ where: { id: params.id } });
+  const existing = await prisma.erpAccountPayable.findUnique({ where: { id: id } });
   if (!existing) return notFound('AP record not found');
 
   const body = await getBody(request);
@@ -34,19 +36,20 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   data.description = description as string;
 
   const item = await prisma.erpAccountPayable.update({
-    where: { id: params.id },
+    where: { id: id },
     data: data as any,
   });
   return ok(item);
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const existing = await prisma.erpAccountPayable.findUnique({ where: { id: params.id } });
+  const existing = await prisma.erpAccountPayable.findUnique({ where: { id: id } });
   if (!existing) return notFound('AP record not found');
 
-  await prisma.erpAccountPayable.delete({ where: { id: params.id } });
+  await prisma.erpAccountPayable.delete({ where: { id: id } });
   return ok({ deleted: true });
 }

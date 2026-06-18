@@ -41,6 +41,48 @@ const MODULE_PERMISSIONS: Record<string, PermissionSet> = {
     manager: true,
     user: true,
   },
+  purchasing: {
+    admin: true,
+    accountant: 'readonly',
+    manager: true,
+    user: 'readonly',
+  },
+  warehouse: {
+    admin: true,
+    accountant: 'readonly',
+    manager: true,
+    user: 'readonly',
+  },
+  workshop: {
+    admin: true,
+    accountant: 'readonly',
+    manager: true,
+    user: 'readonly',
+  },
+  tax: {
+    admin: true,
+    accountant: true,
+    manager: 'readonly',
+    user: false,
+  },
+  fdms: {
+    admin: true,
+    accountant: true,
+    manager: 'readonly',
+    user: false,
+  },
+  reports: {
+    admin: true,
+    accountant: true,
+    manager: true,
+    user: 'readonly',
+  },
+  admin: {
+    admin: true,
+    accountant: false,
+    manager: false,
+    user: false,
+  },
 };
 
 function getModuleAccess(module: string, role: UserRole): AccessLevel {

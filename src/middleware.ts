@@ -1,7 +1,5 @@
-import { getToken } from 'next-auth/jwt';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { checkApiAccess } from '@/lib/authz';
 
 const PUBLIC_PATHS = ['/login', '/api/auth'];
 
@@ -25,30 +23,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = await getToken({
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET,
-  });
+  const hasSessionCookie = request.cookies.has('next-auth.session-token');
 
-  if (!token) {
+  if (!hasSessionCookie) {
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('callbackUrl', pathname);
     return NextResponse.redirect(loginUrl);
-  }
-
-  if (pathname.startsWith('/api/')) {
-    const role = (token.role as string) || 'user';
-    const method = request.method;
-
-    if (!checkApiAccess(pathname, method, role)) {
-      return NextResponse.json(
-        { error: 'Forbidden - insufficient permissions' },
-        { status: 403 },
-      );
-    }
   }
 
   return NextResponse.next();

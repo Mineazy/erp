@@ -1,5 +1,6 @@
 'use client';
 
+import { toast, dismissToast } from '@/components/ui/toast';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -60,21 +61,28 @@ export default function ARPage() {
 
   const handleCreate = async () => {
     try {
-      const res = await fetch('/api/financial/ar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
+      const tid = toast('Saving invoice...', 'info', 120000);
+      let res;
+      try {
+        res = await fetch('/api/financial/ar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form),
+        });
+      } catch (e) { dismissToast(tid); throw e; }
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Create failed' }));
-        alert(err.error || 'Failed to create invoice');
+        dismissToast(tid);
+        toast(err.error || 'Failed to create invoice', 'error');
         return;
       }
+      dismissToast(tid);
+      toast('Invoice created successfully', 'success');
       setDialogOpen(false);
       setForm(emptyForm);
       fetchData();
     } catch (e) {
-      alert('Network error. Please try again.');
+      toast('Network error. Please try again.', 'error');
     }
   };
 
@@ -177,7 +185,7 @@ export default function ARPage() {
                   <TableCell className="text-right font-mono font-semibold">{inv.balance.toLocaleString()}</TableCell>
                   <TableCell><Badge variant={statusVariant[inv.status]}>{inv.status.charAt(0).toUpperCase() + inv.status.slice(1)}</Badge></TableCell>
                   <TableCell className="text-right">
-                    <button onClick={() => alert(`Invoice: ${inv.invoiceNumber}\nCustomer: ${inv.customerName}\nBalance: $${inv.balance.toLocaleString()}\nStatus: ${inv.status}`)} className="p-1.5 hover:bg-slate-100 rounded"><Eye className="h-4 w-4 text-slate-400" /></button>
+                      <button onClick={() => toast(`Invoice: ${inv.invoiceNumber} - Customer: ${inv.customerName} - Balance: $${inv.balance.toLocaleString()} - Status: ${inv.status}`, 'info')} className="p-1.5 hover:bg-slate-100 rounded"><Eye className="h-4 w-4 text-slate-400" /></button>
                   </TableCell>
                 </TableRow>
               ))}

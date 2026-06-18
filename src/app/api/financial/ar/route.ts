@@ -28,14 +28,15 @@ export async function POST(request: NextRequest) {
   const body = await getBody(request);
   const { customerId, customerName, invoiceDate, dueDate, amount, currency, description } = body;
 
-  if (!customerId || !customerName || !amount) return badRequest('Customer, name, and amount are required');
+  if (!customerName || amount === undefined || amount === null) return badRequest('Customer name and amount are required');
 
   const invoiceNumber = await getNextSequence(prisma, 'erpAccountReceivable', 'invoiceNumber', 'INV');
+  const finalCustomerId = (customerId as string) || `CUST-${(customerName as string).replace(/[^a-zA-Z0-9]/g, '-').toUpperCase().replace(/-+/g, '-').replace(/^-|-$/g, '')}`;
 
   const item = await prisma.erpAccountReceivable.create({
     data: {
       invoiceNumber,
-      customerId: customerId as string,
+      customerId: finalCustomerId,
       customerName: customerName as string,
       invoiceDate: new Date(invoiceDate as string),
       dueDate: new Date(dueDate as string),

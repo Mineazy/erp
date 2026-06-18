@@ -46,10 +46,11 @@ export async function POST(request: NextRequest) {
 
   const body = await getBody(request);
   const { customerId, customerName, orderDate, notes, taxAmount, discount } = body;
-  const lines = body.lines as any[];
-  if (!customerId || !customerName || !lines?.length) return badRequest('Customer and line items required');
+  const lines = (body.lines || []) as any[];
+  if (!customerName) return badRequest('Customer name is required');
 
   const orderNumber = await getNextSequence(prisma, 'erpSalesOrder', 'orderNumber', 'SO');
+  const finalCustomerId = (customerId as string) || `CUST-${(customerName as string).replace(/[^a-zA-Z0-9]/g, '-').toUpperCase().replace(/-+/g, '-').replace(/^-|-$/g, '')}`;
   let subtotal = 0;
   const lineData = lines.map((l: any) => {
     const total = parseFloat(l.quantity) * parseFloat(l.unitPrice);
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
   const order = await prisma.erpSalesOrder.create({
     data: {
       orderNumber,
-      customerId: customerId as string,
+      customerId: finalCustomerId,
       customerName: customerName as string,
       orderDate: new Date(orderDate as string),
       subtotal,
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
       discount: disc,
       total,
       notes: notes as string | undefined,
-      lines: { create: lineData },
+      lines: lineData.length ? { create: lineData } : undefined,
     },
     include: { lines: true },
   });

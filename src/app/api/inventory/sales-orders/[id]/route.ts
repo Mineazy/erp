@@ -2,12 +2,15 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, unauthorized, notFound, ok, getBody, badRequest } from '@/lib/api';
 
-export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
+type IdParams = Promise<{ id: string }>;
+
+export async function GET(_request: NextRequest, { params }: { params: IdParams }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
   const order = await prisma.erpSalesOrder.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { lines: true },
   });
   if (!order) return notFound('Sales order not found');
@@ -15,11 +18,12 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
   return ok(order);
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: IdParams }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const existing = await prisma.erpSalesOrder.findUnique({ where: { id: params.id } });
+  const existing = await prisma.erpSalesOrder.findUnique({ where: { id } });
   if (!existing) return notFound('Sales order not found');
 
   const body = await getBody(request);
@@ -46,10 +50,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const disc = parseFloat((discount as string) || '0');
     const total = subtotal + tx - disc;
 
-    await prisma.erpSalesOrderLine.deleteMany({ where: { orderId: params.id } });
+    await prisma.erpSalesOrderLine.deleteMany({ where: { orderId: id } });
 
     const order = await prisma.erpSalesOrder.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(customerId !== undefined && { customerId: customerId as string }),
         ...(customerName !== undefined && { customerName: customerName as string }),
@@ -69,7 +73,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 
   const order = await prisma.erpSalesOrder.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       ...(customerId !== undefined && { customerId: customerId as string }),
       ...(customerName !== undefined && { customerName: customerName as string }),
@@ -84,13 +88,14 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   return ok(order);
 }
 
-export async function DELETE(_request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_request: NextRequest, { params }: { params: IdParams }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const existing = await prisma.erpSalesOrder.findUnique({ where: { id: params.id } });
+  const existing = await prisma.erpSalesOrder.findUnique({ where: { id } });
   if (!existing) return notFound('Sales order not found');
 
-  await prisma.erpSalesOrder.delete({ where: { id: params.id } });
+  await prisma.erpSalesOrder.delete({ where: { id } });
   return ok({ success: true });
 }

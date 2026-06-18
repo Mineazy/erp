@@ -30,8 +30,14 @@ export function created<T>(data: T) {
   return NextResponse.json(data, { status: 201 });
 }
 
-export function getBody(request: Request): Promise<Record<string, unknown>> {
-  return request.json();
+export async function getBody(request: Request): Promise<Record<string, unknown>> {
+  try {
+    const text = await request.text();
+    if (!text) return {};
+    return JSON.parse(text);
+  } catch {
+    return {};
+  }
 }
 
 export function generateCode(prefix: string, num: number): string {

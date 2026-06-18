@@ -2,23 +2,25 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, unauthorized, notFound, ok, getBody } from '@/lib/api';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
   const account = await prisma.erpChartOfAccounts.findUnique({
-    where: { id: params.id },
+    where: { id: id },
     include: { parent: true, children: true },
   });
   if (!account) return notFound('Account not found');
   return ok(account);
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const existing = await prisma.erpChartOfAccounts.findUnique({ where: { id: params.id } });
+  const existing = await prisma.erpChartOfAccounts.findUnique({ where: { id: id } });
   if (!existing) return notFound('Account not found');
 
   const body = await getBody(request);
@@ -34,19 +36,20 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   if (currency !== undefined) data.currency = currency;
 
   const account = await prisma.erpChartOfAccounts.update({
-    where: { id: params.id },
+    where: { id: id },
     data: data as any,
   });
   return ok(account);
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const existing = await prisma.erpChartOfAccounts.findUnique({ where: { id: params.id } });
+  const existing = await prisma.erpChartOfAccounts.findUnique({ where: { id: id } });
   if (!existing) return notFound('Account not found');
 
-  await prisma.erpChartOfAccounts.delete({ where: { id: params.id } });
+  await prisma.erpChartOfAccounts.delete({ where: { id: id } });
   return ok({ deleted: true });
 }

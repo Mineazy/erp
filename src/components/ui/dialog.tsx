@@ -13,6 +13,30 @@ interface DialogProps {
 }
 
 export function Dialog({ open, onClose, title, description, children, className, size = 'md' }: DialogProps) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const onCloseRef = React.useRef(onClose);
+  onCloseRef.current = onClose;
+
+  React.useEffect(() => {
+    if (!open) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        onCloseRef.current();
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') onCloseRef.current();
+    }
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [open]);
+
   if (!open) return null;
 
   const sizeClasses = {
@@ -24,10 +48,11 @@ export function Dialog({ open, onClose, title, description, children, className,
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/50" />
       <div
+        ref={ref}
         className={cn(
-          'relative z-50 w-full rounded-lg border border-slate-200 bg-white p-6 shadow-lg animate-in fade-in-0 zoom-in-95',
+          'relative z-50 w-full rounded-lg border border-slate-200 bg-white p-6 shadow-lg',
           sizeClasses[size],
           className
         )}
