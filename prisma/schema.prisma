@@ -70,6 +70,9 @@ model TaxTransaction {
   postedToTaRMS Boolean  @default(false) @map("posted_to_tarms")
   createdAt     DateTime @default(now()) @map("created_at")
 
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
+
   @@map("tax_transactions")
 }
 
@@ -107,6 +110,9 @@ model FdmsDevice {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
+
   fiscalisedDocuments FiscalisedDocument[]
 
   @@map("fdms_devices")
@@ -130,6 +136,9 @@ model FiscalisedDocument {
   retryCount    Int      @default(0) @map("retry_count")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
+
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
 
   posTransaction ErpPosTransaction?
 
@@ -173,6 +182,9 @@ model ErpJournalEntry {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
+
   lines ErpJournalLine[]
 
   @@map("erp_journal_entries")
@@ -210,7 +222,10 @@ model ErpAccountReceivable {
   journalEntryId String? @map("journal_entry_id")
   fiscalisedDocId String? @map("fiscalised_doc_id")
   createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
 
   @@map("erp_accounts_receivable")
 }
@@ -230,7 +245,10 @@ model ErpAccountPayable {
   description   String?
   journalEntryId String? @map("journal_entry_id")
   createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
 
   @@map("erp_accounts_payable")
 }
@@ -249,6 +267,9 @@ model ErpCashbook {
   status      String   @default("posted")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
+
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
 
   @@map("erp_cashbook")
 }
@@ -276,6 +297,9 @@ model ErpProduct {
   purity      Decimal? @db.Decimal(5, 2)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
+
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
 
   batches          ErpProductBatch[]
   warehouseStocks  ErpWarehouseStock[]
@@ -326,6 +350,9 @@ model ErpSalesOrder {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
+
   lines ErpSalesOrderLine[]
 
   @@map("erp_sales_orders")
@@ -364,6 +391,9 @@ model ErpPurchaseOrder {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
+
   lines    ErpPurchaseOrderLine[]
   receipts ErpGoodsReceipt[]
 
@@ -397,6 +427,9 @@ model ErpGoodsReceipt {
   inspectionStatus String? @map("inspection_status")
   createdAt   DateTime @default(now()) @map("created_at")
 
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
+
   lines ErpGoodsReceiptLine[]
 
   @@map("erp_goods_receipts")
@@ -429,7 +462,10 @@ model ErpPurchaseRequisition {
   approvedBy     String?  @map("approved_by")
   approvedAt     DateTime? @map("approved_at")
   createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
 
   items ErpPurchaseRequisitionItem[]
   pos   ErpPurchaseOrder[]
@@ -475,6 +511,9 @@ model ErpCustomer {
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
+
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
 
   leads ErpLead[]
 
@@ -542,7 +581,10 @@ model ErpSupplier {
   notes           String?
   isActive        Boolean  @default(true) @map("is_active")
   createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
 
   contracts ErpSupplierContract[]
 
@@ -630,6 +672,9 @@ model ErpStockMovement {
   userId      String   @map("user_id")
   createdAt   DateTime @default(now()) @map("created_at")
 
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
+
   @@map("erp_stock_movements")
 }
 
@@ -686,7 +731,10 @@ model ErpPosSession {
   currency       String   @default("USD")
   notes          String?
   createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
 
   transactions ErpPosTransaction[]
 
@@ -716,7 +764,10 @@ model ErpPosTransaction {
   isOffline         Boolean  @default(false) @map("is_offline")
   syncedAt          DateTime? @map("synced_at")
   createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
 
   lines        ErpPosTransactionLine[]
   payments     ErpPosPayment[]
@@ -750,6 +801,46 @@ model ErpPosPayment {
   createdAt     DateTime @default(now()) @map("created_at")
 
   @@map("erp_pos_payments")
+}
+
+// ============ RETURNS ============
+
+model ErpReturn {
+  id            String   @id @default(uuid())
+  returnNumber  String   @unique @map("return_number")
+  returnDate    DateTime @default(now()) @map("return_date")
+  customerName  String?  @map("customer_name")
+  referenceType String   @default("direct") @map("reference_type")
+  referenceId   String?  @map("reference_id")
+  reason        String?
+  status        String   @default("pending")
+  total         Decimal  @default(0) @db.Decimal(15, 2)
+  notes         String?
+  createdBy     String?  @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
+
+  lines ErpReturnLine[]
+
+  @@map("erp_returns")
+}
+
+model ErpReturnLine {
+  id         String  @id @default(uuid())
+  returnId   String  @map("return_id")
+  return     ErpReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  productId  String  @map("product_id")
+  productName String @map("product_name")
+  quantity   Decimal @db.Decimal(15, 2)
+  unitPrice  Decimal @db.Decimal(15, 2) @map("unit_price")
+  total      Decimal @db.Decimal(15, 2)
+  reason     String?
+  condition  String  @default("good")
+
+  @@map("erp_return_lines")
 }
 
 // ============ HR ============
@@ -992,6 +1083,44 @@ model ErpWorkOrderPart {
   @@map("erp_work_order_parts")
 }
 
+// ============ BRANCHES ============
+
+model ErpBranch {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  address   String?
+  city      String?
+  country   String?
+  phone     String?
+  email     String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users           ErpUser[]
+  products        ErpProduct[]
+  customers       ErpCustomer[]
+  suppliers       ErpSupplier[]
+  salesOrders     ErpSalesOrder[]
+  purchaseOrders  ErpPurchaseOrder[]
+  arInvoices      ErpAccountReceivable[]
+  apBills         ErpAccountPayable[]
+  journalEntries  ErpJournalEntry[]
+  cashbookEntries ErpCashbook[]
+  posSessions     ErpPosSession[]
+  posTransactions ErpPosTransaction[]
+  returns         ErpReturn[]
+  requisitions    ErpPurchaseRequisition[]
+  goodsReceipts   ErpGoodsReceipt[]
+  stockMovements  ErpStockMovement[]
+  taxTransactions  TaxTransaction[]
+  fdmsDevices      FdmsDevice[]
+  fiscalisedDocuments FiscalisedDocument[]
+
+  @@map("erp_branches")
+}
+
 // ============ USERS & AUTH ============
 
 model ErpUser {
@@ -1001,6 +1130,8 @@ model ErpUser {
   name          String
   role          String   @default("user")
   department    String?
+  branchId      String?  @map("branch_id")
+  branch        ErpBranch? @relation(fields: [branchId], references: [id])
   mfaEnabled    Boolean  @default(false) @map("mfa_enabled")
   mfaSecret     String?  @map("mfa_secret")
   isActive      Boolean  @default(true) @map("is_active")

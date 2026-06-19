@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSession, unauthorized, badRequest, created, ok, getBody } from '@/lib/api';
+import { getSession, unauthorized, badRequest, created, ok, getBody, getBranchFilter } from '@/lib/api';
 
 export async function GET(request: NextRequest) {
   const session = await getSession();
@@ -9,12 +9,14 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const referenceType = searchParams.get('referenceType');
 
+  const branchFilter = getBranchFilter(session);
   const where: any = {};
   if (referenceType) where.referenceType = referenceType;
+  Object.assign(where, branchFilter);
 
   const items = await prisma.taxTransaction.findMany({
     where,
-    include: { taxType: true },
+    include: { taxType: true, branch: { select: { id: true, code: true, name: true } } },
     orderBy: { createdAt: 'desc' },
   });
   return ok(items);
@@ -44,6 +46,7 @@ export async function POST(request: NextRequest) {
       rate: parseFloat(rate as string),
       currency: (currency as string) || 'USD',
       exchangeRate: parseFloat((exchangeRate as string) || '1'),
+      branchId: (session.user as any)?.branchId || null,
     },
   });
   return created(item);

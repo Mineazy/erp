@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSession, unauthorized, badRequest, ok, created, getBody, getNextSequence } from '@/lib/api';
+import { getSession, unauthorized, badRequest, ok, created, getBody, getNextSequence, getBranchFilter } from '@/lib/api';
 
 export async function GET(request: NextRequest) {
   const session = await getSession();
@@ -10,7 +10,9 @@ export async function GET(request: NextRequest) {
   const customerId = searchParams.get('customerId');
   const status = searchParams.get('status');
 
+  const branchFilter = getBranchFilter(session);
   const where: any = {};
+  Object.assign(where, branchFilter);
   if (customerId) where.customerId = customerId;
   if (status) where.status = status;
 
@@ -44,6 +46,7 @@ export async function POST(request: NextRequest) {
       balance: parseFloat(amount as string),
       currency: (currency as string) || 'USD',
       description: description as string,
+      branchId: (session.user as any)?.branchId || null,
     },
   });
   return created(item);

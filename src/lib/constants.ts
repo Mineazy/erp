@@ -171,6 +171,7 @@ export const NAV_ITEMS = [
       { label: 'Products', href: '/inventory/products', icon: 'Package' },
       { label: 'Sales Orders', href: '/inventory/sales-orders', icon: 'ShoppingCart' },
       { label: 'Purchase Orders', href: '/inventory/purchase-orders', icon: 'Truck' },
+      { label: 'Returns', href: '/inventory/returns', icon: 'RotateCcw' },
     ],
   },
   {
@@ -218,6 +219,7 @@ export const NAV_ITEMS = [
     group: 'Admin',
     items: [
       { label: 'Users', href: '/admin/users', icon: 'Shield' },
+      { label: 'Branches', href: '/admin/branches', icon: 'Building2' },
       { label: 'Settings', href: '/admin/settings', icon: 'Settings' },
     ],
   },

@@ -21,9 +21,10 @@ interface FdmsDevice {
   receiptCounter: number;
   lastSyncAt: string;
   activationKey: string;
+  branch?: { id: string; code: string; name: string } | null;
 }
 
-const emptyForm = { deviceId: '', serialNo: '', activationKey: '', status: 'active' };
+const emptyForm = { deviceId: '', serialNo: '', activationKey: '', status: 'active', branchId: '' };
 
 export default function FdmsPage() {
   const [data, setData] = useState<FdmsDevice[]>([]);
@@ -32,6 +33,19 @@ export default function FdmsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<FdmsDevice | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [branches, setBranches] = useState<{ id: string; code: string; name: string }[]>([]);
+
+  const fetchBranches = async () => {
+    try {
+      const res = await fetch('/api/admin/branches');
+      if (res.ok) {
+        const json = await res.json();
+        setBranches(json.data || json);
+      }
+    } catch (_) {}
+  };
+
+  useEffect(() => { fetchBranches(); }, []);
 
   const fetchData = async () => {
     try {
@@ -59,7 +73,7 @@ export default function FdmsPage() {
 
   const openEdit = (device: FdmsDevice) => {
     setEditingDevice(device);
-    setForm({ deviceId: device.deviceId, serialNo: device.serialNo, activationKey: device.activationKey, status: device.status });
+    setForm({ deviceId: device.deviceId, serialNo: device.serialNo, activationKey: device.activationKey, status: device.status, branchId: device.branch?.id || '' });
     setDialogOpen(true);
   };
 
@@ -196,6 +210,7 @@ export default function FdmsPage() {
                 <TableHead>Device ID</TableHead>
                 <TableHead>Serial No</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Branch</TableHead>
                 <TableHead className="text-right">Fiscal Day</TableHead>
                 <TableHead className="text-right">Receipts</TableHead>
                 <TableHead>Last Sync</TableHead>
@@ -208,6 +223,7 @@ export default function FdmsPage() {
                   <TableCell className="font-mono text-xs">{device.deviceId}</TableCell>
                   <TableCell className="font-mono text-xs">{device.serialNo}</TableCell>
                   <TableCell>{statusBadge(device.status)}</TableCell>
+                  <TableCell className="text-xs text-slate-600">{device.branch?.name || '—'}</TableCell>
                   <TableCell className="text-right font-mono">{device.fiscalDayNo}</TableCell>
                   <TableCell className="text-right font-mono">{device.receiptCounter.toLocaleString()}</TableCell>
                   <TableCell className="text-xs text-slate-600">{device.lastSyncAt ? new Date(device.lastSyncAt).toLocaleString() : '-'}</TableCell>
@@ -233,6 +249,9 @@ export default function FdmsPage() {
           <div className="grid grid-cols-2 gap-4">
             <Input label="Activation Key" value={form.activationKey} onChange={(e) => setForm({ ...form, activationKey: e.target.value })} placeholder="Activation key" />
             <Select label="Status" options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'suspended', label: 'Suspended' }, { value: 'pending', label: 'Pending' }]} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Select label="Branch" options={[{ value: '', label: '— No Branch —' }, ...branches.map(b => ({ value: b.id, label: b.name }))]} value={form.branchId} onChange={(e) => setForm({ ...form, branchId: e.target.value })} />
           </div>
         </div>
         <DialogFooter>

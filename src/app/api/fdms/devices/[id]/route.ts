@@ -21,7 +21,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   if (!existing) return notFound('Device not found');
 
   const body = await getBody(request);
-  const { serialNo, activationKey, certificate, privateKey, status, fiscalDayNo, receiptCounter, receiptGlobalNo } = body;
+  const { serialNo, activationKey, certificate, privateKey, status, fiscalDayNo, receiptCounter, receiptGlobalNo, branchId } = body;
 
   const data: Record<string, unknown> = {};
   if (serialNo) data.serialNo = serialNo as string;
@@ -32,6 +32,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   if (fiscalDayNo !== undefined) data.fiscalDayNo = parseInt(fiscalDayNo as string);
   if (receiptCounter !== undefined) data.receiptCounter = parseInt(receiptCounter as string);
   if (receiptGlobalNo !== undefined) data.receiptGlobalNo = parseInt(receiptGlobalNo as string);
+  if (branchId !== undefined) data.branchId = branchId as string | null;
 
   const item = await prisma.fdmsDevice.update({
     where: { id: id },

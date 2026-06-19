@@ -28,6 +28,8 @@ export async function GET(request: NextRequest) {
       name: true,
       role: true,
       department: true,
+      branchId: true,
+      branch: { select: { id: true, code: true, name: true } },
       mfaEnabled: true,
       isActive: true,
       lastLogin: true,
@@ -44,7 +46,7 @@ export async function POST(request: NextRequest) {
   if (!session) return unauthorized();
 
   const body = await getBody(request);
-  const { email, password, name, role, department } = body;
+  const { email, password, name, role, department, branchId } = body;
   if (!email) return badRequest('Email is required');
   if (!password) return badRequest('Password is required');
   if (!name) return badRequest('Name is required');
@@ -61,6 +63,7 @@ export async function POST(request: NextRequest) {
       name: name as string,
       role: (role as string) || 'user',
       department: department as string | undefined,
+      branchId: branchId as string | undefined,
     },
     select: {
       id: true,
@@ -68,6 +71,8 @@ export async function POST(request: NextRequest) {
       name: true,
       role: true,
       department: true,
+      branchId: true,
+      branch: { select: { id: true, code: true, name: true } },
       mfaEnabled: true,
       isActive: true,
       lastLogin: true,

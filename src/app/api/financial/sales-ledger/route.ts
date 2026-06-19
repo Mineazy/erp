@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSession, unauthorized, ok } from '@/lib/api';
+import { getSession, unauthorized, ok, getBranchFilter } from '@/lib/api';
 
 export async function GET(request: NextRequest) {
   const session = await getSession();
@@ -12,7 +12,9 @@ export async function GET(request: NextRequest) {
   const dateTo = searchParams.get('dateTo');
   const status = searchParams.get('status');
 
+  const branchFilter = getBranchFilter(session);
   const where: any = {};
+  Object.assign(where, branchFilter);
   if (customerId) where.customerId = customerId;
   if (status) where.status = status;
   if (dateFrom || dateTo) {
@@ -30,19 +32,19 @@ export async function GET(request: NextRequest) {
     by: ['customerId', 'customerName'],
     _sum: { balance: true, amount: true },
     _count: { id: true },
-    where: status ? { status } : {},
+    where: { ...(status ? { status } : {}), ...branchFilter },
     orderBy: { customerName: 'asc' },
   });
 
   const customerTotals = await prisma.erpAccountReceivable.groupBy({
     by: ['customerId', 'customerName', 'status'],
     _sum: { balance: true },
-    where: status ? { status } : {},
+    where: { ...(status ? { status } : {}), ...branchFilter },
   });
 
   const overdueCustomerIds = (
     await prisma.erpAccountReceivable.findMany({
-      where: { status: 'overdue' },
+      where: { status: 'overdue', ...branchFilter },
       select: { customerId: true },
       distinct: ['customerId'],
     })

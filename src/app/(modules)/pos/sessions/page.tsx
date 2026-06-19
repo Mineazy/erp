@@ -18,6 +18,7 @@ interface Session {
   status: 'open' | 'closed';
   totalSales: number;
   transactionCount: number;
+  branch?: { id: string; code: string; name: string } | null;
 }
 
 export default function SessionsPage() {
@@ -123,6 +124,7 @@ export default function SessionsPage() {
                 <TableHead>Opened</TableHead>
                 <TableHead>Closed</TableHead>
                 <TableHead>Opened By</TableHead>
+                <TableHead>Branch</TableHead>
                 <TableHead>Transactions</TableHead>
                 <TableHead className="text-right">Total Sales</TableHead>
                 <TableHead>Status</TableHead>
@@ -132,13 +134,13 @@ export default function SessionsPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-slate-400">
+                  <TableCell colSpan={9} className="text-center py-8 text-slate-400">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-slate-400">
+                  <TableCell colSpan={9} className="text-center py-8 text-slate-400">
                     No sessions found
                   </TableCell>
                 </TableRow>
@@ -151,6 +153,7 @@ export default function SessionsPage() {
                       {session.closedAt ? new Date(session.closedAt).toLocaleString() : '-'}
                     </TableCell>
                     <TableCell>{session.openedBy || '-'}</TableCell>
+                    <TableCell className="text-xs text-slate-600">{session.branch?.name || '—'}</TableCell>
                     <TableCell className="font-mono text-sm">{session.transactionCount ?? 0}</TableCell>
                     <TableCell className="text-right font-mono font-semibold">
                       ${(session.totalSales ?? 0).toLocaleString()}
@@ -215,11 +218,15 @@ export default function SessionsPage() {
                 <p className="text-lg font-bold text-mine-blue-800">${(viewSession.totalSales ?? 0).toLocaleString()}</p>
               </div>
             </div>
-            <div className="bg-slate-50 p-3 rounded-lg">
-              <p className="text-xs text-slate-500">Opened By</p>
-              <p className="text-sm">{viewSession.openedBy || 'Unknown'}</p>
+              <div className="bg-slate-50 p-3 rounded-lg">
+                <p className="text-xs text-slate-500">Opened By</p>
+                <p className="text-sm">{viewSession.openedBy || 'Unknown'}</p>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-lg">
+                <p className="text-xs text-slate-500">Branch</p>
+                <p className="text-sm">{viewSession.branch?.name || '—'}</p>
+              </div>
             </div>
-          </div>
         )}
         <DialogFooter>
           <Button variant="outline" onClick={() => { setViewDialogOpen(false); setViewSession(null); }}>

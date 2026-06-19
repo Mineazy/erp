@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSession, unauthorized, ok } from '@/lib/api';
+import { getSession, unauthorized, ok, getBranchFilter } from '@/lib/api';
 
 export async function GET(request: NextRequest) {
   const session = await getSession();
@@ -12,7 +12,9 @@ export async function GET(request: NextRequest) {
   const dateTo = searchParams.get('dateTo');
   const status = searchParams.get('status');
 
+  const branchFilter = getBranchFilter(session);
   const where: any = {};
+  Object.assign(where, branchFilter);
   if (supplierId) where.supplierId = supplierId;
   if (status) where.status = status;
   if (dateFrom || dateTo) {
@@ -30,19 +32,19 @@ export async function GET(request: NextRequest) {
     by: ['supplierId', 'supplierName'],
     _sum: { balance: true, amount: true },
     _count: { id: true },
-    where: status ? { status } : {},
+    where: { ...(status ? { status } : {}), ...branchFilter },
     orderBy: { supplierName: 'asc' },
   });
 
   const supplierTotals = await prisma.erpAccountPayable.groupBy({
     by: ['supplierId', 'supplierName', 'status'],
     _sum: { balance: true },
-    where: status ? { status } : {},
+    where: { ...(status ? { status } : {}), ...branchFilter },
   });
 
   const overdueSupplierIds = (
     await prisma.erpAccountPayable.findMany({
-      where: { status: 'overdue' },
+      where: { status: 'overdue', ...branchFilter },
       select: { supplierId: true },
       distinct: ['supplierId'],
     })

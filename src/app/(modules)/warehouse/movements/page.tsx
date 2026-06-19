@@ -22,6 +22,7 @@ interface Movement {
   toWarehouseId: string;
   fromWarehouse?: { id: string; name: string };
   toWarehouse?: { id: string; name: string };
+  branch?: { id: string; code: string; name: string } | null;
   createdAt: string;
 }
 
@@ -228,6 +229,7 @@ export default function MovementsPage() {
                 <TableHead className="text-right">Quantity</TableHead>
                 <TableHead>From Warehouse</TableHead>
                 <TableHead>To Warehouse</TableHead>
+                <TableHead>Branch</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -249,6 +251,7 @@ export default function MovementsPage() {
                   <TableCell className="text-xs text-slate-600">
                     {movement.toWarehouse?.name || getWarehouseName(movement.toWarehouseId) || '-'}
                   </TableCell>
+                  <TableCell className="text-xs text-slate-600">{movement.branch?.name || '—'}</TableCell>
                   <TableCell className="text-xs text-slate-600">{new Date(movement.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">

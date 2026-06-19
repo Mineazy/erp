@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSession, unauthorized, ok } from '@/lib/api';
+import { getSession, unauthorized, ok, getBranchFilter } from '@/lib/api';
 
 async function findAccounts() {
   const all = await prisma.erpChartOfAccounts.findMany({
@@ -28,7 +28,9 @@ export async function GET(request: NextRequest) {
   const dateFrom = searchParams.get('dateFrom');
   const dateTo = searchParams.get('dateTo');
 
+  const branchFilter = getBranchFilter(session);
   const where: any = {};
+  Object.assign(where, branchFilter);
   if (supplierId) where.supplierId = supplierId;
   if (dateFrom || dateTo) {
     where.billDate = {};

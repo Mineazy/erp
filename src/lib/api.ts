@@ -70,9 +70,16 @@ export function parseListParams(searchParams: URLSearchParams): ApiListParams {
   return {
     search: searchParams.get('search') || undefined,
     status: searchParams.get('status') || undefined,
-    page: parseInt(searchParams.get('page') || '1'),
-    limit: parseInt(searchParams.get('limit') || '50'),
-    sort: searchParams.get('sort') || 'createdAt',
-    order: (searchParams.get('order') as 'asc' | 'desc') || 'desc',
+    page: parseInt(searchParams.get('page') || '1', 10),
+    limit: parseInt(searchParams.get('limit') || '50', 10),
+    sort: searchParams.get('sort') || undefined,
+    order: (searchParams.get('order') as 'asc' | 'desc') || undefined,
   };
+}
+
+export function getBranchFilter(session: any): { branchId?: string } | undefined {
+  if (!session?.user) return undefined;
+  const u = session.user as any;
+  if (u.role === 'admin') return undefined;
+  return u.branchId ? { branchId: u.branchId } : undefined;
 }

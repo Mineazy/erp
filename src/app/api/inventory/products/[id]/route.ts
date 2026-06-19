@@ -1,13 +1,13 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSession, unauthorized, notFound, ok, getBody } from '@/lib/api';
+import { getSession, unauthorized, notFound, ok, getBody, getBranchFilter } from '@/lib/api';
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const product = await prisma.erpProduct.findUnique({ where: { id: id } });
+  const product = await prisma.erpProduct.findUnique({ where: { id: id }, include: { category: true, branch: true } });
   if (!product) return notFound('Product not found');
 
   return ok(product);
@@ -22,7 +22,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   if (!existing) return notFound('Product not found');
 
   const body = await getBody(request);
-  const { name, description, categoryId, unit, costPrice, sellingPrice, stock, minStock, location, barcode, isActive } = body;
+  const { name, description, categoryId, unit, costPrice, sellingPrice, stock, minStock, location, barcode, isActive, branchId } = body;
 
   const product = await prisma.erpProduct.update({
     where: { id: id },
@@ -37,8 +37,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       ...(minStock !== undefined && { minStock: parseFloat(minStock as string) }),
       ...(location !== undefined && { location: location as string | null }),
       ...(barcode !== undefined && { barcode: barcode as string | null }),
+      ...(branchId !== undefined && { branchId: branchId as string | null }),
       ...(isActive !== undefined && { isActive: isActive as boolean }),
     },
+    include: { category: true, branch: true },
   });
 
   return ok(product);

@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
-import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, X, Printer, RotateCcw, LogOut, LogIn } from 'lucide-react';
+import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, X, Printer, RotateCcw, LogOut, LogIn, Banknote, Landmark, Smartphone } from 'lucide-react';
 
 interface Product {
   id: string;
@@ -19,6 +19,9 @@ interface Product {
   sellingPrice: number;
   stock: number;
   isActive: boolean;
+  categoryId?: string;
+  minStock?: number;
+  barcode?: string;
 }
 
 interface CartItem {
@@ -40,21 +43,26 @@ interface Transaction {
   total: number;
   paymentMethod: string;
   status: string;
+  subtotal: number;
+  taxAmount: number;
+  discount: number;
+  paidAmount: number;
+  changeAmount: number;
+  payments?: { method: string; amount: number; reference?: string }[];
+  lines?: { productName: string; quantity: number; unitPrice: number; total: number }[];
+}
+
+interface PaymentEntry {
+  method: string;
+  amount: string;
+  reference: string;
 }
 
 const paymentMethods = [
-  { value: 'cash', label: 'Cash' },
-  { value: 'card', label: 'Card' },
-  { value: 'mobile_money', label: 'Mobile Money' },
-  { value: 'credit', label: 'Credit' },
-];
-
-const categories = [
-  { value: '', label: 'All Categories' },
-  { value: 'Raw Materials', label: 'Raw Materials' },
-  { value: 'Equipment', label: 'Equipment' },
-  { value: 'Safety Gear', label: 'Safety Gear' },
-  { value: 'Consumables', label: 'Consumables' },
+  { value: 'cash', label: 'Cash', icon: Banknote },
+  { value: 'bank_transfer', label: 'Bank Transfer', icon: Landmark },
+  { value: 'mobile_wallet', label: 'Mobile Wallet', icon: Smartphone },
+  { value: 'credit', label: 'Credit', icon: CreditCard },
 ];
 
 export default function POSTerminalPage() {
@@ -62,11 +70,11 @@ export default function POSTerminalPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
+  const [categories, setCategories] = useState<{ value: string; label: string }[]>([{ value: '', label: 'All Categories' }]);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('cash');
-  const [amountReceived, setAmountReceived] = useState('');
+  const [payments, setPayments] = useState<PaymentEntry[]>([{ method: 'cash', amount: '', reference: '' }]);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
   const [lastTransaction, setLastTransaction] = useState<Transaction | null>(null);
@@ -75,15 +83,14 @@ export default function POSTerminalPage() {
     try {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
-      if (category) params.set('category', category);
       const res = await fetch(`/api/inventory/products?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
-      setProducts(Array.isArray(data) ? data : data.data || []);
+      setProducts(Array.isArray(data) ? data : data.items || data.data || []);
     } catch {
       setProducts([]);
     }
-  }, [search, category]);
+  }, [search]);
 
   const fetchSession = useCallback(async () => {
     try {
@@ -101,6 +108,25 @@ export default function POSTerminalPage() {
   }, [fetchSession]);
 
   useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await fetch('/api/inventory/categories');
+        if (res.ok) {
+          const data = await res.json();
+          const items = Array.isArray(data) ? data : data.data || [];
+          setCategories([
+            { value: '', label: 'All Categories' },
+            ...items.map((c: any) => ({ value: c.id, label: c.name }))
+          ]);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchCategories();
+  }, []);
+
+  useEffect(() => {
     if (session?.status === 'open') {
       setLoading(true);
       fetchProducts().finally(() => setLoading(false));
@@ -108,6 +134,27 @@ export default function POSTerminalPage() {
       setLoading(false);
     }
   }, [session, fetchProducts]);
+
+  // Auto-add product to cart on exact barcode/code match
+  useEffect(() => {
+    if (!search) return;
+    const cleanSearch = search.trim().toLowerCase();
+    const exactMatch = products.find(
+      (p) =>
+        p.isActive &&
+        (p.code.toLowerCase() === cleanSearch ||
+          p.barcode?.toLowerCase() === cleanSearch)
+    );
+    if (exactMatch) {
+      if (Number(exactMatch.stock) > 0) {
+        addToCart(exactMatch);
+        setSearch('');
+        toast(`Added ${exactMatch.name} to cart`, 'success');
+      } else {
+        toast(`${exactMatch.name} is out of stock`, 'warning');
+      }
+    }
+  }, [search, products]);
 
   const openSession = async () => {
     try {
@@ -204,39 +251,95 @@ export default function POSTerminalPage() {
   const filteredProducts = products.filter(
     (p) =>
       p.isActive &&
-      (!search || p.name.toLowerCase().includes(search.toLowerCase()) || p.code.toLowerCase().includes(search.toLowerCase()))
+      (!category || p.categoryId === category) &&
+      (!search ||
+        p.name.toLowerCase().includes(search.toLowerCase()) ||
+        p.code.toLowerCase().includes(search.toLowerCase()) ||
+        p.barcode?.toLowerCase().includes(search.toLowerCase()))
   );
+
+  const getStockStatus = (p: Product) => {
+    const stock = Number(p.stock);
+    const minStock = Number(p.minStock ?? 0);
+    if (stock === 0) {
+      return {
+        bg: 'bg-red-50/50 hover:bg-red-50',
+        border: 'border-red-200 hover:border-red-400',
+        text: 'text-red-800',
+        stockText: 'text-red-600 font-bold',
+        badge: 'bg-red-100 text-red-800 border-red-200'
+      };
+    }
+    if (stock <= minStock) {
+      return {
+        bg: 'bg-amber-50/50 hover:bg-amber-50',
+        border: 'border-amber-200 hover:border-amber-400',
+        text: 'text-amber-800',
+        stockText: 'text-amber-600 font-bold',
+        badge: 'bg-amber-100 text-amber-800 border-amber-200'
+      };
+    }
+    return {
+      bg: 'bg-emerald-50/20 hover:bg-emerald-50/45',
+      border: 'border-emerald-200 hover:border-emerald-400',
+      text: 'text-emerald-800',
+      stockText: 'text-emerald-600 font-medium',
+      badge: 'bg-emerald-100 text-emerald-800 border-emerald-200'
+    };
+  };
+
+  const totalPaid = payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+  const changeDue = Math.max(0, totalPaid - total);
+  const remaining = Math.max(0, total - totalPaid);
 
   const handlePayment = async () => {
     if (cart.length === 0 || !session) return;
+    const validPayments = payments.filter(p => parseFloat(p.amount) > 0);
+    if (validPayments.length === 0) { toast('Enter at least one payment', 'error'); return; }
+    if (totalPaid < total) { toast('Total payment must cover the full amount', 'error'); return; }
     setProcessingPayment(true);
     try {
-      const res = await fetch('/api/pos/transactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: session.id,
-          items: cart.map((item) => ({
-            productId: item.product.id,
-            quantity: item.quantity,
-            unitPrice: item.product.sellingPrice,
-          })),
-          subtotal,
-          tax,
-          discount,
-          total,
-          paymentMethod,
-          amountReceived: parseFloat(amountReceived) || total,
-        }),
-      });
+      const tid = toast('Processing payment...', 'info', 120000);
+      let res;
+      try {
+        res = await fetch('/api/pos/transactions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: session.id,
+            lines: cart.map((item) => ({
+              productId: item.product.id,
+              productName: item.product.name,
+              quantity: item.quantity,
+              unitPrice: item.product.sellingPrice,
+            })),
+            subtotal,
+            taxAmount: tax,
+            discount,
+            payments: validPayments.map(p => ({
+              method: p.method,
+              amount: parseFloat(p.amount),
+              reference: p.reference || undefined,
+            })),
+          }),
+        });
+      } catch (e) { dismissToast(tid); throw e; }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        dismissToast(tid);
+        toast(err.error || 'Payment failed', 'error');
+        return;
+      }
       const data = await res.json();
+      dismissToast(tid);
+      toast('Payment successful', 'success');
       setLastTransaction(data.data || data);
       setPaymentDialogOpen(false);
       setReceiptDialogOpen(true);
       setCart([]);
-      setAmountReceived('');
+      setPayments([{ method: 'cash', amount: '', reference: '' }]);
     } catch {
-      // ignore
+      toast('Network error. Please try again.', 'error');
     } finally {
       setProcessingPayment(false);
     }
@@ -293,22 +396,22 @@ export default function POSTerminalPage() {
           {/* Left panel: Products */}
           <div className="flex-1 flex flex-col min-h-0">
             <Card className="flex-shrink-0 mb-4">
-              <CardContent className="p-3 flex items-center gap-3">
+              <CardContent className="p-4 flex items-center gap-4">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Search products..."
+                    placeholder="Search products by name, code, or scan barcode..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-mine-blue-500 w-full"
+                    className="pl-12 pr-4 py-3 h-12 text-base border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-mine-blue-500 w-full shadow-sm"
                   />
                 </div>
                 <Select
                   options={categories}
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="w-44"
+                  className="h-12 text-base rounded-xl w-48 shadow-sm"
                 />
               </CardContent>
             </Card>
@@ -324,24 +427,36 @@ export default function POSTerminalPage() {
                     No products found
                   </div>
                 ) : (
-                  filteredProducts.map((product) => (
-                    <button
-                      key={product.id}
-                      onClick={() => addToCart(product)}
-                      disabled={product.stock === 0}
-                      className="text-left p-3 rounded-lg border border-slate-200 bg-white hover:border-mine-blue-400 hover:shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      <p className="font-medium text-sm text-slate-900 truncate">{product.name}</p>
-                      <p className="text-xs text-slate-400 font-mono mt-0.5">{product.code}</p>
-                      <p className="text-sm font-bold text-mine-blue-800 mt-2">
-                        ${product.sellingPrice.toLocaleString()}
-                        <span className="font-normal text-xs text-slate-400 ml-1">/{product.unit}</span>
-                      </p>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Stock: {product.stock}
-                      </p>
-                    </button>
-                  ))
+                  filteredProducts.map((product) => {
+                    const status = getStockStatus(product);
+                    return (
+                      <button
+                        key={product.id}
+                        onClick={() => addToCart(product)}
+                        disabled={product.stock === 0}
+                        className={`text-left p-3 rounded-lg border ${status.border} ${status.bg} transition-all disabled:opacity-60 disabled:cursor-not-allowed`}
+                      >
+                        <div className="flex justify-between items-start gap-1">
+                          <p className="font-semibold text-sm text-slate-900 truncate flex-1">{product.name}</p>
+                          {product.stock === 0 ? (
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${status.badge}`}>OUT</span>
+                          ) : product.stock <= (product.minStock ?? 0) ? (
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${status.badge}`}>LOW</span>
+                          ) : (
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${status.badge}`}>OK</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-400 font-mono mt-0.5">{product.code}</p>
+                        <p className="text-sm font-bold text-mine-blue-800 mt-2">
+                          ${Number(product.sellingPrice).toLocaleString()}
+                          <span className="font-normal text-xs text-slate-400 ml-1">/{product.unit}</span>
+                        </p>
+                        <p className={`text-xs mt-1 ${status.stockText}`}>
+                          Stock: {product.stock}
+                        </p>
+                      </button>
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -459,7 +574,7 @@ export default function POSTerminalPage() {
       {/* Payment Dialog */}
       <Dialog
         open={paymentDialogOpen}
-        onClose={() => setPaymentDialogOpen(false)}
+        onClose={() => { setPaymentDialogOpen(false); setPayments([{ method: 'cash', amount: '', reference: '' }]); }}
         title="Complete Payment"
         description={`Total amount: $${total.toLocaleString()}`}
         size="md"
@@ -468,33 +583,104 @@ export default function POSTerminalPage() {
           <div className="bg-slate-50 rounded-lg p-4 text-center">
             <p className="text-3xl font-bold text-slate-900 font-mono">${total.toLocaleString()}</p>
             <p className="text-sm text-slate-500 mt-1">Total Due</p>
+            {remaining > 0 && (
+              <p className="text-sm font-medium text-amber-600 mt-1">Remaining: ${remaining.toFixed(2)}</p>
+            )}
           </div>
-          <Select
-            label="Payment Method"
-            options={paymentMethods}
-            value={paymentMethod}
-            onChange={(e) => setPaymentMethod(e.target.value)}
-          />
-          <Input
-            label="Amount Received"
-            type="number"
-            step="0.01"
-            value={amountReceived}
-            onChange={(e) => setAmountReceived(e.target.value)}
-            placeholder={`${total}`}
-          />
-          {amountReceived && parseFloat(amountReceived) >= total && (
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-slate-700">Payment Split</label>
+              <button
+                onClick={() => setPayments([...payments, { method: 'cash', amount: '', reference: '' }])}
+                className="text-xs text-mine-blue-800 hover:text-mine-blue-600 flex items-center gap-1"
+              >
+                <Plus className="h-3 w-3" />
+                Add Payment
+              </button>
+            </div>
+
+            {payments.map((p, i) => {
+              const PmIcon = paymentMethods.find(m => m.value === p.method)?.icon || Banknote;
+              return (
+                <div key={i} className="flex items-start gap-2 p-3 rounded-lg border border-slate-200 bg-white">
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <PmIcon className="h-4 w-4 text-slate-500" />
+                      <select
+                        value={p.method}
+                        onChange={(e) => {
+                          const newP = [...payments];
+                          newP[i] = { ...newP[i], method: e.target.value };
+                          setPayments(newP);
+                        }}
+                        className="flex-1 text-sm border border-slate-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-mine-blue-500"
+                      >
+                        {paymentMethods.map(m => (
+                          <option key={m.value} value={m.value}>{m.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="Amount"
+                        value={p.amount}
+                        onChange={(e) => {
+                          const newP = [...payments];
+                          newP[i] = { ...newP[i], amount: e.target.value };
+                          setPayments(newP);
+                        }}
+                        className="flex-1 text-sm border border-slate-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-mine-blue-500 font-mono"
+                      />
+                      {(p.method === 'bank_transfer' || p.method === 'mobile_wallet') && (
+                        <input
+                          type="text"
+                          placeholder="Reference"
+                          value={p.reference}
+                          onChange={(e) => {
+                            const newP = [...payments];
+                            newP[i] = { ...newP[i], reference: e.target.value };
+                            setPayments(newP);
+                          }}
+                          className="flex-1 text-sm border border-slate-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-mine-blue-500"
+                        />
+                      )}
+                    </div>
+                  </div>
+                  {payments.length > 1 && (
+                    <button
+                      onClick={() => setPayments(payments.filter((_, j) => j !== i))}
+                      className="p-1 rounded hover:bg-red-50 text-red-400 mt-1"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex justify-between text-sm font-medium">
+            <span>Total Paid</span>
+            <span className={`font-mono ${totalPaid >= total ? 'text-green-600' : 'text-amber-600'}`}>
+              ${totalPaid.toFixed(2)}
+            </span>
+          </div>
+          {changeDue > 0 && (
             <div className="flex justify-between text-sm font-medium text-green-600 bg-green-50 rounded-lg p-3">
-              <span>Change Due</span>
-              <span className="font-mono font-bold">${(parseFloat(amountReceived) - total).toFixed(2)}</span>
+              <span>Change Due (Cash)</span>
+              <span className="font-mono font-bold">${changeDue.toFixed(2)}</span>
             </div>
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
+          <Button variant="outline" onClick={() => { setPaymentDialogOpen(false); setPayments([{ method: 'cash', amount: '', reference: '' }]); }}>
             Cancel
           </Button>
-          <Button onClick={handlePayment} loading={processingPayment} disabled={!amountReceived || isNaN(parseFloat(amountReceived)) || parseFloat(amountReceived) < total}>
+          <Button onClick={handlePayment} loading={processingPayment} disabled={totalPaid < total}>
             Complete Payment
           </Button>
         </DialogFooter>
@@ -506,21 +692,74 @@ export default function POSTerminalPage() {
         onClose={() => setReceiptDialogOpen(false)}
         title="Payment Successful"
         description="Transaction completed"
-        size="sm"
+        size="md"
       >
-        <div className="text-center space-y-4">
-          <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-green-100 text-green-600 mx-auto">
-            <CreditCard className="h-8 w-8" />
+        <div className="space-y-4">
+          <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-green-100 text-green-600 mx-auto">
+            <CreditCard className="h-6 w-6" />
           </div>
           {lastTransaction && (
-            <div>
+            <div className="text-center">
               <p className="text-sm text-slate-500">Transaction #</p>
               <p className="text-lg font-bold font-mono">{lastTransaction.transactionNumber}</p>
             </div>
           )}
-          <div className="bg-slate-50 rounded-lg p-3">
-            <p className="text-2xl font-bold text-slate-900 font-mono">${(lastTransaction?.total ?? 0).toLocaleString()}</p>
-            <p className="text-sm text-slate-500">Paid via {paymentMethods.find((m) => m.value === paymentMethod)?.label}</p>
+
+          <div className="bg-slate-50 rounded-lg p-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-500">Subtotal</span>
+              <span className="font-mono">${Number(lastTransaction?.subtotal ?? 0).toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-500">Tax</span>
+              <span className="font-mono">${Number(lastTransaction?.taxAmount ?? 0).toLocaleString()}</span>
+            </div>
+            {Number(lastTransaction?.discount ?? 0) > 0 && (
+              <div className="flex justify-between text-sm text-green-600">
+                <span>Discount</span>
+                <span className="font-mono">-${Number(lastTransaction?.discount ?? 0).toLocaleString()}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-base font-bold text-slate-900 pt-2 border-t border-slate-200">
+              <span>Total</span>
+              <span className="font-mono">${Number(lastTransaction?.total ?? 0).toLocaleString()}</span>
+            </div>
+          </div>
+
+          <div className="bg-green-50 rounded-lg p-3 space-y-1.5">
+            <p className="text-xs font-medium text-green-700 mb-1">Payment Breakdown</p>
+            {(lastTransaction?.payments ?? []).length > 0 ? (
+              lastTransaction!.payments!.map((pm, i) => {
+                const pmLabel = paymentMethods.find(m => m.value === pm.method)?.label || pm.method;
+                const PmIcon = paymentMethods.find(m => m.value === pm.method)?.icon || Banknote;
+                return (
+                  <div key={i} className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-1.5 text-green-700">
+                      <PmIcon className="h-3.5 w-3.5" />
+                      {pmLabel}
+                      {pm.reference && <span className="text-xs text-green-500">({pm.reference})</span>}
+                    </span>
+                    <span className="font-mono font-medium text-green-800">${Number(pm.amount).toFixed(2)}</span>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="flex justify-between text-sm">
+                <span className="text-green-700 capitalize">{lastTransaction?.paymentMethod?.replace(/_/g, ' ')}</span>
+                <span className="font-mono font-medium text-green-800">${Number(lastTransaction?.paidAmount ?? 0).toFixed(2)}</span>
+              </div>
+            )}
+            {Number(lastTransaction?.changeAmount ?? 0) > 0 && (
+              <div className="flex justify-between text-sm text-amber-700 pt-1.5 border-t border-green-200">
+                <span>Change</span>
+                <span className="font-mono">-${Number(lastTransaction?.changeAmount ?? 0).toFixed(2)}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="text-center text-xs text-slate-400 space-y-0.5">
+            <p>Thank you for your purchase!</p>
+            <p>{new Date().toLocaleString()}</p>
           </div>
         </div>
         <DialogFooter>
@@ -528,7 +767,7 @@ export default function POSTerminalPage() {
             <X className="h-4 w-4 mr-2" />
             Close
           </Button>
-          <Button variant="secondary" onClick={() => setReceiptDialogOpen(false)}>
+          <Button variant="secondary" onClick={() => window.print()}>
             <Printer className="h-4 w-4 mr-2" />
             Print Receipt
           </Button>

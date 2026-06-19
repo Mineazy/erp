@@ -18,6 +18,7 @@ export const authOptions: NextAuthOptions = {
 
         const user = await prisma.erpUser.findUnique({
           where: { email: credentials.email },
+          include: { branch: true },
         });
 
         if (!user || !user.isActive) {
@@ -35,6 +36,8 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role,
+          branchId: user.branchId,
+          branchName: user.branch?.name || null,
         };
       },
     }),
@@ -42,15 +45,20 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
-        token.role = (user as unknown as { role: string }).role;
+        const u = user as any;
+        token.id = u.id;
+        token.role = u.role;
+        token.branchId = u.branchId || null;
+        token.branchName = u.branchName || null;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        (session.user as { id: string }).id = token.id as string;
-        (session.user as { role: string }).role = token.role as string;
+        (session.user as any).id = token.id;
+        (session.user as any).role = token.role;
+        (session.user as any).branchId = token.branchId || null;
+        (session.user as any).branchName = token.branchName || null;
       }
       return session;
     },

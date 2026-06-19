@@ -20,6 +20,7 @@ interface SalesOrder {
   status: string;
   total: number;
   currency: string;
+  branch?: { id: string; code: string; name: string } | null;
   lines?: { productName: string; quantity: number; unitPrice: number; total: number }[];
 }
 
@@ -173,6 +174,7 @@ export default function SalesOrdersPage() {
                 <TableHead>Order #</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead>Date</TableHead>
+                <TableHead>Branch</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -184,6 +186,7 @@ export default function SalesOrdersPage() {
                   <TableCell className="font-mono text-sm font-medium">{order.orderNumber}</TableCell>
                   <TableCell>{order.customerName}</TableCell>
                   <TableCell>{order.orderDate}</TableCell>
+                  <TableCell className="text-xs text-slate-600">{order.branch?.name || '—'}</TableCell>
                   <TableCell className="text-right font-mono font-semibold">${order.total.toLocaleString()}</TableCell>
                   <TableCell>
                     <Badge variant={statusVariant[order.status]}>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</Badge>

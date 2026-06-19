@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSession, unauthorized, badRequest, ok, created, getBody, getNextSequence } from '@/lib/api';
+import { getSession, unauthorized, badRequest, ok, created, getBody, getNextSequence, getBranchFilter } from '@/lib/api';
 
 export async function GET(request: NextRequest) {
   const session = await getSession();
@@ -11,7 +11,9 @@ export async function GET(request: NextRequest) {
   const status = searchParams.get('status');
   const period = searchParams.get('period');
 
+  const branchFilter = getBranchFilter(session);
   const where: any = {};
+  Object.assign(where, branchFilter);
   if (search) {
     where.OR = [
       { description: { contains: search } },
@@ -63,6 +65,7 @@ export async function POST(request: NextRequest) {
       description: description as string,
       entryDate: entryDateObj,
       period: entryPeriod,
+      branchId: (session.user as any)?.branchId || null,
       lines: { create: lineData },
     },
     include: { lines: { include: { account: true } } },

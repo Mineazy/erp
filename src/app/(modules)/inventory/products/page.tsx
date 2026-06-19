@@ -10,13 +10,14 @@ import { Select } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
-import { Package, Plus, Search, Edit2, Trash2, AlertTriangle } from 'lucide-react';
+import { Package, Plus, Search, Edit2, Trash2, AlertTriangle, Upload, Download } from 'lucide-react';
 
 interface Product {
   id: string;
   code: string;
   name: string;
-  category?: { id: string; name: string };
+  category?: { id: string; name: string } | null;
+  branch?: { id: string; code: string; name: string } | null;
   unit: string;
   costPrice: number;
   sellingPrice: number;
@@ -30,11 +31,12 @@ interface ProductCategory {
   name: string;
 }
 
-const emptyForm = { code: '', name: '', categoryId: '', unit: '', costPrice: 0, sellingPrice: 0, stock: 0, minStock: 0, location: '' };
+const emptyForm = { code: '', name: '', categoryId: '', unit: '', costPrice: 0, sellingPrice: 0, stock: 0, minStock: 0, location: '', branchId: '' };
 
 export default function ProductsPage() {
   const [data, setData] = useState<Product[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [branches, setBranches] = useState<{ id: string; code: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -72,6 +74,18 @@ export default function ProductsPage() {
   useEffect(() => { fetchData(); }, [search]);
   useEffect(() => { fetchCategories(); }, []);
 
+  const fetchBranches = async () => {
+    try {
+      const res = await fetch('/api/admin/branches');
+      if (res.ok) {
+        const json = await res.json();
+        setBranches(json.data || json);
+      }
+    } catch (_) {}
+  };
+
+  useEffect(() => { fetchBranches(); }, []);
+
   const lowStock = data.filter((p) => p.isActive && p.stock <= p.minStock);
   const outOfStock = data.filter((p) => !p.isActive || p.stock === 0);
 
@@ -83,7 +97,7 @@ export default function ProductsPage() {
 
   const openEdit = (product: Product) => {
     setEditingProduct(product);
-    setForm({ code: product.code, name: product.name, categoryId: product.category?.id || '', unit: product.unit, costPrice: product.costPrice, sellingPrice: product.sellingPrice, stock: product.stock, minStock: product.minStock, location: (product as any).location || '' });
+    setForm({ code: product.code, name: product.name, categoryId: product.category?.id || '', unit: product.unit, costPrice: product.costPrice, sellingPrice: product.sellingPrice, stock: product.stock, minStock: product.minStock, location: (product as any).location || '', branchId: product.branch?.id || '' });
     setDialogOpen(true);
   };
 
@@ -148,6 +162,52 @@ export default function ProductsPage() {
     }
   };
 
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResults, setImportResults] = useState<{ row: number; status: string; product?: any; error?: string }[] | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const downloadTemplate = async () => {
+    try {
+      const res = await fetch('/api/inventory/import');
+      if (!res.ok) { toast('Failed to download template', 'error'); return; }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'product_import_template.xlsx';
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      toast('Network error', 'error');
+    }
+  };
+
+  const handleImport = async () => {
+    if (!selectedFile) { toast('Please select a file', 'error'); return; }
+    setImporting(true);
+    setImportResults(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', selectedFile);
+      const res = await fetch('/api/inventory/import', { method: 'POST', body: fd });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast(err.error || 'Import failed', 'error');
+        return;
+      }
+      const json = await res.json();
+      const data = json.data || json;
+      setImportResults(data.results || []);
+      toast(`${data.successCount || 0} products imported, ${data.errorCount || 0} errors`, data.errorCount > 0 ? 'warning' : 'success');
+      if (data.successCount > 0) fetchData();
+    } catch {
+      toast('Import failed. Please try again.', 'error');
+    } finally {
+      setImporting(false);
+    }
+  };
+
   if (loading) return <div className="p-6 text-slate-500">Loading...</div>;
 
   return (
@@ -157,10 +217,20 @@ export default function ProductsPage() {
           <h2 className="text-2xl font-bold text-slate-900">Products</h2>
           <p className="text-slate-500 mt-1">Manage your product catalog and inventory</p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Product
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={downloadTemplate}>
+            <Download className="h-4 w-4 mr-2" />
+            Template
+          </Button>
+          <Button variant="outline" onClick={() => { setImportDialogOpen(true); setSelectedFile(null); setImportResults(null); }}>
+            <Upload className="h-4 w-4 mr-2" />
+            Import
+          </Button>
+          <Button onClick={openCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Product
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -213,6 +283,7 @@ export default function ProductsPage() {
                 <TableHead>Code</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Category</TableHead>
+                <TableHead>Branch</TableHead>
                 <TableHead>Unit</TableHead>
                 <TableHead className="text-right">Cost Price</TableHead>
                 <TableHead className="text-right">Selling Price</TableHead>
@@ -227,6 +298,7 @@ export default function ProductsPage() {
                   <TableCell className="font-mono text-xs font-medium">{product.code}</TableCell>
                   <TableCell className="font-medium">{product.name}</TableCell>
                   <TableCell>{product.category?.name || '—'}</TableCell>
+                  <TableCell className="text-xs text-slate-600">{product.branch?.name || '—'}</TableCell>
                   <TableCell>{product.unit}</TableCell>
                   <TableCell className="text-right font-mono">${product.costPrice.toLocaleString()}</TableCell>
                   <TableCell className="text-right font-mono">${product.sellingPrice.toLocaleString()}</TableCell>
@@ -279,11 +351,65 @@ export default function ProductsPage() {
             <Input label="Current Stock" type="number" step="0.01" value={form.stock} onChange={(e) => setForm({ ...form, stock: parseFloat(e.target.value) || 0 })} />
             <Input label="Min Stock Level" type="number" step="0.01" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: parseFloat(e.target.value) || 0 })} />
           </div>
-          <Input label="Location / Warehouse" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="e.g. Warehouse A, Rack 12" />
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Current Stock" type="number" step="0.01" value={form.stock} onChange={(e) => setForm({ ...form, stock: parseFloat(e.target.value) || 0 })} />
+            <Input label="Min Stock Level" type="number" step="0.01" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: parseFloat(e.target.value) || 0 })} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Location / Warehouse" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="e.g. Warehouse A, Rack 12" />
+            <Select label="Branch" options={[{ value: '', label: '— No Branch —' }, ...branches.map(b => ({ value: b.id, label: b.name }))]} value={form.branchId} onChange={(e) => setForm({ ...form, branchId: e.target.value })} />
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => { setDialogOpen(false); setEditingProduct(null); }}>Cancel</Button>
           <Button onClick={handleSave}>{editingProduct ? 'Update' : 'Create'}</Button>
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog open={importDialogOpen} onClose={() => { setImportDialogOpen(false); setImportResults(null); }} title="Import Products" size="lg">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600">
+            Upload an .xlsx file with product data. <button onClick={downloadTemplate} className="text-mine-blue-800 underline hover:text-mine-blue-600">Download template</button> for the required format.
+          </p>
+          <label className="block">
+            <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-mine-blue-400 cursor-pointer">
+              {selectedFile ? (
+                <div className="space-y-1">
+                  <Upload className="h-8 w-8 text-mine-blue-800 mx-auto" />
+                  <p className="text-sm font-medium text-slate-700">{selectedFile.name}</p>
+                  <p className="text-xs text-slate-400">{(selectedFile.size / 1024).toFixed(0)} KB</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <Upload className="h-8 w-8 text-slate-400 mx-auto" />
+                  <p className="text-sm text-slate-500">Click to select an .xlsx file</p>
+                  <p className="text-xs text-slate-400">or drag and drop</p>
+                </div>
+              )}
+              <input type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
+            </div>
+          </label>
+
+          {importResults && (
+            <div>
+              <h4 className="text-sm font-semibold text-slate-700 mb-2">Import Results</h4>
+              <div className="max-h-48 overflow-y-auto space-y-1">
+                {importResults.map((r, i) => (
+                  <div key={i} className={`text-xs px-3 py-1.5 rounded flex items-center gap-2 ${r.status === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                    <span className="font-mono text-slate-400">Row {r.row}</span>
+                    <span className="font-medium">{r.status === 'success' ? `${r.product?.code} — ${r.product?.name}` : r.error}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { setImportDialogOpen(false); setImportResults(null); setSelectedFile(null); }}>Close</Button>
+          <Button onClick={handleImport} loading={importing} disabled={!selectedFile}>
+            <Upload className="h-4 w-4 mr-2" />
+            Import
+          </Button>
         </DialogFooter>
       </Dialog>
     </div>

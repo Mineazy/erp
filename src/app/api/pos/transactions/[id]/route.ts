@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSession, unauthorized, notFound, badRequest, ok, getBody } from '@/lib/api';
+import { getSession, unauthorized, notFound, badRequest, ok, getBody, getNextSequence } from '@/lib/api';
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -55,11 +55,25 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
   if (!existing) return notFound('Transaction not found');
   if (existing.session.status !== 'open') return badRequest('Session is closed, cannot delete transaction');
 
-  // Restore stock for voided transaction
+  const userEmail = (session.user as any)?.email || 'unknown';
+
   for (const line of existing.lines) {
     await prisma.erpProduct.update({
       where: { id: line.productId },
       data: { stock: { increment: line.quantity } },
+    });
+    const movementNo = await getNextSequence(prisma, 'erpStockMovement', 'movementNo', 'MOV');
+    await prisma.erpStockMovement.create({
+      data: {
+        movementNo,
+        type: 'in',
+        productId: line.productId,
+        productName: line.productName,
+        quantity: line.quantity,
+        referenceType: 'pos_void',
+        referenceId: id,
+        userId: userEmail,
+      },
     });
   }
 

@@ -18,7 +18,7 @@ interface HeaderProps {
 
 export function Header({ collapsed, onToggleSidebar }: HeaderProps) {
   const { data: session } = useSession();
-  const user = session?.user as { id?: string; name?: string; email?: string; role?: string; department?: string } | undefined;
+  const user = session?.user as { id?: string; name?: string; email?: string; role?: string; department?: string; branchId?: string; branchName?: string } | undefined;
 
   const [profileOpen, setProfileOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
@@ -92,7 +92,7 @@ export function Header({ collapsed, onToggleSidebar }: HeaderProps) {
               <div className="flex items-center gap-3 cursor-pointer hover:bg-slate-50 rounded-lg p-2 transition-colors">
                 <div className="text-right hidden sm:block">
                   <p className="text-sm font-medium text-slate-900">{user?.name || 'User'}</p>
-                  <p className="text-xs text-slate-500 capitalize">{user?.role || 'User'}</p>
+                  <p className="text-xs text-slate-500 capitalize">{user?.role || 'User'}{user?.branchName ? ` · ${user.branchName}` : ''}</p>
                 </div>
                 <Avatar name={user?.name || 'User'} size="sm" />
               </div>
@@ -135,6 +135,10 @@ export function Header({ collapsed, onToggleSidebar }: HeaderProps) {
             <div className="flex items-center gap-3 text-sm">
               <Building className="h-4 w-4 text-slate-400" />
               <span className="text-slate-600">Department: {user?.department || '—'}</span>
+            </div>
+            <div className="flex items-center gap-3 text-sm">
+              <Building className="h-4 w-4 text-slate-400" />
+              <span className="text-slate-600">Branch: {user?.branchName || '—'}</span>
             </div>
           </div>
         </div>

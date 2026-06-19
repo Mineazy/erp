@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSession, unauthorized, badRequest, created, ok, getBody, getNextSequence, parseListParams } from '@/lib/api';
+import { getSession, unauthorized, badRequest, created, ok, getBody, getNextSequence, parseListParams, getBranchFilter } from '@/lib/api';
 
 export async function GET(request: NextRequest) {
   const session = await getSession();
@@ -13,7 +13,9 @@ export async function GET(request: NextRequest) {
   const order = sp.order || 'desc';
   const page = sp.page || 1;
   const limit = sp.limit || 50;
+  const branchFilter = getBranchFilter(session);
   const where: Record<string, unknown> = {};
+  Object.assign(where, branchFilter);
   if (search) {
     where.OR = [
       { orderNumber: { contains: search } },
@@ -32,7 +34,7 @@ export async function GET(request: NextRequest) {
       orderBy: orderBy as any,
       skip: (page - 1) * limit,
       take: limit,
-      include: { lines: true },
+      include: { lines: true, branch: { select: { id: true, code: true, name: true } } },
     }),
     prisma.erpSalesOrder.count({ where }),
   ]);
@@ -79,9 +81,10 @@ export async function POST(request: NextRequest) {
       discount: disc,
       total,
       notes: notes as string | undefined,
+      branchId: (session.user as any)?.branchId || null,
       lines: lineData.length ? { create: lineData } : undefined,
     },
-    include: { lines: true },
+    include: { lines: true, branch: { select: { id: true, code: true, name: true } } },
   });
 
   return created(order);

@@ -13,12 +13,20 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
 import { Users, Plus, Search, Edit2, Trash2, Shield, UserCog, UserCheck, User } from 'lucide-react';
 
+interface Branch {
+  id: string;
+  code: string;
+  name: string;
+}
+
 interface AppUser {
   id: string;
   name: string;
   email: string;
   role: string;
   department: string;
+  branchId: string | null;
+  branch?: Branch | null;
   mfaEnabled: boolean;
   isActive: boolean;
   lastLogin: string;
@@ -31,7 +39,7 @@ const roles = [
   { value: 'user', label: 'User' },
 ];
 
-const emptyForm = { name: '', email: '', password: '', role: 'user', department: '', isActive: true };
+const emptyForm = { name: '', email: '', password: '', role: 'user', department: '', branchId: '', isActive: true };
 
 export default function UsersPage() {
   const [data, setData] = useState<AppUser[]>([]);
@@ -40,6 +48,19 @@ export default function UsersPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [branches, setBranches] = useState<Branch[]>([]);
+
+  const fetchBranches = async () => {
+    try {
+      const res = await fetch('/api/admin/branches');
+      if (res.ok) {
+        const json = await res.json();
+        setBranches(json.data || json);
+      }
+    } catch (_) {}
+  };
+
+  useEffect(() => { fetchBranches(); }, []);
 
   const fetchData = async () => {
     try {
@@ -67,13 +88,13 @@ export default function UsersPage() {
 
   const openEdit = (user: AppUser) => {
     setEditingUser(user);
-    setForm({ name: user.name, email: user.email, password: '', role: user.role, department: user.department, isActive: user.isActive });
+    setForm({ name: user.name, email: user.email, password: '', role: user.role, department: user.department, branchId: user.branchId || '', isActive: user.isActive });
     setDialogOpen(true);
   };
 
   const handleSave = async () => {
     try {
-      const body: any = { name: form.name, email: form.email, role: form.role, department: form.department, isActive: form.isActive };
+      const body: any = { name: form.name, email: form.email, role: form.role, department: form.department, branchId: form.branchId || null, isActive: form.isActive };
       if (!editingUser && form.password) body.password = form.password;
       if (editingUser && form.password) body.password = form.password;
 
@@ -213,6 +234,7 @@ export default function UsersPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>Branch</TableHead>
                 <TableHead>Department</TableHead>
                 <TableHead>MFA</TableHead>
                 <TableHead>Status</TableHead>
@@ -222,16 +244,17 @@ export default function UsersPage() {
             </TableHeader>
             <TableBody>
               {data.map((user) => (
-                <TableRow key={user.id} className={!user.isActive ? 'opacity-60' : ''}>
-                  <TableCell className="font-medium">{user.name}</TableCell>
-                  <TableCell className="text-xs text-slate-600">{user.email}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1.5">
-                      {roleIcon(user.role)}
-                      <span className="text-xs capitalize">{user.role}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-xs text-slate-600">{user.department || '-'}</TableCell>
+                  <TableRow key={user.id} className={!user.isActive ? 'opacity-60' : ''}>
+                    <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell className="text-xs text-slate-600">{user.email}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        {roleIcon(user.role)}
+                        <span className="text-xs capitalize">{user.role}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-xs text-slate-600">{user.branch?.name || '-'}</TableCell>
+                    <TableCell className="text-xs text-slate-600">{user.department || '-'}</TableCell>
                   <TableCell>
                     <Badge variant={user.mfaEnabled ? 'success' : 'secondary'}>{user.mfaEnabled ? 'Enabled' : 'Disabled'}</Badge>
                   </TableCell>
@@ -263,6 +286,7 @@ export default function UsersPage() {
             <Select label="Role" options={roles} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} />
           </div>
           <div className="grid grid-cols-2 gap-4">
+            <Select label="Branch" options={[{ value: '', label: '— No Branch —' }, ...branches.map(b => ({ value: b.id, label: b.name }))]} value={form.branchId} onChange={(e) => setForm({ ...form, branchId: e.target.value })} />
             <Input label="Department" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} placeholder="e.g. Finance" />
           </div>
           <Checkbox label="Active" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} />

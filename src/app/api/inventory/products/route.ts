@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSession, unauthorized, badRequest, created, ok, getBody, getNextSequence, parseListParams } from '@/lib/api';
+import { getSession, unauthorized, badRequest, created, ok, getBody, getNextSequence, parseListParams, getBranchFilter } from '@/lib/api';
 
 export async function GET(request: NextRequest) {
   const session = await getSession();
@@ -12,7 +12,9 @@ export async function GET(request: NextRequest) {
   const order = sp.order || 'desc';
   const page = sp.page || 1;
   const limit = sp.limit || 50;
+  const branchFilter = getBranchFilter(session);
   const where: Record<string, unknown> = {};
+  Object.assign(where, branchFilter);
   if (search) {
     where.OR = [
       { name: { contains: search } },
@@ -27,7 +29,7 @@ export async function GET(request: NextRequest) {
   const [items, total] = await Promise.all([
     prisma.erpProduct.findMany({
       where,
-      include: { category: true },
+      include: { category: true, branch: true },
       orderBy: orderBy as any,
       skip: (page - 1) * limit,
       take: limit,
@@ -61,6 +63,7 @@ export async function POST(request: NextRequest) {
       minStock: parseFloat(minStock as string) || 0,
       location: location as string | undefined,
       barcode: barcode as string | undefined,
+      branchId: (session.user as any)?.branchId || null,
     },
   });
 

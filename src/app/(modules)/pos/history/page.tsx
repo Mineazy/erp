@@ -25,6 +25,7 @@ interface Transaction {
   change: number;
   status: string;
   createdAt: string;
+  branch?: { id: string; code: string; name: string } | null;
 }
 
 const paymentMethodLabels: Record<string, string> = {
@@ -170,6 +171,7 @@ export default function TransactionHistoryPage() {
                 <TableHead>Customer</TableHead>
                 <TableHead>Items</TableHead>
                 <TableHead>Payment Method</TableHead>
+                <TableHead>Branch</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -178,13 +180,13 @@ export default function TransactionHistoryPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-12 text-slate-400">
+                  <TableCell colSpan={9} className="text-center py-12 text-slate-400">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : transactions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-12 text-slate-400">
+                  <TableCell colSpan={9} className="text-center py-12 text-slate-400">
                     No transactions found
                   </TableCell>
                 </TableRow>
@@ -200,6 +202,7 @@ export default function TransactionHistoryPage() {
                         {paymentMethodLabels[tx.paymentMethod] || tx.paymentMethod}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-xs text-slate-600">{tx.branch?.name || '—'}</TableCell>
                     <TableCell className="text-right font-mono font-semibold">
                       ${(tx.total ?? 0).toLocaleString()}
                     </TableCell>
@@ -262,6 +265,11 @@ export default function TransactionHistoryPage() {
                   {viewTransaction.status ? viewTransaction.status.charAt(0).toUpperCase() + viewTransaction.status.slice(1) : 'Completed'}
                 </Badge>
               </div>
+            </div>
+
+            <div className="bg-slate-50 p-3 rounded-lg">
+              <p className="text-xs text-slate-500">Branch</p>
+              <p className="text-sm font-medium">{viewTransaction.branch?.name || '—'}</p>
             </div>
 
             <div className="border rounded-lg overflow-hidden">

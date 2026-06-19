@@ -11,6 +11,7 @@ import {
   Package, ShoppingCart, Truck, Users, Building2, ChevronDown, ChevronRight,
   LucideIcon, Target, Percent, ClipboardList, Warehouse, ArrowLeftRight,
   ClipboardCheck, Wrench, QrCode, BarChart3, Shield, Settings, FolderTree,
+  RotateCcw,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -18,6 +19,7 @@ const iconMap: Record<string, LucideIcon> = {
   LayoutDashboard, BookOpen, FileText, Book, Scale, Receipt, CreditCard, Wallet,
   Package, ShoppingCart, Truck, Users, Building2, Target, Percent, ClipboardList,
   Warehouse, ArrowLeftRight, ClipboardCheck, Wrench, QrCode, BarChart3, Shield, Settings,
+  RotateCcw,
 };
 
 const navGroups = [
@@ -63,6 +65,7 @@ const navGroups = [
       { label: 'Categories', href: '/inventory/categories', icon: 'FolderTree' },
       { label: 'Sales Orders', href: '/inventory/sales-orders', icon: 'ShoppingCart' },
       { label: 'Purchase Orders', href: '/inventory/purchase-orders', icon: 'Truck' },
+      { label: 'Returns', href: '/inventory/returns', icon: 'RotateCcw' },
     ],
   },
   {
@@ -88,6 +91,7 @@ const navGroups = [
       { label: 'POS Terminal', href: '/pos', icon: 'ShoppingCart' },
       { label: 'Sessions', href: '/pos/sessions', icon: 'Receipt' },
       { label: 'History', href: '/pos/history', icon: 'FileText' },
+      { label: 'Invoice Journal', href: '/pos/journal', icon: 'Book' },
     ],
   },
   {
@@ -117,6 +121,7 @@ const navGroups = [
     module: 'admin',
     items: [
       { label: 'Users', href: '/admin/users', icon: 'Shield' },
+      { label: 'Branches', href: '/admin/branches', icon: 'Building2' },
       { label: 'Settings', href: '/admin/settings', icon: 'Settings' },
     ],
   },

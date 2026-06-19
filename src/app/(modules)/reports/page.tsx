@@ -30,6 +30,10 @@ const reportTypes = [
   { value: 'ar_aging', label: 'AR Aging' },
   { value: 'ap_aging', label: 'AP Aging' },
   { value: 'stock_status', label: 'Stock Status' },
+  { value: 'sales_ledger', label: 'Sales Ledger' },
+  { value: 'sales_journal', label: 'Sales Journal' },
+  { value: 'purchases_ledger', label: 'Purchases Ledger' },
+  { value: 'purchases_journal', label: 'Purchases Journal' },
 ];
 
 const emptyForm = { name: '', type: 'trial_balance', isPublic: false };
@@ -42,6 +46,10 @@ const standardReports = [
   { name: 'AR Aging', type: 'ar_aging', icon: Users, desc: 'View accounts receivable aging', color: 'text-purple-600' },
   { name: 'AP Aging', type: 'ap_aging', icon: Users, desc: 'View accounts payable aging', color: 'text-indigo-600' },
   { name: 'Stock Status', type: 'stock_status', icon: Package, desc: 'View stock status report', color: 'text-teal-600' },
+  { name: 'Sales Ledger', type: 'sales_ledger', icon: BookOpen, desc: 'Customer balances and transactions', color: 'text-mine-blue-800' },
+  { name: 'Sales Journal', type: 'sales_journal', icon: Receipt, desc: 'Sales invoice double-entry journal', color: 'text-purple-600' },
+  { name: 'Purchases Ledger', type: 'purchases_ledger', icon: FileText, desc: 'Supplier balances and transactions', color: 'text-indigo-600' },
+  { name: 'Purchases Journal', type: 'purchases_journal', icon: TrendingUp, desc: 'Purchase bill double-entry journal', color: 'text-teal-600' },
 ];
 
 export default function ReportsPage() {
@@ -51,6 +59,12 @@ export default function ReportsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingReport, setEditingReport] = useState<SavedReport | null>(null);
   const [form, setForm] = useState(emptyForm);
+
+  const [filterDialogOpen, setFilterDialogOpen] = useState(false);
+  const [filterType, setFilterType] = useState('');
+  const [filterName, setFilterName] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const fetchData = async () => {
     try {
@@ -144,9 +158,13 @@ export default function ReportsPage() {
     }
   };
 
-  const runReport = async (type: string, name: string) => {
+  const runReport = async (type: string, name: string, dateFromParam = '', dateToParam = '') => {
     try {
-      const res = await fetch(`/api/reports/${type}/generate`, { method: 'POST' });
+      const params = new URLSearchParams();
+      if (dateFromParam) params.set('dateFrom', dateFromParam);
+      if (dateToParam) params.set('dateTo', dateToParam);
+      const qs = params.toString();
+      const res = await fetch(`/api/reports/${type}/generate${qs ? `?${qs}` : ''}`, { method: 'POST' });
       if (!res.ok) {
         toast('Failed to generate report', 'error');
         return;
@@ -155,12 +173,20 @@ export default function ReportsPage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${name.replace(/\s+/g, '_').toLowerCase()}.pdf`;
+      a.download = `${name.replace(/\s+/g, '_').toLowerCase()}.html`;
       a.click();
       window.URL.revokeObjectURL(url);
     } catch (e) {
       toast('Network error. Please try again.', 'error');
     }
+  };
+
+  const openFilterDialog = (type: string, name: string) => {
+    setFilterType(type);
+    setFilterName(name);
+    setDateFrom('');
+    setDateTo('');
+    setFilterDialogOpen(true);
   };
 
   if (loading) return <div className="p-6 text-slate-500">Loading...</div>;
@@ -214,8 +240,8 @@ export default function ReportsPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {standardReports.map((rpt) => (
-              <Card key={rpt.type} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => runReport(rpt.type, rpt.name)}>
+              {standardReports.map((rpt) => (
+                <Card key={rpt.type} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => openFilterDialog(rpt.type, rpt.name)}>
                 <CardContent className="p-4 flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-slate-50">
                     <rpt.icon className={`h-6 w-6 ${rpt.color}`} />
@@ -266,7 +292,7 @@ export default function ReportsPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => runReport(report.type, report.name)} className="p-1.5 hover:bg-slate-100 rounded"><Eye className="h-4 w-4 text-slate-400" /></button>
+                      <button onClick={() => openFilterDialog(report.type, report.name)} className="p-1.5 hover:bg-slate-100 rounded"><Eye className="h-4 w-4 text-slate-400" /></button>
                       <button onClick={() => openEdit(report)} className="p-1.5 hover:bg-slate-100 rounded"><Edit2 className="h-4 w-4 text-slate-400" /></button>
                       <button onClick={() => handleDelete(report.id)} className="p-1.5 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4 text-red-400" /></button>
                     </div>
@@ -287,6 +313,17 @@ export default function ReportsPage() {
         <DialogFooter>
           <Button variant="outline" onClick={() => { setDialogOpen(false); setEditingReport(null); }}>Cancel</Button>
           <Button onClick={handleSave}>{editingReport ? 'Update' : 'Save'}</Button>
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog open={filterDialogOpen} onClose={() => setFilterDialogOpen(false)} title={`Generate: ${filterName}`}>
+        <div className="space-y-4">
+          <Input label="Date From" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+          <Input label="Date To" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setFilterDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => { setFilterDialogOpen(false); runReport(filterType, filterName, dateFrom, dateTo); }}>Generate</Button>
         </DialogFooter>
       </Dialog>
     </div>
