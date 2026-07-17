@@ -3,14 +3,14 @@
 import { toast, dismissToast } from '@/components/ui/toast';
 import { confirmDialog } from '@/components/ui/confirm-dialog';
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
-import { Package, Plus, Search, Edit2, Trash2, AlertTriangle, Upload, Download } from 'lucide-react';
+import { Package, Plus, Search, Edit2, Archive, AlertTriangle, Upload, Download, History, Building2, ArrowLeftRight } from 'lucide-react';
 
 interface Product {
   id: string;
@@ -23,7 +23,11 @@ interface Product {
   sellingPrice: number;
   stock: number;
   minStock: number;
+  maxStock: number;
   isActive: boolean;
+  location: string;
+  barcode: string;
+  createdAt: string;
 }
 
 interface ProductCategory {
@@ -31,7 +35,25 @@ interface ProductCategory {
   name: string;
 }
 
-const emptyForm = { code: '', name: '', categoryId: '', unit: '', costPrice: 0, sellingPrice: 0, stock: 0, minStock: 0, location: '', branchId: '' };
+interface HistoryRecord {
+  id: string;
+  field: string;
+  oldValue: string | null;
+  newValue: string | null;
+  action: string;
+  userName: string | null;
+  createdAt: string;
+}
+
+interface BranchStock {
+  warehouseId: string;
+  warehouseName: string;
+  quantity: number;
+  location: string | null;
+  batchNo: string | null;
+}
+
+const emptyForm = { code: '', name: '', categoryId: '', unit: '', costPrice: 0, sellingPrice: 0, stock: 0, minStock: 0, maxStock: 0, location: '', barcode: '', branchId: '' };
 
 export default function ProductsPage() {
   const [data, setData] = useState<Product[]>([]);
@@ -42,6 +64,12 @@ export default function ProductsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [historyData, setHistoryData] = useState<HistoryRecord[]>([]);
+  const [historyProductName, setHistoryProductName] = useState('');
+  const [branchStockDialogOpen, setBranchStockDialogOpen] = useState(false);
+  const [branchStockData, setBranchStockData] = useState<BranchStock[]>([]);
+  const [branchStockProductName, setBranchStockProductName] = useState('');
 
   const fetchData = async () => {
     try {
@@ -62,13 +90,8 @@ export default function ProductsPage() {
   const fetchCategories = async () => {
     try {
       const res = await fetch('/api/inventory/categories');
-      if (res.ok) {
-        const json = await res.json();
-        setCategories(json);
-      }
-    } catch (e) {
-      console.error('Failed to fetch categories', e);
-    }
+      if (res.ok) setCategories(await res.json());
+    } catch (e) { console.error('Failed to fetch categories', e); }
   };
 
   useEffect(() => { fetchData(); }, [search]);
@@ -86,8 +109,8 @@ export default function ProductsPage() {
 
   useEffect(() => { fetchBranches(); }, []);
 
-  const lowStock = data.filter((p) => p.isActive && p.stock <= p.minStock);
-  const outOfStock = data.filter((p) => !p.isActive || p.stock === 0);
+  const lowStock = data.filter((p) => p.isActive && p.stock > 0 && p.stock <= p.minStock);
+  const outOfStock = data.filter((p) => p.isActive && p.stock === 0);
 
   const openCreate = () => {
     setEditingProduct(null);
@@ -97,7 +120,7 @@ export default function ProductsPage() {
 
   const openEdit = (product: Product) => {
     setEditingProduct(product);
-    setForm({ code: product.code, name: product.name, categoryId: product.category?.id || '', unit: product.unit, costPrice: product.costPrice, sellingPrice: product.sellingPrice, stock: product.stock, minStock: product.minStock, location: (product as any).location || '', branchId: product.branch?.id || '' });
+    setForm({ code: product.code, name: product.name, categoryId: product.category?.id || '', unit: product.unit, costPrice: product.costPrice, sellingPrice: product.sellingPrice, stock: product.stock, minStock: product.minStock, maxStock: product.maxStock || 0, location: product.location || '', barcode: product.barcode || '', branchId: product.branch?.id || '' });
     setDialogOpen(true);
   };
 
@@ -107,22 +130,10 @@ export default function ProductsPage() {
       let tid;
       if (editingProduct) {
         tid = toast('Updating product...', 'info', 120000);
-        try {
-          res = await fetch(`/api/inventory/products/${editingProduct.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(form),
-          });
-        } catch (e) { dismissToast(tid); throw e; }
+        try { res = await fetch(`/api/inventory/products/${editingProduct.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) }); } catch (e) { dismissToast(tid); throw e; }
       } else {
         tid = toast('Saving product...', 'info', 120000);
-        try {
-          res = await fetch('/api/inventory/products', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(form),
-          });
-        } catch (e) { dismissToast(tid); throw e; }
+        try { res = await fetch('/api/inventory/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) }); } catch (e) { dismissToast(tid); throw e; }
       }
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Save failed' }));
@@ -145,9 +156,7 @@ export default function ProductsPage() {
     try {
       const tid = toast('Deleting product...', 'info', 120000);
       let res;
-      try {
-        res = await fetch(`/api/inventory/products/${id}`, { method: 'DELETE' });
-      } catch (e) { dismissToast(tid); throw e; }
+      try { res = await fetch(`/api/inventory/products/${id}`, { method: 'DELETE' }); } catch (e) { dismissToast(tid); throw e; }
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Delete failed' }));
         dismissToast(tid);
@@ -157,9 +166,40 @@ export default function ProductsPage() {
       dismissToast(tid);
       toast('Product deleted successfully', 'success');
       fetchData();
-    } catch (e) {
-      toast('Network error. Please try again.', 'error');
-    }
+    } catch (e) { toast('Network error. Please try again.', 'error'); }
+  };
+
+  const handleArchive = async (product: Product) => {
+    const action = product.isActive ? 'archive' : 'restore';
+    const ok = await confirmDialog({ title: `${action === 'archive' ? 'Archive' : 'Restore'} Product`, message: `Are you sure you want to ${action} "${product.name}"?`, variant: action === 'archive' ? 'danger' : 'info' }); if (!ok) return;
+    try {
+      const tid = toast(`${action === 'archive' ? 'Archiving' : 'Restoring'} product...`, 'info', 120000);
+      const res = await fetch(`/api/inventory/products/${product.id}/archive`, { method: 'POST' });
+      if (!res.ok) { dismissToast(tid); toast(`Failed to ${action} product`, 'error'); return; }
+      dismissToast(tid);
+      toast(`Product ${action}d successfully`, 'success');
+      fetchData();
+    } catch (e) { toast('Network error', 'error'); }
+  };
+
+  const openHistory = async (product: Product) => {
+    setHistoryProductName(product.name);
+    try {
+      const res = await fetch(`/api/inventory/products/${product.id}/history`);
+      if (res.ok) setHistoryData(await res.json());
+      else setHistoryData([]);
+    } catch { setHistoryData([]); }
+    setHistoryDialogOpen(true);
+  };
+
+  const openBranchStock = async (product: Product) => {
+    setBranchStockProductName(product.name);
+    try {
+      const res = await fetch(`/api/inventory/products/${product.id}/branch-stock`);
+      if (res.ok) setBranchStockData(await res.json());
+      else setBranchStockData([]);
+    } catch { setBranchStockData([]); }
+    setBranchStockDialogOpen(true);
   };
 
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -178,9 +218,7 @@ export default function ProductsPage() {
       a.download = 'product_import_template.xlsx';
       a.click();
       window.URL.revokeObjectURL(url);
-    } catch {
-      toast('Network error', 'error');
-    }
+    } catch { toast('Network error', 'error'); }
   };
 
   const handleImport = async () => {
@@ -191,21 +229,14 @@ export default function ProductsPage() {
       const fd = new FormData();
       fd.append('file', selectedFile);
       const res = await fetch('/api/inventory/import', { method: 'POST', body: fd });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        toast(err.error || 'Import failed', 'error');
-        return;
-      }
+      if (!res.ok) { const err = await res.json().catch(() => ({})); toast(err.error || 'Import failed', 'error'); return; }
       const json = await res.json();
-      const data = json.data || json;
-      setImportResults(data.results || []);
-      toast(`${data.successCount || 0} products imported, ${data.errorCount || 0} errors`, data.errorCount > 0 ? 'warning' : 'success');
-      if (data.successCount > 0) fetchData();
-    } catch {
-      toast('Import failed. Please try again.', 'error');
-    } finally {
-      setImporting(false);
-    }
+      const d = json.data || json;
+      setImportResults(d.results || []);
+      toast(`${d.successCount || 0} products imported, ${d.errorCount || 0} errors`, d.errorCount > 0 ? 'warning' : 'success');
+      if (d.successCount > 0) fetchData();
+    } catch { toast('Import failed. Please try again.', 'error'); }
+    finally { setImporting(false); }
   };
 
   if (loading) return <div className="p-6 text-slate-500">Loading...</div>;
@@ -218,58 +249,31 @@ export default function ProductsPage() {
           <p className="text-slate-500 mt-1">Manage your product catalog and inventory</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={downloadTemplate}>
-            <Download className="h-4 w-4 mr-2" />
-            Template
-          </Button>
-          <Button variant="outline" onClick={() => { setImportDialogOpen(true); setSelectedFile(null); setImportResults(null); }}>
-            <Upload className="h-4 w-4 mr-2" />
-            Import
-          </Button>
-          <Button onClick={openCreate}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Product
-          </Button>
+          <Button variant="outline" onClick={downloadTemplate}><Download className="h-4 w-4 mr-2" />Template</Button>
+          <Button variant="outline" onClick={() => { setImportDialogOpen(true); setSelectedFile(null); setImportResults(null); }}><Upload className="h-4 w-4 mr-2" />Import</Button>
+          <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Add Product</Button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-500">Total Products</p>
-              <p className="text-xl font-bold text-slate-900">{data.length}</p>
-            </div>
-            <div className="p-2 bg-blue-50 rounded-lg"><Package className="h-5 w-5 text-mine-blue-800" /></div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-500">Low Stock Items</p>
-              <p className="text-xl font-bold text-amber-600">{lowStock.length}</p>
-            </div>
-            <div className="p-2 bg-amber-50 rounded-lg"><AlertTriangle className="h-5 w-5 text-amber-600" /></div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-slate-500">Out of Stock</p>
-              <p className="text-xl font-bold text-red-600">{outOfStock.length}</p>
-            </div>
-            <div className="p-2 bg-red-50 rounded-lg"><AlertTriangle className="h-5 w-5 text-red-600" /></div>
-          </CardContent>
-        </Card>
+        <Card><CardContent className="p-4 flex items-center justify-between">
+          <div><p className="text-sm text-slate-500">Total Products</p><p className="text-xl font-bold text-slate-900">{data.length}</p></div>
+          <div className="p-2 bg-blue-50 rounded-lg"><Package className="h-5 w-5 text-mine-blue-800" /></div>
+        </CardContent></Card>
+        <Card><CardContent className="p-4 flex items-center justify-between">
+          <div><p className="text-sm text-slate-500">Low Stock Items</p><p className="text-xl font-bold text-amber-600">{lowStock.length}</p></div>
+          <div className="p-2 bg-amber-50 rounded-lg"><AlertTriangle className="h-5 w-5 text-amber-600" /></div>
+        </CardContent></Card>
+        <Card><CardContent className="p-4 flex items-center justify-between">
+          <div><p className="text-sm text-slate-500">Out of Stock</p><p className="text-xl font-bold text-red-600">{outOfStock.length}</p></div>
+          <div className="p-2 bg-red-50 rounded-lg"><AlertTriangle className="h-5 w-5 text-red-600" /></div>
+        </CardContent></Card>
       </div>
 
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Package className="h-5 w-5 text-mine-blue-800" />
-              Product List
-            </CardTitle>
+            <CardTitle className="text-lg flex items-center gap-2"><Package className="h-5 w-5 text-mine-blue-800" />Product List</CardTitle>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <input type="text" placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-mine-blue-500 w-64" />
@@ -303,22 +307,16 @@ export default function ProductsPage() {
                   <TableCell className="text-right font-mono">${product.costPrice.toLocaleString()}</TableCell>
                   <TableCell className="text-right font-mono">${product.sellingPrice.toLocaleString()}</TableCell>
                   <TableCell className="text-right">
-                    <span className={`font-mono font-medium ${product.stock <= product.minStock && product.isActive ? 'text-amber-600' : product.stock === 0 ? 'text-red-600' : 'text-slate-900'}`}>
-                      {product.stock}
-                    </span>
-                    {product.stock <= product.minStock && product.stock > 0 && (
-                      <span className="ml-1 text-xs text-amber-500">(Low)</span>
-                    )}
+                    <span className={`font-mono font-medium ${product.stock <= product.minStock && product.stock > 0 && product.isActive ? 'text-amber-600' : product.stock === 0 ? 'text-red-600' : 'text-slate-900'}`}>{product.stock}</span>
+                    {product.stock <= product.minStock && product.stock > 0 && <span className="ml-1 text-xs text-amber-500">(Low)</span>}
                   </TableCell>
-                  <TableCell>
-                    <Badge variant={product.isActive ? 'success' : 'secondary'}>
-                      {product.isActive ? 'Active' : 'Discontinued'}
-                    </Badge>
-                  </TableCell>
+                  <TableCell><Badge variant={product.isActive ? 'success' : 'secondary'}>{product.isActive ? 'Active' : 'Archived'}</Badge></TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => openEdit(product)} className="p-1.5 hover:bg-slate-100 rounded"><Edit2 className="h-4 w-4 text-slate-400" /></button>
-                      <button onClick={() => handleDelete(product.id)} className="p-1.5 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4 text-red-400" /></button>
+                      <button onClick={() => openEdit(product)} className="p-1.5 hover:bg-slate-100 rounded" title="Edit"><Edit2 className="h-4 w-4 text-slate-400" /></button>
+                      <button onClick={() => openHistory(product)} className="p-1.5 hover:bg-slate-100 rounded" title="View History"><History className="h-4 w-4 text-slate-400" /></button>
+                      <button onClick={() => openBranchStock(product)} className="p-1.5 hover:bg-slate-100 rounded" title="Stock by Branch"><Building2 className="h-4 w-4 text-slate-400" /></button>
+                      <button onClick={() => handleArchive(product)} className="p-1.5 hover:bg-amber-50 rounded" title={product.isActive ? 'Archive' : 'Restore'}><Archive className={`h-4 w-4 ${product.isActive ? 'text-amber-400' : 'text-green-400'}`} /></button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -328,12 +326,8 @@ export default function ProductsPage() {
         </CardContent>
       </Card>
 
-      <Dialog
-        open={dialogOpen}
-        onClose={() => { setDialogOpen(false); setEditingProduct(null); }}
-        title={editingProduct ? 'Edit Product' : 'Add Product'}
-        size="lg"
-      >
+      {/* Product Dialog */}
+      <Dialog open={dialogOpen} onClose={() => { setDialogOpen(false); setEditingProduct(null); }} title={editingProduct ? 'Edit Product' : 'Add Product'} size="lg">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Input label="Product Code" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="e.g. MIN-008" />
@@ -352,8 +346,8 @@ export default function ProductsPage() {
             <Input label="Min Stock Level" type="number" step="0.01" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: parseFloat(e.target.value) || 0 })} />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Current Stock" type="number" step="0.01" value={form.stock} onChange={(e) => setForm({ ...form, stock: parseFloat(e.target.value) || 0 })} />
-            <Input label="Min Stock Level" type="number" step="0.01" value={form.minStock} onChange={(e) => setForm({ ...form, minStock: parseFloat(e.target.value) || 0 })} />
+            <Input label="Max Stock Level" type="number" step="0.01" value={form.maxStock} onChange={(e) => setForm({ ...form, maxStock: parseFloat(e.target.value) || 0 })} />
+            <Input label="Barcode" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} placeholder="e.g. 123456789012" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <Input label="Location / Warehouse" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="e.g. Warehouse A, Rack 12" />
@@ -366,30 +360,82 @@ export default function ProductsPage() {
         </DialogFooter>
       </Dialog>
 
+      {/* History Dialog */}
+      <Dialog open={historyDialogOpen} onClose={() => setHistoryDialogOpen(false)} title={`History: ${historyProductName}`} size="lg">
+        {historyData.length === 0 ? (
+          <p className="text-sm text-slate-500 py-4">No history records found.</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Action</TableHead>
+                <TableHead>Field</TableHead>
+                <TableHead>Old Value</TableHead>
+                <TableHead>New Value</TableHead>
+                <TableHead>User</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {historyData.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell className="text-xs">{new Date(r.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell><Badge variant={r.action === 'update' ? 'default' : r.action === 'archive' ? 'warning' : 'secondary'}>{r.action}</Badge></TableCell>
+                  <TableCell className="text-xs font-medium">{r.field}</TableCell>
+                  <TableCell className="text-xs text-slate-500 max-w-[120px] truncate">{r.oldValue || '—'}</TableCell>
+                  <TableCell className="text-xs max-w-[120px] truncate font-medium">{r.newValue || '—'}</TableCell>
+                  <TableCell className="text-xs">{r.userName || '—'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+        <DialogFooter><Button variant="outline" onClick={() => setHistoryDialogOpen(false)}>Close</Button></DialogFooter>
+      </Dialog>
+
+      {/* Branch Stock Dialog */}
+      <Dialog open={branchStockDialogOpen} onClose={() => setBranchStockDialogOpen(false)} title={`Stock by Branch: ${branchStockProductName}`} size="md">
+        {branchStockData.length === 0 ? (
+          <p className="text-sm text-slate-500 py-4">No branch stock data found.</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Branch/Warehouse</TableHead>
+                <TableHead className="text-right">Quantity</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Batch</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {branchStockData.map((s, i) => (
+                <TableRow key={i}>
+                  <TableCell className="font-medium">{s.warehouseName}</TableCell>
+                  <TableCell className="text-right font-mono">{s.quantity}</TableCell>
+                  <TableCell className="text-xs text-slate-500">{s.location || '—'}</TableCell>
+                  <TableCell className="text-xs">{s.batchNo || '—'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+        <DialogFooter><Button variant="outline" onClick={() => setBranchStockDialogOpen(false)}>Close</Button></DialogFooter>
+      </Dialog>
+
+      {/* Import Dialog */}
       <Dialog open={importDialogOpen} onClose={() => { setImportDialogOpen(false); setImportResults(null); }} title="Import Products" size="lg">
         <div className="space-y-4">
-          <p className="text-sm text-slate-600">
-            Upload an .xlsx file with product data. <button onClick={downloadTemplate} className="text-mine-blue-800 underline hover:text-mine-blue-600">Download template</button> for the required format.
-          </p>
+          <p className="text-sm text-slate-600">Upload an .xlsx file with product data. <button onClick={downloadTemplate} className="text-mine-blue-800 underline hover:text-mine-blue-600">Download template</button> for the required format.</p>
           <label className="block">
             <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-mine-blue-400 cursor-pointer">
               {selectedFile ? (
-                <div className="space-y-1">
-                  <Upload className="h-8 w-8 text-mine-blue-800 mx-auto" />
-                  <p className="text-sm font-medium text-slate-700">{selectedFile.name}</p>
-                  <p className="text-xs text-slate-400">{(selectedFile.size / 1024).toFixed(0)} KB</p>
-                </div>
+                <div className="space-y-1"><Upload className="h-8 w-8 text-mine-blue-800 mx-auto" /><p className="text-sm font-medium text-slate-700">{selectedFile.name}</p><p className="text-xs text-slate-400">{(selectedFile.size / 1024).toFixed(0)} KB</p></div>
               ) : (
-                <div className="space-y-1">
-                  <Upload className="h-8 w-8 text-slate-400 mx-auto" />
-                  <p className="text-sm text-slate-500">Click to select an .xlsx file</p>
-                  <p className="text-xs text-slate-400">or drag and drop</p>
-                </div>
+                <div className="space-y-1"><Upload className="h-8 w-8 text-slate-400 mx-auto" /><p className="text-sm text-slate-500">Click to select an .xlsx file</p><p className="text-xs text-slate-400">or drag and drop</p></div>
               )}
               <input type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
             </div>
           </label>
-
           {importResults && (
             <div>
               <h4 className="text-sm font-semibold text-slate-700 mb-2">Import Results</h4>
@@ -406,10 +452,7 @@ export default function ProductsPage() {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => { setImportDialogOpen(false); setImportResults(null); setSelectedFile(null); }}>Close</Button>
-          <Button onClick={handleImport} loading={importing} disabled={!selectedFile}>
-            <Upload className="h-4 w-4 mr-2" />
-            Import
-          </Button>
+          <Button onClick={handleImport} loading={importing} disabled={!selectedFile}><Upload className="h-4 w-4 mr-2" />Import</Button>
         </DialogFooter>
       </Dialog>
     </div>

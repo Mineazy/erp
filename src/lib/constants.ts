@@ -137,6 +137,58 @@ export const CURRENCIES = [
   { value: 'ZAR', label: 'South African Rand (ZAR)' },
 ] as const;
 
+export const ADJUSTMENT_TYPES = [
+  { value: 'adjustment', label: 'Stock Adjustment' },
+  { value: 'loss', label: 'Stock Loss' },
+  { value: 'damaged', label: 'Damaged Stock' },
+  { value: 'expired', label: 'Expired Stock' },
+  { value: 'write_off', label: 'Write Off' },
+] as const;
+
+export const TRANSFER_STATUS = [
+  { value: 'draft', label: 'Draft' },
+  { value: 'in_transit', label: 'In Transit' },
+  { value: 'received', label: 'Received' },
+  { value: 'cancelled', label: 'Cancelled' },
+] as const;
+
+export const COUNT_STATUS = [
+  { value: 'draft', label: 'Draft' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'approved', label: 'Approved' },
+] as const;
+
+export const ALERT_TYPES = [
+  { value: 'low_stock', label: 'Low Stock' },
+  { value: 'out_of_stock', label: 'Out of Stock' },
+  { value: 'overstock', label: 'Overstock' },
+  { value: 'predicted_stockout', label: 'Predicted Stockout' },
+  { value: 'transfer', label: 'Transfer Alert' },
+  { value: 'count_reminder', label: 'Count Reminder' },
+] as const;
+
+export const ALERT_SEVERITIES = [
+  { value: 'info', label: 'Info' },
+  { value: 'warning', label: 'Warning' },
+  { value: 'critical', label: 'Critical' },
+] as const;
+
+export const RECOMMENDATION_TYPES = [
+  { value: 'excess_stock', label: 'Excess Stock' },
+  { value: 'slow_moving', label: 'Slow Moving' },
+  { value: 'dead_stock', label: 'Dead Stock' },
+  { value: 'redistribution', label: 'Redistribution' },
+  { value: 'reorder', label: 'Reorder' },
+] as const;
+
+export const FORECAST_TRENDS = [
+  { value: 'up', label: 'Upward' },
+  { value: 'down', label: 'Downward' },
+  { value: 'stable', label: 'Stable' },
+  { value: 'seasonal', label: 'Seasonal' },
+] as const;
+
 export const NAV_ITEMS = [
   {
     group: 'Main',
@@ -168,10 +220,24 @@ export const NAV_ITEMS = [
   {
     group: 'Inventory',
     items: [
+      { label: 'Dashboard', href: '/inventory/dashboard', icon: 'LayoutDashboard' },
       { label: 'Products', href: '/inventory/products', icon: 'Package' },
+      { label: 'Categories', href: '/inventory/categories', icon: 'FolderTree' },
       { label: 'Sales Orders', href: '/inventory/sales-orders', icon: 'ShoppingCart' },
       { label: 'Purchase Orders', href: '/inventory/purchase-orders', icon: 'Truck' },
       { label: 'Returns', href: '/inventory/returns', icon: 'RotateCcw' },
+      { label: 'Goods Receipts', href: '/inventory/goods-receipts', icon: 'ClipboardCheck' },
+      { label: 'Dispatch Notes', href: '/inventory/dispatch-notes', icon: 'FileText' },
+      { label: 'Quotations', href: '/inventory/quotations', icon: 'FileText' },
+      { label: 'Stock Adjustments', href: '/inventory/stock/adjustments', icon: 'AlertTriangle' },
+      { label: 'Stock Transfers', href: '/inventory/stock/transfers', icon: 'ArrowLeftRight' },
+      { label: 'Stock Counts', href: '/inventory/stock/counts', icon: 'ClipboardCheck' },
+      { label: 'Forecasting', href: '/inventory/forecasting', icon: 'TrendingUp' },
+      { label: 'Sales Prediction', href: '/inventory/sales-prediction', icon: 'LineChart' },
+      { label: 'Optimization', href: '/inventory/optimization', icon: 'BarChart3' },
+      { label: 'Alerts', href: '/inventory/alerts', icon: 'Bell' },
+      { label: 'Reports', href: '/inventory/reports', icon: 'FileBarChart' },
+      { label: 'Audit Trail', href: '/inventory/audit', icon: 'ScrollText' },
     ],
   },
   {
@@ -207,6 +273,12 @@ export const NAV_ITEMS = [
     group: 'FDMS',
     items: [
       { label: 'Fiscalisation', href: '/fdms', icon: 'QrCode' },
+    ],
+  },
+  {
+    group: 'Messaging',
+    items: [
+      { label: 'Messages', href: '/messaging', icon: 'MessageCircle' },
     ],
   },
   {

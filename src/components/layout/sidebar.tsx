@@ -11,7 +11,8 @@ import {
   Package, ShoppingCart, Truck, Users, Building2, ChevronDown, ChevronRight,
   LucideIcon, Target, Percent, ClipboardList, Warehouse, ArrowLeftRight,
   ClipboardCheck, Wrench, QrCode, BarChart3, Shield, Settings, FolderTree,
-  RotateCcw,
+  RotateCcw, MessageCircle, AlertTriangle, TrendingUp, LineChart, Bell,
+  FileBarChart, ScrollText,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -19,7 +20,8 @@ const iconMap: Record<string, LucideIcon> = {
   LayoutDashboard, BookOpen, FileText, Book, Scale, Receipt, CreditCard, Wallet,
   Package, ShoppingCart, Truck, Users, Building2, Target, Percent, ClipboardList,
   Warehouse, ArrowLeftRight, ClipboardCheck, Wrench, QrCode, BarChart3, Shield, Settings,
-  RotateCcw,
+  RotateCcw, MessageCircle, AlertTriangle, TrendingUp, LineChart, Bell,
+  FileBarChart, ScrollText, FolderTree,
 };
 
 const navGroups = [
@@ -45,6 +47,12 @@ const navGroups = [
       { label: 'Purchases Journal', href: '/financial/purchases-journal', icon: 'FileText' },
       { label: 'Purchases Ledger', href: '/financial/purchases-ledger', icon: 'BookOpen' },
       { label: 'Cashbook', href: '/financial/cashbook', icon: 'Wallet' },
+        { label: 'Income Statement', href: '/financial/income-statement', icon: 'TrendingUp' },
+        { label: 'Cashflow Statement', href: '/financial/cashflow-statement', icon: 'ArrowLeftRight' },
+        { label: 'Balance Sheet', href: '/financial/balance-sheet', icon: 'Scale' },
+        { label: 'Statement of Changes in Equity', href: '/financial/statement-of-changes-in-equity', icon: 'LineChart' },
+        { label: 'Age Analysis', href: '/financial/age-analysis', icon: 'BarChart3' },
+        { label: 'Multi-Currency VAT Reporting', href: '/financial/multicurrency-vat-reporting', icon: 'Percent' },
       { label: 'Tax Engine', href: '/tax', icon: 'Percent' },
     ],
   },
@@ -61,11 +69,25 @@ const navGroups = [
     group: 'Inventory',
     module: 'inventory',
     items: [
+      { label: 'Dashboard', href: '/inventory/dashboard', icon: 'LayoutDashboard' },
       { label: 'Products', href: '/inventory/products', icon: 'Package' },
+      { label: 'Assets', href: '/inventory/assets', icon: 'Package' },
       { label: 'Categories', href: '/inventory/categories', icon: 'FolderTree' },
       { label: 'Sales Orders', href: '/inventory/sales-orders', icon: 'ShoppingCart' },
       { label: 'Purchase Orders', href: '/inventory/purchase-orders', icon: 'Truck' },
       { label: 'Returns', href: '/inventory/returns', icon: 'RotateCcw' },
+      { label: 'Goods Receipts', href: '/inventory/goods-receipts', icon: 'ClipboardCheck' },
+      { label: 'Dispatch Notes', href: '/inventory/dispatch-notes', icon: 'FileText' },
+      { label: 'Quotations', href: '/inventory/quotations', icon: 'FileText' },
+      { label: 'Stock Adjustments', href: '/inventory/stock/adjustments', icon: 'AlertTriangle' },
+      { label: 'Stock Transfers', href: '/inventory/stock/transfers', icon: 'ArrowLeftRight' },
+      { label: 'Stock Counts', href: '/inventory/stock/counts', icon: 'ClipboardCheck' },
+      { label: 'Forecasting', href: '/inventory/forecasting', icon: 'TrendingUp' },
+      { label: 'Sales Prediction', href: '/inventory/sales-prediction', icon: 'LineChart' },
+      { label: 'Optimization', href: '/inventory/optimization', icon: 'BarChart3' },
+      { label: 'Alerts', href: '/inventory/alerts', icon: 'Bell' },
+      { label: 'Reports', href: '/inventory/reports', icon: 'FileBarChart' },
+      { label: 'Audit Trail', href: '/inventory/audit', icon: 'ScrollText' },
     ],
   },
   {
@@ -110,6 +132,13 @@ const navGroups = [
     ],
   },
   {
+    group: 'Messaging',
+    module: 'messaging',
+    items: [
+      { label: 'Messages', href: '/messaging', icon: 'MessageCircle' },
+    ],
+  },
+  {
     group: 'Reports',
     module: 'reports',
     items: [
@@ -138,7 +167,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const role = (session?.user as { role?: string } | undefined)?.role as UserRole | undefined;
   const isLoading = status === 'loading';
 
-  const visibleGroups = isLoading
+  const visibleGroups = isLoading || !role
     ? navGroups
     : navGroups.filter((group) => {
         if (!group.module || group.module === 'main') return true;
@@ -165,9 +194,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       )}
     >
       <div className="flex items-center gap-3 px-4 h-16 border-b border-slate-200">
-        <div className="h-8 w-8 rounded-lg bg-mine-blue-800 flex items-center justify-center flex-shrink-0">
-          <span className="text-white font-bold text-sm">M</span>
-        </div>
+        <img src="/logo.png" alt="Mineazy" className="h-20 w-20 object-contain flex-shrink-0" />
         {!collapsed && (
           <span className="font-semibold text-slate-900 text-lg whitespace-nowrap">Mineazy ERP</span>
         )}

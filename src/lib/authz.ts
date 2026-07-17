@@ -17,6 +17,12 @@ export interface PermissionSet {
 type AccessLevel = boolean | 'readonly';
 
 const MODULE_PERMISSIONS: Record<string, PermissionSet> = {
+  messaging: {
+    admin: true,
+    accountant: true,
+    manager: true,
+    user: true,
+  },
   financial: {
     admin: true,
     accountant: true,

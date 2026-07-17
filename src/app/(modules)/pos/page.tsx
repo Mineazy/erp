@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
-import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, X, Printer, RotateCcw, LogOut, LogIn, Banknote, Landmark, Smartphone } from 'lucide-react';
+import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, X, Printer, RotateCcw, LogOut, LogIn, Banknote, Landmark, Smartphone, Clock, ShieldAlert } from 'lucide-react';
 
 interface Product {
   id: string;
@@ -58,6 +58,11 @@ interface PaymentEntry {
   reference: string;
 }
 
+const SESSION_MAX_MS = 24 * 60 * 60 * 1000;
+const WARNING_THRESHOLD_MS = 60 * 60 * 1000;
+const CRITICAL_THRESHOLD_MS = 15 * 60 * 1000;
+const EXPIRY_POLL_MS = 30000;
+
 const paymentMethods = [
   { value: 'cash', label: 'Cash', icon: Banknote },
   { value: 'bank_transfer', label: 'Bank Transfer', icon: Landmark },
@@ -78,6 +83,9 @@ export default function POSTerminalPage() {
   const [processingPayment, setProcessingPayment] = useState(false);
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
   const [lastTransaction, setLastTransaction] = useState<Transaction | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  const [warningLevel, setWarningLevel] = useState<'none' | 'warning' | 'critical' | 'expired'>('none');
+  const [forceCloseDialogOpen, setForceCloseDialogOpen] = useState(false);
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -242,6 +250,56 @@ export default function POSTerminalPage() {
 
   const clearCart = () => setCart([]);
 
+  const formatTimeRemaining = (ms: number) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+    if (minutes > 0) return `${minutes}m ${seconds}s`;
+    return `${seconds}s`;
+  };
+
+  useEffect(() => {
+    if (!session || session.status !== 'open') {
+      setTimeRemaining(null);
+      setWarningLevel('none');
+      return;
+    }
+
+    const check = () => {
+      const elapsed = Date.now() - new Date(session.openedAt).getTime();
+      const remaining = Math.max(0, SESSION_MAX_MS - elapsed);
+      setTimeRemaining(remaining);
+
+      if (remaining <= 0) { setWarningLevel('expired'); return; }
+      if (remaining <= CRITICAL_THRESHOLD_MS) { setWarningLevel('critical'); return; }
+      if (remaining <= WARNING_THRESHOLD_MS) { setWarningLevel('warning'); return; }
+      setWarningLevel('none');
+    };
+
+    check();
+    const interval = setInterval(check, EXPIRY_POLL_MS);
+    return () => clearInterval(interval);
+  }, [session]);
+
+  useEffect(() => {
+    if (warningLevel !== 'expired' || !session || session.status !== 'open') return;
+    const forceClose = async () => {
+      try {
+        await fetch(`/api/pos/sessions/${session.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ closingBalance: session.totalSales || 0 }),
+        });
+      } catch {}
+      setSession({ ...session, status: 'closed', closedAt: new Date().toISOString() });
+      setCart([]);
+      setForceCloseDialogOpen(true);
+    };
+    forceClose();
+  }, [warningLevel, session]);
+
   const subtotal = cart.reduce((sum, item) => sum + item.product.sellingPrice * item.quantity, 0);
   const taxRate = 0.1;
   const tax = subtotal * taxRate;
@@ -360,6 +418,34 @@ export default function POSTerminalPage() {
             <p className="text-sm text-slate-500 mt-1">
               Session opened: {new Date(session.openedAt).toLocaleString()}
             </p>
+          )}
+          {timeRemaining !== null && sessionOpen && warningLevel !== 'none' && (
+            <div className={`mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-sm border ${
+              warningLevel === 'critical' || warningLevel === 'expired'
+                ? 'bg-red-50 text-red-700 border-red-200'
+                : 'bg-amber-50 text-amber-700 border-amber-200'
+            }`}>
+              {warningLevel === 'critical' || warningLevel === 'expired' ? (
+                <ShieldAlert className="h-4 w-4 flex-shrink-0" />
+              ) : (
+                <Clock className="h-4 w-4 flex-shrink-0" />
+              )}
+              {warningLevel === 'expired' ? (
+                <span className="font-medium">Session has expired and will be auto-closed.</span>
+              ) : warningLevel === 'critical' ? (
+                <span>
+                  CRITICAL: Session expires in{' '}
+                  <span className="font-mono font-bold">{formatTimeRemaining(timeRemaining)}</span>
+                  {' — '}Please close it immediately.
+                </span>
+              ) : (
+                <span>
+                  Session expires in{' '}
+                  <span className="font-mono font-bold">{formatTimeRemaining(timeRemaining)}</span>
+                  {' — '}Please close and open a new session.
+                </span>
+              )}
+            </div>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -770,6 +856,34 @@ export default function POSTerminalPage() {
           <Button variant="secondary" onClick={() => window.print()}>
             <Printer className="h-4 w-4 mr-2" />
             Print Receipt
+          </Button>
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog
+        open={forceCloseDialogOpen}
+        onClose={() => setForceCloseDialogOpen(false)}
+        title="Session Force-Closed"
+        description="The 24-hour session limit was reached."
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-red-100 text-red-600 mx-auto">
+            <ShieldAlert className="h-6 w-6" />
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-slate-600">
+              Your POS session was automatically closed because it reached the 24-hour maximum duration.
+            </p>
+            <p className="text-sm text-slate-600 mt-2">
+              Please open a new session to continue processing transactions.
+            </p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button onClick={() => setForceCloseDialogOpen(false)}>
+            <LogIn className="h-4 w-4 mr-2" />
+            Open New Session
           </Button>
         </DialogFooter>
       </Dialog>

@@ -10,7 +10,24 @@ import { Select } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
-import { ArrowLeftRight, Plus, Search, Edit2, Trash2, Package, Warehouse } from 'lucide-react';
+import { ArrowLeftRight, Plus, Search, Edit2, Trash2, Package, Warehouse, FileText } from 'lucide-react';
+
+interface VoucherData {
+  title: string;
+  movementNo: string;
+  type: string;
+  productName: string;
+  quantity: number;
+  fromWarehouse: string;
+  toWarehouse: string;
+  referenceType: string;
+  referenceId: string;
+  notes: string;
+  requestedBy: string;
+  branch: string;
+  createdAt: string;
+  generatedAt: string;
+}
 
 interface Movement {
   id: string;
@@ -53,6 +70,9 @@ export default function MovementsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMovement, setEditingMovement] = useState<Movement | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [voucherOpen, setVoucherOpen] = useState(false);
+  const [voucherData, setVoucherData] = useState<VoucherData | null>(null);
+  const [voucherLoading, setVoucherLoading] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -141,6 +161,21 @@ export default function MovementsPage() {
       toast('Network error. Please try again.', 'error');
     }
   };
+
+  const openVoucher = async (movement: Movement) => {
+    setVoucherLoading(true);
+    setVoucherOpen(true);
+    try {
+      const res = await fetch(`/api/warehouse/movements/${movement.id}/voucher`);
+      if (res.ok) setVoucherData(await res.json());
+      else toast('Failed to generate voucher', 'error');
+    } catch {
+      toast('Network error', 'error');
+    }
+    setVoucherLoading(false);
+  };
+
+  const printVoucher = () => window.print();
 
   const handleDelete = async (id: string) => {
     const ok = await confirmDialog({ title: 'Delete Movement', message: 'Are you sure you want to delete this movement?', variant: 'danger' }); if (!ok) return;
@@ -255,6 +290,7 @@ export default function MovementsPage() {
                   <TableCell className="text-xs text-slate-600">{new Date(movement.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => openVoucher(movement)} className="p-1.5 hover:bg-slate-100 rounded" title="Generate Voucher"><FileText className="h-4 w-4 text-mine-blue-600" /></button>
                       <button onClick={() => openEdit(movement)} className="p-1.5 hover:bg-slate-100 rounded"><Edit2 className="h-4 w-4 text-slate-400" /></button>
                       <button onClick={() => handleDelete(movement.id)} className="p-1.5 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4 text-red-400" /></button>
                     </div>
@@ -291,6 +327,55 @@ export default function MovementsPage() {
           <Button onClick={handleSave}>{editingMovement ? 'Update' : 'Create'}</Button>
         </DialogFooter>
       </Dialog>
+
+      <Dialog open={voucherOpen} onClose={() => { setVoucherOpen(false); setVoucherData(null); }} title="" size="xl" className="max-w-4xl">
+        {voucherLoading ? (
+          <div className="p-8 text-center text-slate-500">Generating voucher...</div>
+        ) : voucherData ? (
+          <div className="print-area p-6">
+            <div className="mb-6 flex items-start gap-4">
+              <img src="/logo.png" alt="Mineazy" className="h-32 w-32 object-contain flex-shrink-0" />
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 uppercase tracking-wide">{voucherData.title}</h2>
+                <p className="text-sm text-slate-500 mt-1">#{voucherData.movementNo}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+              <div><span className="font-medium text-slate-600">Date:</span> {new Date(voucherData.createdAt).toLocaleDateString()}</div>
+              <div><span className="font-medium text-slate-600">Type:</span> {voucherData.type}</div>
+              <div><span className="font-medium text-slate-600">Product:</span> {voucherData.productName}</div>
+              <div><span className="font-medium text-slate-600">Quantity:</span> {voucherData.quantity}</div>
+              <div><span className="font-medium text-slate-600">From:</span> {voucherData.fromWarehouse}</div>
+              <div><span className="font-medium text-slate-600">To:</span> {voucherData.toWarehouse}</div>
+              <div><span className="font-medium text-slate-600">Requested By:</span> {voucherData.requestedBy || '—'}</div>
+              <div><span className="font-medium text-slate-600">Branch:</span> {voucherData.branch || '—'}</div>
+              {voucherData.referenceType && <div className="col-span-2"><span className="font-medium text-slate-600">Reference:</span> {voucherData.referenceType} #{voucherData.referenceId}</div>}
+            </div>
+            {voucherData.notes && (
+              <p className="mt-4 text-sm text-slate-600"><span className="font-medium">Notes:</span> {voucherData.notes}</p>
+            )}
+            <div className="mt-6 pt-4 border-t border-slate-200 flex justify-between text-xs text-slate-400">
+              <span>Generated: {new Date(voucherData.generatedAt).toLocaleString()}</span>
+              <span className="flex items-center gap-1"><img src="/logo.png" alt="" className="h-8 w-8 inline object-contain" /> Mineazy ERP</span>
+            </div>
+          </div>
+        ) : null}
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { setVoucherOpen(false); setVoucherData(null); }}>Close</Button>
+          <Button onClick={printVoucher} disabled={!voucherData}>
+            <FileText className="h-4 w-4 mr-2" />
+            Print
+          </Button>
+        </DialogFooter>
+      </Dialog>
+
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          .print-area, .print-area * { visibility: visible; }
+          .print-area { position: fixed; left: 0; top: 0; width: 100%; }
+        }
+      `}</style>
     </div>
   );
 }

@@ -305,6 +305,145 @@ export interface SupplierContract {
 }
 
 // System Types
+// Quotation Types
+export interface QuotationLine {
+  id: string;
+  quoteId: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+
+export interface Quotation {
+  id: string;
+  quoteNumber: string;
+  customerId: string;
+  customerName: string;
+  customerEmail: string | null;
+  quoteDate: string;
+  validUntil: string | null;
+  status: string;
+  subtotal: number;
+  taxAmount: number;
+  discount: number;
+  total: number;
+  currency: string;
+  exchangeRate: number;
+  notes: string | null;
+  terms: string | null;
+  convertedToId: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lines?: QuotationLine[];
+}
+
+// Goods Receipt Types
+export interface GoodsReceiptLine {
+  id: string;
+  receiptId: string;
+  productId: string;
+  productName: string;
+  poLineId: string;
+  quantity: number;
+  batchNo: string | null;
+  serialNo: string | null;
+  location: string | null;
+}
+
+export interface GoodsReceipt {
+  id: string;
+  receiptNo: string;
+  poId: string;
+  supplierId: string | null;
+  supplierName: string | null;
+  receivedAt: string;
+  status: string;
+  notes: string | null;
+  inspectedBy: string | null;
+  inspectionStatus: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lines?: GoodsReceiptLine[];
+  po?: { poNumber: string; supplierName: string };
+}
+
+// Dispatch Note Types
+export interface DispatchNoteLine {
+  id: string;
+  dispatchId: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  batchNo: string | null;
+}
+
+export interface DispatchNote {
+  id: string;
+  dispatchNo: string;
+  salesOrderId: string | null;
+  customerId: string | null;
+  customerName: string | null;
+  dispatchDate: string;
+  status: string;
+  vehicleNo: string | null;
+  driverName: string | null;
+  deliveryAddress: string | null;
+  notes: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lines?: DispatchNoteLine[];
+  salesOrder?: { orderNumber: string };
+}
+
+// IM Types
+export interface ChatUser {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export interface ChatAttachment {
+  name: string;
+  url: string;
+  size: number;
+  type: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  chatId: string;
+  senderId: string;
+  content: string;
+  attachments?: ChatAttachment[];
+  createdAt: string;
+  sender: ChatUser;
+}
+
+export interface Chat {
+  id: string;
+  subject: string | null;
+  createdAt: string;
+  updatedAt: string;
+  participants: ChatParticipant[];
+  messages?: ChatMessage[];
+  lastMessage?: ChatMessage;
+  unreadCount?: number;
+}
+
+export interface ChatParticipant {
+  id: string;
+  chatId: string;
+  userId: string;
+  joinedAt: string;
+  lastReadAt: string | null;
+  user: ChatUser;
+}
+
 export interface SystemSetting {
   id: string;
   key: string;
@@ -323,4 +462,184 @@ export interface AuditLog {
   changes: any;
   ipAddress: string;
   createdAt: Date;
+}
+
+// Inventory Core Types
+export interface ProductBatch {
+  id: string;
+  productId: string;
+  batchNo: string;
+  serialNo: string | null;
+  quantity: number;
+  costPrice: number;
+  receivedAt: string;
+  expiryDate: string | null;
+  isActive: boolean;
+}
+
+export interface ProductHistory {
+  id: string;
+  productId: string;
+  productName: string;
+  field: string;
+  oldValue: string | null;
+  newValue: string | null;
+  action: string;
+  userId: string;
+  userName: string | null;
+  createdAt: string;
+}
+
+export interface StockAdjustment {
+  id: string;
+  adjustmentNo: string;
+  productId: string;
+  productName: string;
+  adjustmentType: string;
+  quantity: number;
+  currentStock: number;
+  newStock: number;
+  reason: string | null;
+  referenceType: string | null;
+  referenceId: string | null;
+  notes: string | null;
+  userId: string;
+  createdAt: string;
+}
+
+export interface StockTransfer {
+  id: string;
+  transferNo: string;
+  fromBranchId: string;
+  toBranchId: string;
+  fromBranch?: { id: string; name: string; code: string };
+  toBranch?: { id: string; name: string; code: string };
+  status: string;
+  requestedBy: string;
+  approvedBy: string | null;
+  receivedBy: string | null;
+  receivedAt: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lines?: StockTransferLine[];
+}
+
+export interface StockTransferLine {
+  id: string;
+  transferId: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  batchNo: string | null;
+  unitPrice: number;
+}
+
+export interface InventoryCount {
+  id: string;
+  countNo: string;
+  status: string;
+  countedBy: string;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  branch?: { id: string; name: string };
+  lines?: InventoryCountLine[];
+}
+
+export interface InventoryCountLine {
+  id: string;
+  countId: string;
+  productId: string;
+  productName: string;
+  systemQty: number;
+  countedQty: number;
+  variance: number;
+  notes: string | null;
+}
+
+export interface InventoryForecast {
+  id: string;
+  productId: string;
+  productName: string;
+  forecastDate: string;
+  predictedDemand: number;
+  confidenceLevel: number;
+  seasonalPattern: string | null;
+  reorderPoint: number | null;
+  reorderQuantity: number | null;
+  predictedStockoutDate: string | null;
+  createdAt: string;
+}
+
+export interface SalesPrediction {
+  id: string;
+  productId: string;
+  productName: string;
+  branchId: string | null;
+  branch?: { id: string; name: string };
+  predictedDate: string;
+  predictedQuantity: number;
+  predictedAmount: number | null;
+  confidenceLevel: number;
+  trend: string | null;
+  actualQuantity: number | null;
+  variance: number | null;
+  createdAt: string;
+}
+
+export interface InventoryOptimization {
+  id: string;
+  productId: string;
+  productName: string;
+  branchId: string | null;
+  branch?: { id: string; name: string };
+  recommendationType: string;
+  currentStock: number;
+  suggestedAction: string;
+  suggestedQty: number;
+  reason: string | null;
+  priority: string;
+  isApplied: boolean;
+  createdAt: string;
+}
+
+export interface InventoryAlert {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  severity: string;
+  referenceType: string | null;
+  referenceId: string | null;
+  isRead: boolean;
+  readAt: string | null;
+  userId: string | null;
+  createdAt: string;
+}
+
+export interface InventoryAuditLog {
+  id: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  description: string | null;
+  changes: any;
+  userId: string;
+  userName: string | null;
+  ipAddress: string | null;
+  createdAt: string;
+}
+
+export interface DashboardInventoryStats {
+  totalProducts: number;
+  totalStockQty: number;
+  totalInventoryValue: number;
+  lowStockCount: number;
+  outOfStockCount: number;
+  recentMovements: number;
+  branchSummary: { id: string; name: string; productCount: number; stockQty: number; value: number }[];
+  forecastsAvailable: boolean;
 }
