@@ -420,12 +420,15 @@ model ErpGoodsReceipt {
   receiptNo   String   @unique @map("receipt_no")
   poId        String   @map("po_id")
   po          ErpPurchaseOrder @relation(fields: [poId], references: [id])
+  supplierId  String?  @map("supplier_id")
+  supplierName String? @map("supplier_name")
   receivedAt  DateTime @default(now()) @map("received_at")
   status      String   @default("pending")
   notes       String?
   inspectedBy String?  @map("inspected_by")
   inspectionStatus String? @map("inspection_status")
   createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   branchId    String?  @map("branch_id")
   branch      ErpBranch? @relation(fields: [branchId], references: [id])
@@ -803,6 +806,51 @@ model ErpPosPayment {
   @@map("erp_pos_payments")
 }
 
+// ============ QUOTATIONS ============
+
+model ErpQuotation {
+  id            String   @id @default(uuid())
+  quoteNumber   String   @unique @map("quote_number")
+  customerId    String   @map("customer_id")
+  customerName  String   @map("customer_name")
+  customerEmail String?  @map("customer_email")
+  quoteDate     DateTime @default(now()) @map("quote_date")
+  validUntil    DateTime? @map("valid_until")
+  status        String   @default("draft")
+  subtotal      Decimal  @db.Decimal(15, 2)
+  taxAmount     Decimal  @default(0) @db.Decimal(15, 2) @map("tax_amount")
+  discount      Decimal  @default(0) @db.Decimal(15, 2)
+  total         Decimal  @db.Decimal(15, 2)
+  currency      String   @default("USD")
+  exchangeRate  Decimal  @default(1) @db.Decimal(15, 6) @map("exchange_rate")
+  notes         String?
+  terms         String?
+  convertedToId String?  @map("converted_to_id")
+  createdBy     String?  @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
+
+  lines ErpQuotationLine[]
+
+  @@map("erp_quotations")
+}
+
+model ErpQuotationLine {
+  id         String  @id @default(uuid())
+  quoteId    String  @map("quote_id")
+  quote      ErpQuotation @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  productId  String  @map("product_id")
+  productName String @map("product_name")
+  quantity   Decimal @db.Decimal(15, 2)
+  unitPrice  Decimal @db.Decimal(15, 2) @map("unit_price")
+  total      Decimal @db.Decimal(15, 2)
+
+  @@map("erp_quotation_lines")
+}
+
 // ============ RETURNS ============
 
 model ErpReturn {
@@ -841,6 +889,243 @@ model ErpReturnLine {
   condition  String  @default("good")
 
   @@map("erp_return_lines")
+}
+
+// ============ DISPATCH NOTES ============
+
+model ErpDispatchNote {
+  id              String   @id @default(uuid())
+  dispatchNo      String   @unique @map("dispatch_no")
+  salesOrderId    String?  @map("sales_order_id")
+  customerId      String?  @map("customer_id")
+  customerName    String?
+  dispatchDate    DateTime @default(now()) @map("dispatch_date")
+  status          String   @default("draft")
+  vehicleNo       String?  @map("vehicle_no")
+  driverName      String?  @map("driver_name")
+  deliveryAddress String?  @map("delivery_address")
+  notes           String?
+  createdBy       String?  @map("created_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
+
+  lines ErpDispatchNoteLine[]
+
+  @@map("erp_dispatch_notes")
+}
+
+model ErpDispatchNoteLine {
+  id          String  @id @default(uuid())
+  dispatchId  String  @map("dispatch_id")
+  dispatch    ErpDispatchNote @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
+  productId   String  @map("product_id")
+  productName String  @map("product_name")
+  quantity    Decimal @db.Decimal(15, 2)
+  unitPrice   Decimal @default(0) @db.Decimal(15, 2) @map("unit_price")
+  batchNo     String? @map("batch_no")
+
+  @@map("erp_dispatch_note_lines")
+}
+
+// ============ INVENTORY CORE FUNCTIONS ============
+
+model ErpProductHistory {
+  id          String   @id @default(uuid())
+  productId   String   @map("product_id")
+  productName String   @map("product_name")
+  field       String
+  oldValue    String?  @map("old_value")
+  newValue    String?  @map("new_value")
+  action      String   @default("update")
+  userId      String   @map("user_id")
+  userName    String?  @map("user_name")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("erp_product_histories")
+}
+
+model ErpStockAdjustment {
+  id            String   @id @default(uuid())
+  adjustmentNo  String   @unique @map("adjustment_no")
+  productId     String   @map("product_id")
+  productName   String   @map("product_name")
+  adjustmentType String  @map("adjustment_type")
+  quantity      Decimal  @db.Decimal(15, 2)
+  currentStock  Decimal  @db.Decimal(15, 2) @map("current_stock")
+  newStock      Decimal  @db.Decimal(15, 2) @map("new_stock")
+  reason        String?
+  referenceType String?  @map("reference_type")
+  referenceId   String?  @map("reference_id")
+  notes         String?
+  userId        String   @map("user_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
+
+  @@map("erp_stock_adjustments")
+}
+
+model ErpStockTransfer {
+  id            String   @id @default(uuid())
+  transferNo    String   @unique @map("transfer_no")
+  fromBranchId  String   @map("from_branch_id")
+  toBranchId    String   @map("to_branch_id")
+  fromBranch    ErpBranch @relation("FromBranch", fields: [fromBranchId], references: [id])
+  toBranch      ErpBranch @relation("ToBranch", fields: [toBranchId], references: [id])
+  status        String   @default("draft")
+  requestedBy   String   @map("requested_by")
+  approvedBy    String?  @map("approved_by")
+  receivedBy    String?  @map("received_by")
+  receivedAt    DateTime? @map("received_at")
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  lines ErpStockTransferLine[]
+
+  @@map("erp_stock_transfers")
+}
+
+model ErpStockTransferLine {
+  id          String  @id @default(uuid())
+  transferId  String  @map("transfer_id")
+  transfer    ErpStockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  productId   String  @map("product_id")
+  productName String  @map("product_name")
+  quantity    Decimal @db.Decimal(15, 2)
+  batchNo     String? @map("batch_no")
+  unitPrice   Decimal @default(0) @db.Decimal(15, 2) @map("unit_price")
+
+  @@map("erp_stock_transfer_lines")
+}
+
+model ErpInventoryCount {
+  id          String   @id @default(uuid())
+  countNo     String   @unique @map("count_no")
+  status      String   @default("draft")
+  countedBy   String   @map("counted_by")
+  approvedBy  String?  @map("approved_by")
+  approvedAt  DateTime? @map("approved_at")
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
+
+  lines ErpInventoryCountLine[]
+
+  @@map("erp_inventory_counts")
+}
+
+model ErpInventoryCountLine {
+  id          String  @id @default(uuid())
+  countId     String  @map("count_id")
+  count       ErpInventoryCount @relation(fields: [countId], references: [id], onDelete: Cascade)
+  productId   String  @map("product_id")
+  productName String  @map("product_name")
+  systemQty   Decimal @db.Decimal(15, 2) @map("system_qty")
+  countedQty  Decimal @default(0) @db.Decimal(15, 2) @map("counted_qty")
+  variance    Decimal @default(0) @db.Decimal(15, 2)
+  notes       String?
+
+  @@map("erp_inventory_count_lines")
+}
+
+model ErpInventoryForecast {
+  id              String   @id @default(uuid())
+  productId       String   @map("product_id")
+  productName     String   @map("product_name")
+  forecastDate    DateTime @map("forecast_date")
+  predictedDemand Decimal  @db.Decimal(15, 2) @map("predicted_demand")
+  confidenceLevel Decimal  @default(0.8) @db.Decimal(5, 4) @map("confidence_level")
+  seasonalPattern String?  @map("seasonal_pattern")
+  reorderPoint    Decimal? @db.Decimal(15, 2) @map("reorder_point")
+  reorderQuantity Decimal? @db.Decimal(15, 2) @map("reorder_quantity")
+  predictedStockoutDate DateTime? @map("predicted_stockout_date")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
+
+  @@map("erp_inventory_forecasts")
+}
+
+model ErpSalesPrediction {
+  id                  String   @id @default(uuid())
+  productId           String   @map("product_id")
+  productName         String   @map("product_name")
+  branchId            String?  @map("branch_id")
+  branch              ErpBranch? @relation(fields: [branchId], references: [id])
+  predictedDate       DateTime @map("predicted_date")
+  predictedQuantity   Decimal  @db.Decimal(15, 2) @map("predicted_quantity")
+  predictedAmount     Decimal? @db.Decimal(15, 2) @map("predicted_amount")
+  confidenceLevel     Decimal  @default(0.8) @db.Decimal(5, 4) @map("confidence_level")
+  trend               String?  @default("stable")
+  actualQuantity      Decimal? @db.Decimal(15, 2) @map("actual_quantity")
+  variance            Decimal? @db.Decimal(15, 4)
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  @@map("erp_sales_predictions")
+}
+
+model ErpInventoryOptimization {
+  id              String   @id @default(uuid())
+  productId       String   @map("product_id")
+  productName     String   @map("product_name")
+  branchId        String?  @map("branch_id")
+  branch          ErpBranch? @relation(fields: [branchId], references: [id])
+  recommendationType String @map("recommendation_type")
+  currentStock    Decimal  @db.Decimal(15, 2) @map("current_stock")
+  suggestedAction String   @map("suggested_action")
+  suggestedQty    Decimal  @db.Decimal(15, 2) @map("suggested_qty")
+  reason          String?
+  priority        String   @default("medium")
+  isApplied       Boolean  @default(false) @map("is_applied")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("erp_inventory_optimizations")
+}
+
+model ErpAlert {
+  id            String   @id @default(uuid())
+  type          String
+  title         String
+  message       String
+  severity      String   @default("info")
+  referenceType String?  @map("reference_type")
+  referenceId   String?  @map("reference_id")
+  isRead        Boolean  @default(false) @map("is_read")
+  readAt        DateTime? @map("read_at")
+  userId        String?  @map("user_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
+
+  @@map("erp_alerts")
+}
+
+model ErpInventoryAuditLog {
+  id          String   @id @default(uuid())
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  description String?
+  changes     Json?
+  userId      String   @map("user_id")
+  userName    String?  @map("user_name")
+  ipAddress   String?  @map("ip_address")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  branchId    String?  @map("branch_id")
+  branch      ErpBranch? @relation(fields: [branchId], references: [id])
+
+  @@map("erp_inventory_audit_logs")
 }
 
 // ============ HR ============
@@ -1083,6 +1368,48 @@ model ErpWorkOrderPart {
   @@map("erp_work_order_parts")
 }
 
+// ============ INSTANT MESSAGING ============
+
+model ErpChat {
+  id        String   @id @default(uuid())
+  subject   String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  participants ErpChatParticipant[]
+  messages     ErpChatMessage[]
+
+  @@map("erp_chats")
+}
+
+model ErpChatParticipant {
+  id         String    @id @default(uuid())
+  chatId     String    @map("chat_id")
+  userId     String    @map("user_id")
+  joinedAt   DateTime  @default(now()) @map("joined_at")
+  lastReadAt DateTime? @map("last_read_at")
+
+  chat ErpChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user ErpUser @relation(fields: [userId], references: [id])
+
+  @@unique([chatId, userId])
+  @@map("erp_chat_participants")
+}
+
+model ErpChatMessage {
+  id        String   @id @default(uuid())
+  chatId    String   @map("chat_id")
+  senderId  String   @map("sender_id")
+  content   String
+  attachments Json?  @db.Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  chat   ErpChat  @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender ErpUser  @relation(fields: [senderId], references: [id])
+
+  @@map("erp_chat_messages")
+}
+
 // ============ BRANCHES ============
 
 model ErpBranch {
@@ -1110,13 +1437,24 @@ model ErpBranch {
   cashbookEntries ErpCashbook[]
   posSessions     ErpPosSession[]
   posTransactions ErpPosTransaction[]
-  returns         ErpReturn[]
-  requisitions    ErpPurchaseRequisition[]
-  goodsReceipts   ErpGoodsReceipt[]
-  stockMovements  ErpStockMovement[]
-  taxTransactions  TaxTransaction[]
-  fdmsDevices      FdmsDevice[]
-  fiscalisedDocuments FiscalisedDocument[]
+  returns              ErpReturn[]
+  requisitions         ErpPurchaseRequisition[]
+  goodsReceipts        ErpGoodsReceipt[]
+  stockMovements       ErpStockMovement[]
+  dispatchNotes        ErpDispatchNote[]
+  quotations           ErpQuotation[]
+  taxTransactions      TaxTransaction[]
+  fdmsDevices          FdmsDevice[]
+  fiscalisedDocuments  FiscalisedDocument[]
+  stockAdjustments     ErpStockAdjustment[]
+  fromTransfers        ErpStockTransfer[]       @relation("FromBranch")
+  toTransfers          ErpStockTransfer[]       @relation("ToBranch")
+  inventoryCounts      ErpInventoryCount[]
+  inventoryForecasts   ErpInventoryForecast[]
+  salesPredictions     ErpSalesPrediction[]
+  inventoryOptimizations ErpInventoryOptimization[]
+  alerts               ErpAlert[]
+  inventoryAuditLogs   ErpInventoryAuditLog[]
 
   @@map("erp_branches")
 }
@@ -1138,6 +1476,9 @@ model ErpUser {
   lastLogin     DateTime? @map("last_login")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
+
+  chatParticipants ErpChatParticipant[]
+  chatMessages     ErpChatMessage[]
 
   @@map("erp_users")
 }

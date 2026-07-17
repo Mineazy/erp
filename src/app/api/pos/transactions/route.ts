@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, unauthorized, badRequest, created, ok, getBody, getNextSequence, getBranchFilter } from '@/lib/api';
 
+const SESSION_MAX_MS = 24 * 60 * 60 * 1000;
+
 export async function GET(request: NextRequest) {
   const session = await getSession();
   if (!session) return unauthorized();
@@ -45,6 +47,22 @@ export async function POST(request: NextRequest) {
 
   const posSession = await prisma.erpPosSession.findUnique({ where: { id: sessionId as string } });
   if (!posSession || posSession.status !== 'open') return badRequest('Session not found or not open');
+
+  const now = new Date();
+  const openedAt = new Date(posSession.openedAt);
+  if (now.getTime() - openedAt.getTime() >= SESSION_MAX_MS) {
+    await prisma.erpPosSession.update({
+      where: { id: sessionId },
+      data: {
+        status: 'closed',
+        closedAt: now,
+        closedBy: 'system',
+        notes: (posSession.notes || '') + '\nSYSTEM: Auto-closed (24h limit exceeded)',
+        closingBalance: posSession.totalSales,
+      },
+    });
+    return badRequest('Session has expired (24h limit reached). Please close it and open a new session.');
+  }
 
   let subtotal = 0;
   const lineData = [];
