@@ -71,6 +71,7 @@ const navGroups = [
     items: [
       { label: 'Dashboard', href: '/inventory/dashboard', icon: 'LayoutDashboard' },
       { label: 'Products', href: '/inventory/products', icon: 'Package' },
+      { label: 'Assets', href: '/inventory/assets', icon: 'Package' },
       { label: 'Categories', href: '/inventory/categories', icon: 'FolderTree' },
       { label: 'Sales Orders', href: '/inventory/sales-orders', icon: 'ShoppingCart' },
       { label: 'Purchase Orders', href: '/inventory/purchase-orders', icon: 'Truck' },
@@ -166,7 +167,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const role = (session?.user as { role?: string } | undefined)?.role as UserRole | undefined;
   const isLoading = status === 'loading';
 
-  const visibleGroups = isLoading
+  const visibleGroups = isLoading || !role
     ? navGroups
     : navGroups.filter((group) => {
         if (!group.module || group.module === 'main') return true;

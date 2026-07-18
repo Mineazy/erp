@@ -1455,6 +1455,9 @@ model ErpBranch {
   inventoryOptimizations ErpInventoryOptimization[]
   alerts               ErpAlert[]
   inventoryAuditLogs   ErpInventoryAuditLog[]
+  assets               ErpAsset[]
+  assetMaintenances    ErpAssetMaintenance[]
+  assetAuditLogs       ErpAssetAuditLog[]
 
   @@map("erp_branches")
 }
@@ -1523,4 +1526,163 @@ model SavedReport {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("saved_reports")
+}
+
+// ============ ASSET MANAGEMENT ============
+
+model ErpAssetCategory {
+  id              String   @id @default(uuid())
+  code            String   @unique
+  name            String
+  description     String?
+  depreciation    String   @default("straight_line")
+  usefulLife      Int?     @map("useful_life")
+  salvageRate     Decimal? @db.Decimal(5, 2) @map("salvage_rate")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  assets          ErpAsset[]
+
+  @@map("erp_asset_categories")
+}
+
+model ErpAsset {
+  id              String   @id @default(uuid())
+  assetNo         String   @unique @map("asset_no")
+  categoryId      String   @map("category_id")
+  category        ErpAssetCategory @relation(fields: [categoryId], references: [id])
+  name            String
+  description     String?
+  model           String?
+  serialNo        String?  @map("serial_no")
+  manufacturer    String?
+  location        String?
+  locationDetails String?  @map("location_details")
+  purchaseDate    DateTime @map("purchase_date")
+  purchaseCost    Decimal  @db.Decimal(15, 2) @map("purchase_cost")
+  salvageValue    Decimal  @default(0) @db.Decimal(15, 2) @map("salvage_value")
+  status          String   @default("operational")
+  assetCondition  String   @default("good") @map("asset_condition")
+  assignedTo      String?  @map("assigned_to")
+  assignedToName  String?  @map("assigned_to_name")
+  custodian       String?
+  barcode         String?  @unique
+  qrCode          String?  @map("qr_code")
+  imageUrl        String?  @map("image_url")
+  warrantyExpiry  DateTime? @map("warranty_expiry")
+  lastInspection  DateTime? @map("last_inspection")
+  nextInspection  DateTime? @map("next_inspection")
+  insuranceNo     String?  @map("insurance_no")
+  insuranceExpiry DateTime? @map("insurance_expiry")
+  depreciationMethod String @default("straight_line") @map("depreciation_method")
+  usefulLifeYears Int?     @map("useful_life_years")
+  isActive        Boolean  @default(true) @map("is_active")
+  isAudited       Boolean  @default(false) @map("is_audited")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  branchId        String?  @map("branch_id")
+  branch          ErpBranch? @relation(fields: [branchId], references: [id])
+
+  depreciations   ErpAssetDepreciation[]
+  maintenances    ErpAssetMaintenance[]
+  transfers       ErpAssetTransfer[]
+  checkouts       ErpAssetCheckout[]
+  auditLogs       ErpAssetAuditLog[]
+
+  @@map("erp_assets")
+}
+
+model ErpAssetDepreciation {
+  id              String   @id @default(uuid())
+  assetId         String   @map("asset_id")
+  asset           ErpAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  period          String
+  openingValue    Decimal  @db.Decimal(15, 2) @map("opening_value")
+  depreciationExp Decimal  @db.Decimal(15, 2) @map("depreciation_exp")
+  closingValue    Decimal  @db.Decimal(15, 2) @map("closing_value")
+  journalEntryId  String?  @map("journal_entry_id")
+  status          String   @default("pending")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("erp_asset_depreciation")
+}
+
+model ErpAssetMaintenance {
+  id              String   @id @default(uuid())
+  maintenanceNo   String   @unique @map("maintenance_no")
+  assetId         String   @map("asset_id")
+  asset           ErpAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  type            String
+  maintenanceDate DateTime @map("maintenance_date")
+  description     String?
+  performedBy     String?  @map("performed_by")
+  cost            Decimal  @db.Decimal(15, 2)
+  vendor          String?
+  nextDate        DateTime? @map("next_date")
+  status          String   @default("completed")
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  branchId        String?  @map("branch_id")
+  branch          ErpBranch? @relation(fields: [branchId], references: [id])
+
+  @@map("erp_asset_maintenance")
+}
+
+model ErpAssetTransfer {
+  id              String   @id @default(uuid())
+  transferNo      String   @unique @map("transfer_no")
+  assetId         String   @map("asset_id")
+  asset           ErpAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  fromLocation    String   @map("from_location")
+  toLocation      String   @map("to_location")
+  transferDate    DateTime @map("transfer_date")
+  transferReason  String?  @map("transfer_reason")
+  transferredBy   String   @map("transferred_by")
+  receivedBy      String?  @map("received_by")
+  status          String   @default("pending")
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("erp_asset_transfers")
+}
+
+model ErpAssetCheckout {
+  id              String   @id @default(uuid())
+  checkoutNo      String   @unique @map("checkout_no")
+  assetId         String   @map("asset_id")
+  asset           ErpAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  checkedOutBy    String   @map("checked_out_by")
+  checkedOutAt    DateTime @default(now()) @map("checked_out_at")
+  checkedInAt     DateTime? @map("checked_in_at")
+  checkedInBy     String?  @map("checked_in_by")
+  expectedReturn  DateTime? @map("expected_return")
+  purpose         String?
+  status          String   @default("active")
+  condition       String   @default("good")
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("erp_asset_checkouts")
+}
+
+model ErpAssetAuditLog {
+  id              String   @id @default(uuid())
+  assetId         String   @map("asset_id")
+  asset           ErpAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  auditDate       DateTime @default(now()) @map("audit_date")
+  auditedBy       String   @map("audited_by")
+  status          String   @default("present")
+  condition       String?
+  location        String?
+  remarks         String?
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  branchId        String?  @map("branch_id")
+  branch          ErpBranch? @relation(fields: [branchId], references: [id])
+
+  @@map("erp_asset_audit_logs")
 }
