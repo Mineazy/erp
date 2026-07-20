@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/lib/use-toast';
+import { toast } from '@/components/ui/toast';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
@@ -34,7 +34,6 @@ interface Asset {
 
 export default function AssetDetailsPage() {
   const params = useParams();
-  const { toast } = useToast();
   const [asset, setAsset] = useState<Asset | null>(null);
   const [loading, setLoading] = useState(true);
   const [accumulated, setAccumulated] = useState(0);
@@ -54,10 +53,10 @@ export default function AssetDetailsPage() {
         setAsset(data.data);
         calculateDepreciation(data.data);
       } else {
-        toast({ title: 'Error', description: data.message, variant: 'destructive' });
+        toast(data.message, 'error');
       }
     } catch (error) {
-      toast({ title: 'Error', description: 'Failed to fetch asset', variant: 'destructive' });
+      toast('Failed to fetch asset', 'error');
     } finally {
       setLoading(false);
     }
