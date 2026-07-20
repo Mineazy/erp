@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs } from '@/components/ui/tabs';
 import { toast } from '@/components/ui/toast';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -183,122 +183,131 @@ export default function AssetDetailsPage() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="depreciation">
-        <TabsList>
-          <TabsTrigger value="depreciation">Depreciation</TabsTrigger>
-          <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
-          <TabsTrigger value="transfers">Transfers</TabsTrigger>
-          <TabsTrigger value="checkouts">Checkouts</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="depreciation">
-          <Card>
-            <CardHeader>
-              <CardTitle>Depreciation History</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {asset.depreciations.length === 0 ? (
-                <p className="text-gray-600">No depreciation records</p>
-              ) : (
-                <div className="space-y-4">
-                  {asset.depreciations.map((dep, idx) => (
-                    <div key={idx} className="flex justify-between items-center p-4 border rounded">
-                      <div>
-                        <p className="font-semibold">{dep.period}</p>
-                        <p className="text-sm text-gray-600">{dep.status}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold">₱{Number(dep.depreciationExp).toLocaleString()}</p>
-                        <p className="text-sm text-gray-600">Closing: ₱{Number(dep.closingValue).toLocaleString()}</p>
-                      </div>
+      <Tabs
+        defaultTab="depreciation"
+        tabs={[
+          {
+            id: 'depreciation',
+            label: 'Depreciation',
+            content: (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Depreciation History</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {asset.depreciations.length === 0 ? (
+                    <p className="text-gray-600">No depreciation records</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {asset.depreciations.map((dep, idx) => (
+                        <div key={idx} className="flex justify-between items-center p-4 border rounded">
+                          <div>
+                            <p className="font-semibold">{dep.period}</p>
+                            <p className="text-sm text-gray-600">{dep.status}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold">₱{Number(dep.depreciationExp).toLocaleString()}</p>
+                            <p className="text-sm text-gray-600">Closing: ₱{Number(dep.closingValue).toLocaleString()}</p>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="maintenance">
-          <Card>
-            <CardHeader>
-              <CardTitle>Maintenance Records</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {asset.maintenances.length === 0 ? (
-                <p className="text-gray-600">No maintenance records</p>
-              ) : (
-                <div className="space-y-4">
-                  {asset.maintenances.map((maint, idx) => (
-                    <div key={idx} className="flex justify-between items-start p-4 border rounded">
-                      <div>
-                        <p className="font-semibold">{maint.type}</p>
-                        <p className="text-sm text-gray-600">{new Date(maint.maintenanceDate).toLocaleDateString()}</p>
-                        <p className="text-sm mt-1">{maint.description}</p>
-                      </div>
-                      <p className="font-semibold">₱{Number(maint.cost).toLocaleString()}</p>
+                  )}
+                </CardContent>
+              </Card>
+            )
+          },
+          {
+            id: 'maintenance',
+            label: 'Maintenance',
+            content: (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Maintenance Records</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {asset.maintenances.length === 0 ? (
+                    <p className="text-gray-600">No maintenance records</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {asset.maintenances.map((maint, idx) => (
+                        <div key={idx} className="flex justify-between items-start p-4 border rounded">
+                          <div>
+                            <p className="font-semibold">{maint.type}</p>
+                            <p className="text-sm text-gray-600">{new Date(maint.maintenanceDate).toLocaleDateString()}</p>
+                            <p className="text-sm mt-1">{maint.description}</p>
+                          </div>
+                          <p className="font-semibold">₱{Number(maint.cost).toLocaleString()}</p>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="transfers">
-          <Card>
-            <CardHeader>
-              <CardTitle>Transfer History</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {asset.transfers.length === 0 ? (
-                <p className="text-gray-600">No transfer records</p>
-              ) : (
-                <div className="space-y-4">
-                  {asset.transfers.map((transfer, idx) => (
-                    <div key={idx} className="flex justify-between items-start p-4 border rounded">
-                      <div>
-                        <p className="font-semibold">{transfer.fromLocation} → {transfer.toLocation}</p>
-                        <p className="text-sm text-gray-600">{new Date(transfer.transferDate).toLocaleDateString()}</p>
-                        <p className="text-sm mt-1">By: {transfer.transferredBy}</p>
-                      </div>
-                      <Badge>{transfer.status}</Badge>
+                  )}
+                </CardContent>
+              </Card>
+            )
+          },
+          {
+            id: 'transfers',
+            label: 'Transfers',
+            content: (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Transfer History</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {asset.transfers.length === 0 ? (
+                    <p className="text-gray-600">No transfer records</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {asset.transfers.map((transfer, idx) => (
+                        <div key={idx} className="flex justify-between items-start p-4 border rounded">
+                          <div>
+                            <p className="font-semibold">{transfer.fromLocation} → {transfer.toLocation}</p>
+                            <p className="text-sm text-gray-600">{new Date(transfer.transferDate).toLocaleDateString()}</p>
+                            <p className="text-sm mt-1">By: {transfer.transferredBy}</p>
+                          </div>
+                          <Badge>{transfer.status}</Badge>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="checkouts">
-          <Card>
-            <CardHeader>
-              <CardTitle>Checkout History</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {asset.checkouts.length === 0 ? (
-                <p className="text-gray-600">No checkout records</p>
-              ) : (
-                <div className="space-y-4">
-                  {asset.checkouts.map((checkout, idx) => (
-                    <div key={idx} className="flex justify-between items-start p-4 border rounded">
-                      <div>
-                        <p className="font-semibold">Checked out by: {checkout.checkedOutBy}</p>
-                        <p className="text-sm text-gray-600">{new Date(checkout.checkedOutAt).toLocaleDateString()}</p>
-                        {checkout.checkedInAt && (
-                          <p className="text-sm mt-1">Returned: {new Date(checkout.checkedInAt).toLocaleDateString()}</p>
-                        )}
-                      </div>
-                      <Badge>{checkout.status}</Badge>
+                  )}
+                </CardContent>
+              </Card>
+            )
+          },
+          {
+            id: 'checkouts',
+            label: 'Checkouts',
+            content: (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Checkout History</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {asset.checkouts.length === 0 ? (
+                    <p className="text-gray-600">No checkout records</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {asset.checkouts.map((checkout, idx) => (
+                        <div key={idx} className="flex justify-between items-start p-4 border rounded">
+                          <div>
+                            <p className="font-semibold">Checked out by: {checkout.checkedOutBy}</p>
+                            <p className="text-sm text-gray-600">{new Date(checkout.checkedOutAt).toLocaleDateString()}</p>
+                            {checkout.checkedInAt && (
+                              <p className="text-sm mt-1">Returned: {new Date(checkout.checkedInAt).toLocaleDateString()}</p>
+                            )}
+                          </div>
+                          <Badge>{checkout.status}</Badge>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                  )}
+                </CardContent>
+              </Card>
+            )
+          }
+        ]}
+      />
     </div>
   );
 }
