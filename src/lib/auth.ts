@@ -12,34 +12,49 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
+        console.log('[Auth] Authorize function called for email:', credentials?.email);
         if (!credentials?.email || !credentials?.password) {
+          console.log('[Auth] Authorize error: Missing email or password');
           throw new Error('Email and password required');
         }
 
-        const user = await prisma.erpUser.findUnique({
-          where: { email: credentials.email },
-          include: { branch: true },
-        });
+        try {
+          console.log('[Auth] Querying erpUser in database...');
+          const user = await prisma.erpUser.findUnique({
+            where: { email: credentials.email },
+            include: { branch: true },
+          });
 
-        if (!user || !user.isActive) {
-          throw new Error('Invalid credentials');
+          console.log('[Auth] DB lookup user found:', user ? { id: user.id, email: user.email, isActive: user.isActive } : 'null');
+
+          if (!user || !user.isActive) {
+            console.log('[Auth] Authorize warning: User not found or inactive');
+            throw new Error('Invalid credentials');
+          }
+
+          console.log('[Auth] Comparing hashed passwords...');
+          const isValid = await bcrypt.compare(credentials.password, user.password);
+          console.log('[Auth] Hashed password compare result:', isValid);
+
+          if (!isValid) {
+            console.log('[Auth] Authorize warning: Invalid password');
+            throw new Error('Invalid credentials');
+          }
+
+          console.log('[Auth] Authorize success for user:', user.email);
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            department: user.department || null,
+            branchId: user.branchId,
+            branchName: user.branch?.name || null,
+          };
+        } catch (error) {
+          console.error('[Auth] Unexpected error during authorize callback:', error);
+          throw error;
         }
-
-        const isValid = await bcrypt.compare(credentials.password, user.password);
-
-        if (!isValid) {
-          throw new Error('Invalid credentials');
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          department: user.department || null,
-          branchId: user.branchId,
-          branchName: user.branch?.name || null,
-        };
       },
     }),
   ],

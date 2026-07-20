@@ -22,21 +22,27 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      console.log('Attempting credentials sign-in for:', email);
       const result = await signIn('credentials', {
         email,
         password,
         redirect: false,
       });
 
+      console.log('Sign-in response received:', result);
+
       if (result?.error) {
+        console.warn('Sign-in failed with error:', result.error);
         setError('Invalid email or password');
         setLoading(false);
         return;
       }
 
+      console.log('Sign-in successful, redirecting to dashboard...');
       router.push('/dashboard');
       router.refresh();
-    } catch {
+    } catch (err) {
+      console.error('Unexpected client-side sign-in error:', err);
       setError('An unexpected error occurred');
       setLoading(false);
     }
