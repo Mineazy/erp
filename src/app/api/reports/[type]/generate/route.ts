@@ -40,7 +40,7 @@ function htmlDoc(title: string, content: string, dateFrom?: string, dateTo?: str
   .footer { text-align: center; color: #999; font-size: 7pt; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 6px; }
 </style></head>
 <body>
-    <div class="header" style="display:flex;align-items:center;gap:10px;"><img src="/logo.png" alt="" style="height:80px;width:auto;" /><div><h1>${title}</h1><p>Mineazy ERP — Generated: ${new Date().toLocaleString()}</p>${period}</div></div>
+    <div class="header" style="display:flex;align-items:center;gap:10px;"><img src="/logo.PNG" alt="" style="height:80px;width:auto;" /><div><h1>${title}</h1><p>Mineazy ERP — Generated: ${new Date().toLocaleString()}</p>${period}</div></div>
 ${content}
 <div class="footer">Mineazy ERP System — Confidential</div>
 </body></html>`;

@@ -9,7 +9,7 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'Mineazy ERP System',
   description: 'Enterprise Resource Planning System for Mineazy Mining Solutions',
-  icons: { icon: '/logo.png' },
+  icons: { icon: '/logo.PNG' },
 };
 
 export default function RootLayout({

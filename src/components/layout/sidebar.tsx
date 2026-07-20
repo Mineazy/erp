@@ -212,7 +212,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       )}
     >
       <div className="flex items-center gap-3 px-4 h-16 border-b border-slate-200">
-        <img src="/logo.png" alt="Mineazy" className="h-20 w-20 object-contain flex-shrink-0" />
+        <img src="/logo.PNG" alt="Mineazy" className="h-20 w-20 object-contain flex-shrink-0" />
         {!collapsed && (
           <span className="font-semibold text-slate-900 text-lg whitespace-nowrap">Mineazy ERP</span>
         )}
