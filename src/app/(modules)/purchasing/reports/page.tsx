@@ -94,7 +94,7 @@ export default function PurchasingReportsPage() {
           <body>
             <div class="header">
               <div>
-                <img src="${window.location.origin}/logo.PNG" style="height: 45px; width: auto; margin-bottom: 5px; display: block;" alt="Logo" />
+                <img src="${window.location.origin}/logo.png" style="height: 45px; width: auto; margin-bottom: 5px; display: block;" alt="Logo" />
                 <div style="font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-top: 4px;">Official Audit Document</div>
               </div>
               <div style="text-align: right;">
