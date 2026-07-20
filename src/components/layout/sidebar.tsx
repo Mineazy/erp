@@ -54,6 +54,7 @@ const navGroups = [
         { label: 'Age Analysis', href: '/financial/age-analysis', icon: 'BarChart3' },
         { label: 'Multi-Currency VAT Reporting', href: '/financial/multicurrency-vat-reporting', icon: 'Percent' },
       { label: 'Tax Engine', href: '/tax', icon: 'Percent' },
+      { label: 'Reports & Analytics', href: '/financial/reports', icon: 'FileBarChart' },
     ],
   },
   {
@@ -63,6 +64,7 @@ const navGroups = [
       { label: 'Customers', href: '/crm/customers', icon: 'Users' },
       { label: 'Leads', href: '/crm/leads', icon: 'Target' },
       { label: 'Suppliers', href: '/suppliers', icon: 'Building2' },
+      { label: 'Reports & Analytics', href: '/crm/reports', icon: 'FileBarChart' },
     ],
   },
   {
@@ -95,6 +97,7 @@ const navGroups = [
     module: 'purchasing',
     items: [
       { label: 'Requisitions', href: '/purchasing/requisitions', icon: 'ClipboardList' },
+      { label: 'Reports & Analytics', href: '/purchasing/reports', icon: 'FileBarChart' },
     ],
   },
   {
@@ -104,6 +107,7 @@ const navGroups = [
       { label: 'Warehouses', href: '/warehouse', icon: 'Warehouse' },
       { label: 'Stock Movements', href: '/warehouse/movements', icon: 'ArrowLeftRight' },
       { label: 'Cycle Counts', href: '/warehouse/cycle-counts', icon: 'ClipboardCheck' },
+      { label: 'Reports & Analytics', href: '/warehouse/reports', icon: 'FileBarChart' },
     ],
   },
   {
@@ -114,6 +118,7 @@ const navGroups = [
       { label: 'Sessions', href: '/pos/sessions', icon: 'Receipt' },
       { label: 'History', href: '/pos/history', icon: 'FileText' },
       { label: 'Invoice Journal', href: '/pos/journal', icon: 'Book' },
+      { label: 'Reports & Analytics', href: '/pos/reports', icon: 'FileBarChart' },
     ],
   },
   {
@@ -122,6 +127,18 @@ const navGroups = [
     items: [
       { label: 'Equipment', href: '/workshop/equipment', icon: 'Wrench' },
       { label: 'Work Orders', href: '/workshop/work-orders', icon: 'ClipboardList' },
+      { label: 'Reports & Analytics', href: '/workshop/reports', icon: 'FileBarChart' },
+    ],
+  },
+  {
+    group: 'Fleet & Fuel',
+    module: 'fleet',
+    items: [
+      { label: 'Vehicles & Tracking', href: '/fleet/vehicles', icon: 'Truck' },
+      { label: 'Fuel Requisitions', href: '/fleet/requisitions', icon: 'ClipboardList' },
+      { label: 'Prepaid Fuel (Accounts)', href: '/fleet/prepaid', icon: 'CreditCard' },
+      { label: 'Hauling Trips', href: '/fleet/hauling', icon: 'ArrowLeftRight' },
+      { label: 'Reports & Analytics', href: '/fleet/reports', icon: 'FileBarChart' },
     ],
   },
   {
@@ -129,6 +146,7 @@ const navGroups = [
     module: 'fdms',
     items: [
       { label: 'Fiscalisation', href: '/fdms', icon: 'QrCode' },
+      { label: 'Reports & Analytics', href: '/fdms/reports', icon: 'FileBarChart' },
     ],
   },
   {

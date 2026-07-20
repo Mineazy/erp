@@ -23,9 +23,13 @@ interface Customer {
   city: string;
   balance: number;
   isActive: boolean;
+  loyaltyCardBarcode?: string | null;
+  loyaltyPoints: number;
+  totalSpent: number;
+  cardBalance: number;
 }
 
-const emptyForm = { code: '', name: '', type: 'company', contactPerson: '', email: '', phone: '', city: '', taxId: '' };
+const emptyForm = { code: '', name: '', type: 'company', contactPerson: '', email: '', phone: '', city: '', taxId: '', loyaltyCardBarcode: '' };
 
 export default function CustomersPage() {
   const [data, setData] = useState<Customer[]>([]);
@@ -61,7 +65,17 @@ export default function CustomersPage() {
 
   const openEdit = (customer: Customer) => {
     setEditingCustomer(customer);
-    setForm({ code: customer.code, name: customer.name, type: customer.type, contactPerson: customer.contactPerson, email: customer.email, phone: customer.phone, city: customer.city, taxId: (customer as any).taxId || '' });
+    setForm({
+      code: customer.code || '',
+      name: customer.name || '',
+      type: customer.type || 'company',
+      contactPerson: customer.contactPerson || '',
+      email: customer.email || '',
+      phone: customer.phone || '',
+      city: customer.city || '',
+      taxId: (customer as any).taxId || '',
+      loyaltyCardBarcode: customer.loyaltyCardBarcode || '',
+    });
     setDialogOpen(true);
   };
 
@@ -187,41 +201,76 @@ export default function CustomersPage() {
               <TableRow>
                 <TableHead>Code</TableHead>
                 <TableHead>Name</TableHead>
-                <TableHead>Contact</TableHead>
+                <TableHead>Loyalty Card</TableHead>
+                <TableHead className="text-right">Points</TableHead>
+                <TableHead className="text-right">Card Balance</TableHead>
+                <TableHead className="text-right">Total Spent</TableHead>
                 <TableHead>Email / Phone</TableHead>
                 <TableHead>City</TableHead>
-                <TableHead className="text-right">Balance</TableHead>
+                <TableHead className="text-right font-semibold">AR Balance</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.map((customer) => (
-                <TableRow key={customer.id} className={!customer.isActive ? 'opacity-60' : ''}>
-                  <TableCell className="font-mono text-xs">{customer.code}</TableCell>
-                  <TableCell className="font-medium">{customer.name}</TableCell>
-                  <TableCell className="text-xs text-slate-600">{customer.contactPerson}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-col text-xs">
-                      <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{customer.email}</span>
-                      <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{customer.phone}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{customer.city}</TableCell>
-                  <TableCell className="text-right font-mono font-semibold">${customer.balance.toLocaleString()}</TableCell>
-                  <TableCell>
-                    <Badge variant={customer.isActive ? 'success' : 'secondary'}>
-                      {customer.isActive ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => openEdit(customer)} className="p-1.5 hover:bg-slate-100 rounded"><Edit2 className="h-4 w-4 text-slate-400" /></button>
-                      <button onClick={() => handleDelete(customer.id)} className="p-1.5 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4 text-red-400" /></button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {data.map((customer) => {
+                const isBigSpender = Number(customer.totalSpent || 0) >= 5000;
+                return (
+                  <TableRow key={customer.id} className={!customer.isActive ? 'opacity-60' : ''}>
+                    <TableCell className="font-mono text-xs">{customer.code}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="font-medium flex items-center gap-1.5">
+                          {customer.name}
+                          {isBigSpender && (
+                            <Badge className="bg-amber-100 hover:bg-amber-100 text-amber-800 border-amber-200 text-[10px] py-0 px-1 font-semibold">
+                              ★ VIP
+                            </Badge>
+                          )}
+                        </span>
+                        <span className="text-[10px] text-slate-400 capitalize">{customer.type}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {customer.loyaltyCardBarcode ? (
+                        <code className="bg-slate-100 px-1.5 py-0.5 rounded text-xs font-mono font-medium text-slate-700">
+                          {customer.loyaltyCardBarcode}
+                        </code>
+                      ) : (
+                        <span className="text-xs text-slate-400 italic">None</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-mono font-medium text-mine-blue-700">
+                      {customer.loyaltyPoints || 0}
+                    </TableCell>
+                    <TableCell className="text-right font-mono font-medium text-emerald-700">
+                      ${Number(customer.cardBalance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </TableCell>
+                    <TableCell className="text-right font-mono font-bold text-slate-900">
+                      ${Number(customer.totalSpent || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col text-xs space-y-0.5">
+                        {customer.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3 text-slate-400" />{customer.email}</span>}
+                        {customer.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3 text-slate-400" />{customer.phone}</span>}
+                      </div>
+                    </TableCell>
+                    <TableCell>{customer.city || '-'}</TableCell>
+                    <TableCell className="text-right font-mono font-semibold">${Number(customer.balance || 0).toLocaleString()}</TableCell>
+                    <TableCell>
+                      <Badge variant={customer.isActive ? 'success' : 'secondary'}>
+                        {customer.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => openEdit(customer)} className="p-1.5 hover:bg-slate-100 rounded"><Edit2 className="h-4 w-4 text-slate-400" /></button>
+                        <button onClick={() => handleDelete(customer.id)} className="p-1.5 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4 text-red-400" /></button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
@@ -244,6 +293,9 @@ export default function CustomersPage() {
           <div className="grid grid-cols-2 gap-4">
             <Input label="City" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Harare" />
             <Input label="Tax ID" value={form.taxId} onChange={(e) => setForm({ ...form, taxId: e.target.value })} placeholder="e.g. 123456789" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Loyalty Card Barcode" value={form.loyaltyCardBarcode} onChange={(e) => setForm({ ...form, loyaltyCardBarcode: e.target.value })} placeholder="e.g. LOYAL-1001" />
           </div>
         </div>
         <DialogFooter>

@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
       { code: { contains: search } },
       { contactPerson: { contains: search } },
       { email: { contains: search } },
+      { loyaltyCardBarcode: { contains: search } },
     ];
   }
   if (status === 'active') where.isActive = true;
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
   if (!session) return unauthorized();
 
   const body = await getBody(request);
-  const { name, type, contactPerson, email, phone, mobile, address, city, country, taxId, creditLimit, notes } = body;
+  const { name, type, contactPerson, email, phone, mobile, address, city, country, taxId, creditLimit, notes, loyaltyCardBarcode } = body;
 
   if (!name) return badRequest('Name is required');
 
@@ -57,6 +58,7 @@ export async function POST(request: NextRequest) {
       taxId: taxId as string,
       creditLimit: parseFloat((creditLimit as string) || '0'),
       notes: notes as string,
+      loyaltyCardBarcode: loyaltyCardBarcode as string | undefined,
       branchId: (session.user as any)?.branchId || null,
     },
   });

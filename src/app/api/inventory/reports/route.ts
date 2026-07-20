@@ -197,6 +197,61 @@ export async function GET(request: NextRequest) {
       return ok({ items, total, page, limit, reportType });
     }
 
+    case 'restock-prediction': {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const products = await prisma.erpProduct.findMany({
+        where: { isActive: true, ...branchFilter },
+        select: { id: true, name: true, code: true, stock: true, minStock: true, costPrice: true },
+        orderBy: { name: 'asc' },
+      });
+
+      const items = await Promise.all(
+        products.map(async (p) => {
+          const salesAgg = await prisma.erpSalesOrderLine.aggregate({
+            where: {
+              productId: p.id,
+              order: { createdAt: { gte: thirtyDaysAgo } },
+            },
+            _sum: { quantity: true },
+          });
+
+          const totalSales = Number(salesAgg._sum.quantity || 0);
+          const dailyVelocity = totalSales / 30;
+          const currentStock = Number(p.stock);
+          const minStock = Number(p.minStock);
+
+          const daysRemaining = dailyVelocity > 0 ? (currentStock / dailyVelocity) : null;
+          const predictedRestockDate = daysRemaining !== null
+            ? new Date(Date.now() + daysRemaining * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+            : 'N/A';
+
+          const recommendedRestockQty = dailyVelocity > 0
+            ? Math.max(0, Math.ceil(dailyVelocity * 30 - currentStock))
+            : (currentStock < minStock ? (minStock * 2 - currentStock) : 0);
+
+          let status = 'Good';
+          if (currentStock === 0) status = 'Out of Stock';
+          else if (currentStock <= minStock) status = 'Low Stock';
+          else if (daysRemaining !== null && daysRemaining <= 7) status = 'Urgent Restock';
+          else if (daysRemaining !== null && daysRemaining <= 15) status = 'Reorder Soon';
+
+          return {
+            id: p.id,
+            product: p.name,
+            code: p.code,
+            current_stock: currentStock,
+            daily_velocity: Math.round(dailyVelocity * 100) / 100,
+            days_remaining: daysRemaining !== null ? Math.round(daysRemaining) : '∞',
+            recommended_restock_qty: recommendedRestockQty,
+            predicted_restock_date: predictedRestockDate,
+            status,
+          };
+        })
+      );
+
+      return ok({ items, total: items.length, page, limit, reportType });
+    }
+
     default:
       return ok({ error: `Unknown report type: ${reportType}` });
   }

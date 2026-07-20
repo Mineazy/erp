@@ -65,6 +65,12 @@ const MODULE_PERMISSIONS: Record<string, PermissionSet> = {
     manager: true,
     user: 'readonly',
   },
+  fleet: {
+    admin: true,
+    accountant: true,
+    manager: true,
+    user: 'readonly',
+  },
   tax: {
     admin: true,
     accountant: true,

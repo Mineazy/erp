@@ -27,6 +27,10 @@ import {
   File,
   Download,
   ImageIcon,
+  UserPlus,
+  LogOut,
+  Settings,
+  Trash2,
 } from 'lucide-react';
 import type { Chat, ChatMessage, ChatUser, ChatAttachment } from '@/types';
 
@@ -54,6 +58,13 @@ export default function MessagingPage() {
 
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
+
+  const [groupInfoOpen, setGroupInfoOpen] = useState(false);
+  const [addMemberOpen, setAddMemberOpen] = useState(false);
+  const [memberSearch, setMemberSearch] = useState('');
+  const [memberSearchResults, setMemberSearchResults] = useState<ChatUser[]>([]);
+  const [addingMember, setAddingMember] = useState(false);
+  const [leavingGroup, setLeavingGroup] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -285,6 +296,110 @@ export default function MessagingPage() {
     return () => clearTimeout(timer);
   }, [userSearch, searchUsers]);
 
+  const searchMembers = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setMemberSearchResults([]);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/messaging/users?search=${encodeURIComponent(query)}`);
+      if (res.ok) {
+        const data = await res.json();
+        const existingUserIds = selectedChat?.participants.map((p: any) => p.userId) || [];
+        setMemberSearchResults(
+          data.filter((u: ChatUser) => u.id !== currentUserId && !existingUserIds.includes(u.id))
+        );
+      }
+    } catch {
+      console.error('Failed to search users for group');
+    }
+  }, [currentUserId, selectedChat]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => searchMembers(memberSearch), 300);
+    return () => clearTimeout(timer);
+  }, [memberSearch, searchMembers]);
+
+  const handleAddMember = async (user: ChatUser) => {
+    if (!selectedChatId) return;
+    setAddingMember(true);
+    try {
+      const res = await fetch(`/api/messaging/chats/${selectedChatId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setChats((prev) =>
+          prev.map((c) => (c.id === selectedChatId ? { ...c, participants: updated.participants } : c))
+        );
+        fetchMessages(selectedChatId);
+        setAddMemberOpen(false);
+        setMemberSearch('');
+        setMemberSearchResults([]);
+        toast(`Added ${user.name} to the group`, 'success');
+      } else {
+        const err = await res.json().catch(() => ({ error: 'Failed to add member' }));
+        toast(err.error || 'Failed to add member', 'error');
+      }
+    } catch {
+      toast('Network error. Please try again.', 'error');
+    } finally {
+      setAddingMember(false);
+    }
+  };
+
+  const handleLeaveGroup = async () => {
+    if (!selectedChatId) return;
+    if (!confirm('Are you sure you want to leave this group chat?')) return;
+    setLeavingGroup(true);
+    try {
+      const res = await fetch(`/api/messaging/chats/${selectedChatId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setChats((prev) => prev.filter((c) => c.id !== selectedChatId));
+        setSelectedChatId(null);
+        setGroupInfoOpen(false);
+        toast('You left the group chat', 'success');
+      } else {
+        const err = await res.json().catch(() => ({ error: 'Failed to leave group' }));
+        toast(err.error || 'Failed to leave group', 'error');
+      }
+    } catch {
+      toast('Network error. Please try again.', 'error');
+    } finally {
+      setLeavingGroup(false);
+    }
+  };
+
+  const handleRemoveMember = async (targetUserId: string, targetName: string) => {
+    if (!selectedChatId) return;
+    if (!confirm(`Are you sure you want to remove ${targetName} from the group?`)) return;
+    try {
+      const res = await fetch(`/api/messaging/chats/${selectedChatId}?userId=${targetUserId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setChats((prev) =>
+          prev.map((c) =>
+            c.id === selectedChatId
+              ? { ...c, participants: c.participants.filter((p: any) => p.userId !== targetUserId) }
+              : c
+          )
+        );
+        fetchMessages(selectedChatId);
+        toast(`Removed ${targetName} from the group`, 'success');
+      } else {
+        const err = await res.json().catch(() => ({ error: 'Failed to remove member' }));
+        toast(err.error || 'Failed to remove member', 'error');
+      }
+    } catch {
+      toast('Network error. Please try again.', 'error');
+    }
+  };
+
   const toggleUser = (user: ChatUser) => {
     setSelectedUsers((prev) =>
       prev.find((u) => u.id === user.id)
@@ -508,10 +623,19 @@ export default function MessagingPage() {
                     <h3 className="text-sm font-semibold text-slate-900 truncate">
                       {getChatDisplayName(selectedChat)}
                     </h3>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 truncate">
                       {getChatParticipants(selectedChat).map((u) => u.name).join(', ')}
                     </p>
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setGroupInfoOpen(true)}
+                    className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-950 font-semibold"
+                  >
+                    <Settings className="h-4 w-4" />
+                    <span className="hidden sm:inline">Group Info</span>
+                  </Button>
                 </div>
 
                 {/* Messages */}
@@ -527,6 +651,22 @@ export default function MessagingPage() {
                         idx === 0 ||
                         messages[idx - 1]?.senderId !== msg.senderId;
                       const hasAttachments = msg.attachments && msg.attachments.length > 0;
+
+                      const isSystemMessage = msg.content && (
+                        (msg.content.includes('added ') && msg.content.includes(' to the group')) ||
+                        msg.content === 'left the group' ||
+                        (msg.content.includes('removed ') && msg.content.includes(' from the group'))
+                      );
+
+                      if (isSystemMessage) {
+                        return (
+                          <div key={msg.id} className="flex justify-center my-2.5">
+                            <div className="bg-slate-200/60 text-slate-500 rounded-full px-3 py-1 text-[10px] font-semibold border border-slate-300/40">
+                              <span className="font-bold text-slate-700">{msg.sender.name}</span> {msg.content}
+                            </div>
+                          </div>
+                        );
+                      }
 
                       return (
                         <div
@@ -830,6 +970,123 @@ export default function MessagingPage() {
             Start Chat
           </Button>
         </DialogFooter>
+      </Dialog>
+
+      {/* Group Info Dialog */}
+      <Dialog
+        open={groupInfoOpen}
+        onClose={() => setGroupInfoOpen(false)}
+        title={selectedChat ? `${getChatDisplayName(selectedChat)} - Details` : 'Group Info'}
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div>
+            <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Group Members</h4>
+            <div className="max-h-60 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100 bg-white">
+              {selectedChat?.participants.map((participant) => {
+                const isSelf = participant.user.id === currentUserId;
+                return (
+                  <div key={participant.id} className="flex items-center justify-between px-3 py-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Avatar name={participant.user.name} size="sm" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-800 truncate">
+                          {participant.user.name} {isSelf && <span className="text-xs text-slate-400">(You)</span>}
+                        </p>
+                        <p className="text-xs text-slate-400 truncate">{participant.user.email}</p>
+                      </div>
+                    </div>
+                    {!isSelf && (
+                      <button
+                        onClick={() => handleRemoveMember(participant.userId, participant.user.name)}
+                        className="p-1.5 hover:bg-red-50 text-red-500 hover:text-red-700 rounded transition-colors"
+                        title="Remove member"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex gap-2 justify-between pt-2 border-t border-slate-100">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setGroupInfoOpen(false);
+                setAddMemberOpen(true);
+              }}
+              className="text-xs gap-1.5 font-semibold"
+            >
+              <UserPlus className="h-4 w-4" />
+              Add Member
+            </Button>
+            
+            <Button
+              variant="destructive"
+              onClick={handleLeaveGroup}
+              disabled={leavingGroup}
+              loading={leavingGroup}
+              className="text-xs gap-1.5 font-semibold"
+            >
+              <LogOut className="h-4 w-4" />
+              Leave Conversation
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Add Member Dialog */}
+      <Dialog
+        open={addMemberOpen}
+        onClose={() => {
+          setAddMemberOpen(false);
+          setMemberSearch('');
+          setMemberSearchResults([]);
+        }}
+        title="Add Member to Group"
+        size="md"
+      >
+        <div className="space-y-4">
+          <Input
+            label="Search Users"
+            value={memberSearch}
+            onChange={(e) => setMemberSearch(e.target.value)}
+            placeholder="Type a name to search..."
+          />
+
+          <div className="max-h-60 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100 bg-white">
+            {memberSearchResults.map((user) => (
+              <button
+                key={user.id}
+                onClick={() => handleAddMember(user)}
+                disabled={addingMember}
+                className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-slate-50 transition-colors"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <Avatar name={user.name} size="sm" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-slate-800 truncate">{user.name}</p>
+                    <p className="text-[10px] text-slate-400 truncate">{user.email}</p>
+                  </div>
+                </div>
+                <UserPlus className="h-4 w-4 text-mine-blue-600" />
+              </button>
+            ))}
+            {memberSearch.trim() && memberSearchResults.length === 0 && (
+              <div className="text-center py-8 text-slate-400 text-xs">
+                No users found
+              </div>
+            )}
+            {!memberSearch.trim() && (
+              <div className="text-center py-8 text-slate-400 text-xs">
+                Type name to search active staff members
+              </div>
+            )}
+          </div>
+        </div>
       </Dialog>
     </div>
   );

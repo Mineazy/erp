@@ -8,7 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { FileBarChart, Download, Package, DollarSign, TrendingUp, TrendingDown, AlertTriangle, ArrowUpDown, Clock } from 'lucide-react';
+import { FileBarChart, Download, Package, DollarSign, TrendingUp, TrendingDown, AlertTriangle, Scale, Calendar, Landmark } from 'lucide-react';
+
+interface Branch {
+  id: string;
+  code: string;
+  name: string;
+}
 
 const reportTypes = [
   { value: 'stock-on-hand', label: 'Stock on Hand' },
@@ -19,6 +25,7 @@ const reportTypes = [
   { value: 'dead-stock', label: 'Dead Stock' },
   { value: 'turnover', label: 'Turnover Analysis' },
   { value: 'aging', label: 'Stock Aging' },
+  { value: 'restock-prediction', label: 'Restock & Forecasting Predictions' },
 ];
 
 const columns: Record<string, string[]> = {
@@ -30,6 +37,7 @@ const columns: Record<string, string[]> = {
   'dead-stock': ['Product', 'Stock', 'Last Movement', 'Days Inactive'],
   turnover: ['Product', 'Turnover Ratio', 'Avg Stock', 'Sold Qty'],
   aging: ['Product', 'Batch', 'Expiry Date', 'Quantity', 'Status'],
+  'restock-prediction': ['Product', 'Code', 'Current Stock', 'Daily Velocity', 'Days Remaining', 'Recommended Restock Qty', 'Predicted Restock Date', 'Status'],
 };
 
 export default function InventoryReportsPage() {
@@ -39,14 +47,29 @@ export default function InventoryReportsPage() {
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [selectedBranch, setSelectedBranch] = useState('consolidated');
+  const [branches, setBranches] = useState<Branch[]>([]);
 
   const today = new Date().toISOString().slice(0, 10);
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+
+  const fetchBranches = async () => {
+    try {
+      const res = await fetch('/api/admin/branches');
+      if (res.ok) {
+        const json = await res.json();
+        setBranches(json.data || json);
+      }
+    } catch (_) {}
+  };
 
   const fetchReport = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams({ reportType });
+      if (selectedBranch !== 'consolidated') {
+        params.set('branchId', selectedBranch);
+      }
       if (reportType === 'movements') {
         if (startDate) params.set('startDate', startDate);
         if (endDate) params.set('endDate', endDate);
@@ -54,14 +77,29 @@ export default function InventoryReportsPage() {
       const res = await fetch(`/api/inventory/reports?${params}`);
       if (!res.ok) throw new Error('Failed to fetch report');
       const json = await res.json();
-      setData(json.items ?? json.data ?? json.report ?? []);
-      if (json.summary) setSummary(json.summary);
+      const items = json.items ?? json.data ?? json.report ?? [];
+      setData(items);
+      
+      if (json.summary) {
+        setSummary(json.summary);
+      } else {
+        // Fallback client-side summary calculation
+        const totalProducts = items.length;
+        const totalValue = items.reduce((sum: number, item: any) => sum + (Number(item.valuation || item.value || (item.stock * item.costPrice) || 0)), 0);
+        const lowStock = items.filter((item: any) => item.status === 'low_stock' || item.status === 'Low Stock' || item.current_stock <= 10).length;
+        const outOfStock = items.filter((item: any) => item.status === 'out_of_stock' || item.status === 'Out of Stock' || item.current_stock === 0).length;
+        setSummary({ totalProducts, totalValue, lowStock, outOfStock });
+      }
     } catch {
       toast('Failed to load report', 'error');
     } finally {
       setLoading(false);
     }
-  }, [reportType, startDate, endDate]);
+  }, [reportType, startDate, endDate, selectedBranch]);
+
+  useEffect(() => {
+    fetchBranches();
+  }, []);
 
   useEffect(() => {
     if (reportType !== 'movements') {
@@ -72,7 +110,7 @@ export default function InventoryReportsPage() {
       if (!endDate) setEndDate(today);
     }
     fetchReport();
-  }, [reportType]);
+  }, [reportType, selectedBranch]);
 
   const handleSearch = () => fetchReport();
 
@@ -81,7 +119,8 @@ export default function InventoryReportsPage() {
     const cols = columns[reportType] || [];
     const rows = data.map((row) =>
       cols.map((col) => {
-        const val = row[col.toLowerCase().replace(/\s+/g, '_')] ?? row[col] ?? '';
+        const key = col.toLowerCase().replace(/\s+/g, '_');
+        const val = row[key] ?? row[col] ?? '';
         return typeof val === 'string' && val.includes(',') ? `"${val}"` : val;
       }).join(',')
     );
@@ -98,21 +137,40 @@ export default function InventoryReportsPage() {
   const renderValue = (row: any, col: string, idx: number) => {
     const key = col.toLowerCase().replace(/\s+/g, '_');
     const val = row[key] ?? row[col] ?? '';
+    
     if (col === 'Status') {
-      if (row.status === 'out_of_stock' || row.status === 'expired') return <Badge variant="destructive">{val}</Badge>;
-      if (row.status === 'low_stock') return <Badge variant="warning">{val}</Badge>;
-      if (row.status === 'active') return <Badge variant="success">{val}</Badge>;
+      const lowerVal = String(val).toLowerCase();
+      if (lowerVal === 'out_of_stock' || lowerVal === 'expired' || lowerVal === 'out of stock' || lowerVal === 'urgent restock') {
+        return <Badge variant="destructive">{val}</Badge>;
+      }
+      if (lowerVal === 'low_stock' || lowerVal === 'low stock' || lowerVal === 'reorder soon') {
+        return <Badge variant="warning">{val}</Badge>;
+      }
+      if (lowerVal === 'active' || lowerVal === 'good') {
+        return <Badge variant="success">{val}</Badge>;
+      }
       return <Badge>{val}</Badge>;
     }
+    
     if (col === 'Type' && row.type) {
       if (row.type === 'IN') return <Badge variant="success">IN</Badge>;
       if (row.type === 'OUT') return <Badge variant="destructive">OUT</Badge>;
       return <Badge>{row.type}</Badge>;
     }
-    if (col === 'Value' || col === 'Cost Price' || val?.toString().startsWith?.('$') === false && !isNaN(Number(val))) {
+    
+    if (col === 'Value' || col === 'Cost Price' || (val?.toString().startsWith?.('$') === false && !isNaN(Number(val)) && (col.includes('Price') || col.includes('Value')))) {
       const num = Number(val);
       if (!isNaN(num)) return `$${num.toLocaleString()}`;
     }
+
+    if (col === 'Daily Velocity') {
+      return `${val} units/day`;
+    }
+
+    if (col === 'Days Remaining') {
+      return val === '∞' ? '∞' : `${val} days`;
+    }
+    
     return val;
   };
 
@@ -122,8 +180,13 @@ export default function InventoryReportsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Inventory Reports</h2>
-          <p className="text-slate-500 mt-1">View and export inventory analysis reports</p>
+          <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <FileBarChart className="h-6 w-6 text-mine-blue-800" />
+            Inventory Reports & Analytics
+          </h2>
+          <p className="text-slate-500 mt-1">
+            {selectedBranch === 'consolidated' ? 'Consolidated Reports' : `Reports disaggregated by ${branches.find(b => b.id === selectedBranch)?.name || 'Branch'}`}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={() => window.print()}>
@@ -137,6 +200,7 @@ export default function InventoryReportsPage() {
         </div>
       </div>
 
+      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4 flex items-center justify-between">
@@ -151,7 +215,7 @@ export default function InventoryReportsPage() {
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500">Total Value</p>
-              <p className="text-xl font-bold text-slate-900">${summary.totalValue.toLocaleString()}</p>
+              <p className="text-xl font-bold text-slate-900">${summary.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
             <div className="p-2 bg-green-50 rounded-lg"><DollarSign className="h-5 w-5 text-green-600" /></div>
           </CardContent>
@@ -159,7 +223,7 @@ export default function InventoryReportsPage() {
         <Card>
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-sm text-slate-500">Low Stock</p>
+              <p className="text-sm text-slate-500">Low Stock Items</p>
               <p className="text-xl font-bold text-amber-600">{summary.lowStock}</p>
             </div>
             <div className="p-2 bg-amber-50 rounded-lg"><AlertTriangle className="h-5 w-5 text-amber-600" /></div>
@@ -178,17 +242,24 @@ export default function InventoryReportsPage() {
 
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-4">
               <CardTitle className="text-lg flex items-center gap-2">
                 <FileBarChart className="h-5 w-5 text-mine-blue-800" />
                 {reportTypes.find((r) => r.value === reportType)?.label}
               </CardTitle>
-              <div className="w-48">
+              <div className="w-56">
                 <Select
                   options={reportTypes}
                   value={reportType}
                   onChange={(e) => setReportType(e.target.value)}
+                />
+              </div>
+              <div className="w-64">
+                <Select
+                  options={[{ value: 'consolidated', label: 'Consolidated (All Branches)' }, ...branches.map(b => ({ value: b.id, label: b.name }))]}
+                  value={selectedBranch}
+                  onChange={(e) => setSelectedBranch(e.target.value)}
                 />
               </div>
             </div>
@@ -204,7 +275,7 @@ export default function InventoryReportsPage() {
         </CardHeader>
         <CardContent>
           {data.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">No data found for this report type.</div>
+            <div className="text-center py-12 text-slate-500">No data found for this report configuration.</div>
           ) : (
             <Table>
               <TableHeader>
@@ -227,7 +298,7 @@ export default function InventoryReportsPage() {
           )}
           {reportType === 'valuation' && data.length > 0 && (
             <div className="mt-4 text-right text-sm font-semibold text-slate-700">
-              Total Valuation: ${data.reduce((s: number, r: any) => s + (Number(r.value) || 0), 0).toLocaleString()}
+              Total Valuation: ${data.reduce((s: number, r: any) => s + (Number(r.valuation || r.value) || 0), 0).toLocaleString()}
             </div>
           )}
         </CardContent>

@@ -1,0 +1,7 @@
+"CRM Report","Customer Loyalty Ledger","Period","2026-01-01 to 2026-12-31"
+
+"Customer Name","Barcode ID","Loyalty Points","Card Balance ($)","Total Spent ($)","VIP Status"
+"John Doe","LOYAL-101","12","5.40","12,500.00","VIP ★"
+"Jane Smith","LOYAL-102","3","0.00","3,400.00","Standard"
+"Mining Corp Inc","LOYAL-103","520","45.00","520,000.00","VIP ★"
+"Alistair Vance","LOYAL-104","0","0.50","250.00","Standard"

@@ -37,6 +37,37 @@ const roles = [
   { value: 'accountant', label: 'Accountant' },
   { value: 'manager', label: 'Manager' },
   { value: 'user', label: 'User' },
+  { value: 'purchasing_manager', label: 'Purchasing Manager' },
+  { value: 'purchasing_officer', label: 'Purchasing Officer' },
+  { value: 'warehouse_manager', label: 'Warehouse Manager' },
+  { value: 'warehouse_supervisor', label: 'Warehouse Supervisor' },
+  { value: 'warehouse_officer', label: 'Warehouse Officer' },
+  { value: 'dispatch_officer', label: 'Dispatch Officer' },
+  { value: 'branch_supervisor', label: 'Branch Supervisor' },
+  { value: 'cashier', label: 'Cashier' },
+  { value: 'audit_manager', label: 'Audit Manager' },
+  { value: 'audit_officer', label: 'Audit Officer' },
+  { value: 'finance_manager', label: 'Finance Manager' },
+  { value: 'finance_officer', label: 'Finance Officer' },
+  { value: 'treasurer', label: 'Treasurer' },
+  { value: 'it_support', label: 'IT Support' },
+  { value: 'security_officer', label: 'Security Officer' },
+  { value: 'sales_marketing_manager', label: 'Sales & Marketing Manager' },
+  { value: 'business_development_manager', label: 'Business Development Manager' },
+  { value: 'operations_manager', label: 'Operations Manager' },
+];
+
+const departments = [
+  { value: '', label: '— No Department —' },
+  { value: 'Finance', label: 'Finance' },
+  { value: 'Audit', label: 'Audit' },
+  { value: 'Operations', label: 'Operations' },
+  { value: 'IT', label: 'IT' },
+  { value: 'Purchasing', label: 'Purchasing' },
+  { value: 'Warehouse', label: 'Warehouse' },
+  { value: 'Sales & Marketing', label: 'Sales & Marketing' },
+  { value: 'Business Development', label: 'Business Development' },
+  { value: 'Shop', label: 'Shop' },
 ];
 
 const emptyForm = { name: '', email: '', password: '', role: 'user', department: '', branchId: '', isActive: true };
@@ -158,12 +189,16 @@ export default function UsersPage() {
   };
 
   const roleIcon = (role: string) => {
-    switch (role) {
-      case 'admin': return <Shield className="h-4 w-4 text-red-500" />;
-      case 'accountant': return <UserCog className="h-4 w-4 text-mine-blue-800" />;
-      case 'manager': return <UserCheck className="h-4 w-4 text-amber-600" />;
-      default: return <User className="h-4 w-4 text-slate-400" />;
+    const r = role.toLowerCase();
+    if (r === 'admin') return <Shield className="h-4 w-4 text-red-500" />;
+    if (r === 'it_support') return <Shield className="h-4 w-4 text-emerald-500" />;
+    if (r.includes('manager') || r.includes('supervisor') || r === 'treasurer') {
+      return <UserCheck className="h-4 w-4 text-amber-600" />;
     }
+    if (r.includes('officer') || r === 'cashier' || r === 'accountant') {
+      return <UserCog className="h-4 w-4 text-mine-blue-800" />;
+    }
+    return <User className="h-4 w-4 text-slate-400" />;
   };
 
   if (loading) return <div className="p-6 text-slate-500">Loading...</div>;
@@ -250,7 +285,9 @@ export default function UsersPage() {
                     <TableCell>
                       <div className="flex items-center gap-1.5">
                         {roleIcon(user.role)}
-                        <span className="text-xs capitalize">{user.role}</span>
+                        <span className="text-xs capitalize">
+                          {roles.find(r => r.value === user.role)?.label || user.role.replace(/_/g, ' ')}
+                        </span>
                       </div>
                     </TableCell>
                     <TableCell className="text-xs text-slate-600">{user.branch?.name || '-'}</TableCell>
@@ -287,7 +324,7 @@ export default function UsersPage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <Select label="Branch" options={[{ value: '', label: '— No Branch —' }, ...branches.map(b => ({ value: b.id, label: b.name }))]} value={form.branchId} onChange={(e) => setForm({ ...form, branchId: e.target.value })} />
-            <Input label="Department" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} placeholder="e.g. Finance" />
+            <Select label="Department" options={departments} value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} />
           </div>
           <Checkbox label="Active" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} />
         </div>

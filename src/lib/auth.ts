@@ -36,6 +36,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           role: user.role,
+          department: user.department || null,
           branchId: user.branchId,
           branchName: user.branch?.name || null,
         };
@@ -48,6 +49,7 @@ export const authOptions: NextAuthOptions = {
         const u = user as any;
         token.id = u.id;
         token.role = u.role;
+        token.department = u.department || null;
         token.branchId = u.branchId || null;
         token.branchName = u.branchName || null;
       }
@@ -57,6 +59,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         (session.user as any).id = token.id;
         (session.user as any).role = token.role;
+        (session.user as any).department = token.department || null;
         (session.user as any).branchId = token.branchId || null;
         (session.user as any).branchName = token.branchName || null;
       }

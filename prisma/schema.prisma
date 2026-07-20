@@ -512,6 +512,10 @@ model ErpCustomer {
   balance     Decimal  @default(0) @db.Decimal(15, 2)
   notes       String?
   isActive    Boolean  @default(true) @map("is_active")
+  loyaltyCardBarcode String?  @unique @map("loyalty_card_barcode")
+  loyaltyPoints      Int      @default(0) @map("loyalty_points")
+  totalSpent         Decimal  @default(0) @db.Decimal(15, 2) @map("total_spent")
+  cardBalance        Decimal  @default(0) @db.Decimal(15, 2) @map("card_balance")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -801,6 +805,8 @@ model ErpPosPayment {
   method        String
   amount        Decimal @db.Decimal(15, 2)
   reference     String?
+  currency      String  @default("USD")
+  exchangeRate  Decimal @default(1) @db.Decimal(15, 6) @map("exchange_rate")
   createdAt     DateTime @default(now()) @map("created_at")
 
   @@map("erp_pos_payments")
@@ -1237,12 +1243,19 @@ model ErpVehicle {
   status        String   @default("active")
   assignedDriver String? @map("assigned_driver")
   isActive      Boolean  @default(true) @map("is_active")
+  currentOdometer Decimal @default(0) @db.Decimal(15, 2) @map("current_odometer")
+  latitude      Decimal? @db.Decimal(10, 6)
+  longitude     Decimal? @db.Decimal(10, 6)
+  speed         Decimal? @db.Decimal(5, 2)
+  lastPing      DateTime? @map("last_ping")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   refuels    ErpFuelRecord[]
   services   ErpServiceRecord[]
   dispatches ErpVehicleDispatch[]
+  fuelRequisitions ErpFuelRequisition[]
+  haulingTrips     ErpHaulingTrip[]
 
   @@map("erp_vehicles")
 }
@@ -1685,4 +1698,69 @@ model ErpAssetAuditLog {
   branch          ErpBranch? @relation(fields: [branchId], references: [id])
 
   @@map("erp_asset_audit_logs")
+}
+
+model ErpPrepaidFuel {
+  id                    String   @id @default(uuid())
+  fuelType              String   @map("fuel_type")
+  balanceLiters         Decimal  @db.Decimal(15, 2) @map("balance_liters")
+  currentPricePerLiter  Decimal  @db.Decimal(15, 2) @map("current_price_per_liter")
+  lastTopUpAmount       Decimal  @db.Decimal(15, 2) @map("last_top_up_amount")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("erp_prepaid_fuel")
+}
+
+model ErpPrepaidFuelLog {
+  id            String   @id @default(uuid())
+  fuelType      String   @map("fuel_type")
+  action        String
+  quantity      Decimal  @db.Decimal(15, 2)
+  pricePerLiter Decimal  @db.Decimal(15, 2) @map("price_per_liter")
+  amount        Decimal  @db.Decimal(15, 2)
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("erp_prepaid_fuel_logs")
+}
+
+model ErpFuelRequisition {
+  id                       String   @id @default(uuid())
+  vehicleId                String   @map("vehicle_id")
+  vehicle                  ErpVehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  userId                   String   @map("user_id")
+  userName                 String   @map("user_name")
+  fuelType                 String   @default("Diesel") @map("fuel_type")
+  litersRequested          Decimal  @db.Decimal(15, 2) @map("liters_requested")
+  status                   String
+  purpose                  String
+  approvedBy               String?  @map("approved_by")
+  treasurerApprovedBy      String?  @map("treasurer_approved_by")
+  financeManagerApprovedBy String?  @map("finance_manager_approved_by")
+  qrCodeUrl                String?  @map("qr_code_url")
+  redeemToken              String?  @map("redeem_token")
+  gasStation               String?  @map("gas_station")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  @@map("erp_fuel_requisitions")
+}
+
+model ErpHaulingTrip {
+  id                     String   @id @default(uuid())
+  vehicleId              String   @map("vehicle_id")
+  vehicle                ErpVehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  driverName             String   @map("driver_name")
+  sourceWarehouseId      String?  @map("source_warehouse_id")
+  sourceWarehouseName    String?  @map("source_warehouse_name")
+  destinationBranchId    String?  @map("destination_branch_id")
+  destinationBranchName  String?  @map("destination_branch_name")
+  status                 String
+  productDetails         String   @db.Text @map("product_details")
+  departureTime          DateTime? @map("departure_time")
+  arrivalTime            DateTime? @map("arrival_time")
+  createdAt              DateTime @default(now()) @map("created_at")
+
+  @@map("erp_hauling_trips")
 }

@@ -21,7 +21,11 @@ export async function GET(request: NextRequest) {
   const [items, total] = await Promise.all([
     prisma.erpPosTransaction.findMany({
       where,
-      include: { lines: true, payments: true, branch: { select: { id: true, code: true, name: true } } },
+      include: {
+        lines: true,
+        payments: true,
+        branch: { select: { id: true, code: true, name: true, address: true, city: true, country: true, phone: true, email: true } }
+      },
       orderBy: { createdAt: 'desc' },
     }),
     prisma.erpPosTransaction.count({ where }),
@@ -86,6 +90,37 @@ export async function POST(request: NextRequest) {
   const paid = payments ? payments.reduce((s: number, p: any) => s + parseFloat(p.amount || '0'), 0) : total;
   const change = Math.max(0, paid - total);
 
+  let actualChangeAmount = change;
+  let cardBalanceIncrement = 0;
+  if (body.transferChangeToCard && change > 0 && customerId) {
+    cardBalanceIncrement = change;
+    actualChangeAmount = 0;
+  }
+
+  // Calculate and validate loyalty payments (loyalty_points & loyalty_card_balance)
+  let pointsDeducted = 0;
+  let balanceDeducted = 0;
+  if (payments) {
+    for (const p of payments) {
+      if (p.method === 'loyalty_points') {
+        pointsDeducted += Math.ceil(parseFloat(p.amount || '0'));
+      } else if (p.method === 'loyalty_card_balance') {
+        balanceDeducted += parseFloat(p.amount || '0');
+      }
+    }
+  }
+
+  if (customerId && (pointsDeducted > 0 || balanceDeducted > 0)) {
+    const customer = await prisma.erpCustomer.findUnique({ where: { id: customerId } });
+    if (!customer) return badRequest('Customer not found for loyalty payment');
+    if (customer.loyaltyPoints < pointsDeducted) {
+      return badRequest(`Insufficient loyalty points (Available: ${customer.loyaltyPoints}, Required: ${pointsDeducted})`);
+    }
+    if (Number(customer.cardBalance) < balanceDeducted) {
+      return badRequest(`Insufficient card balance (Available: $${Number(customer.cardBalance).toFixed(2)}, Required: $${balanceDeducted.toFixed(2)})`);
+    }
+  }
+
   const transactionNumber = await getNextSequence(prisma, 'erpPosTransaction', 'transactionNumber', 'TXN');
 
   const transaction = await prisma.erpPosTransaction.create({
@@ -99,7 +134,7 @@ export async function POST(request: NextRequest) {
       discount: disc,
       total,
       paidAmount: paid,
-      changeAmount: change,
+      changeAmount: actualChangeAmount,
       paymentMethod: (payments?.[0]?.method) || 'cash',
       branchId: (session.user as any)?.branchId || null,
       lines: { create: lineData },
@@ -109,12 +144,40 @@ export async function POST(request: NextRequest) {
               method: p.method,
               amount: parseFloat(p.amount),
               reference: p.reference,
+              currency: p.currency || 'USD',
+              exchangeRate: parseFloat(p.exchangeRate || '1'),
             })),
           }
         : undefined,
     },
-    include: { lines: true, payments: true },
+    include: { lines: true, payments: true, branch: true },
   });
+
+  // Update customer loyalty points and card balance if linked
+  if (customerId) {
+    try {
+      const customer = await prisma.erpCustomer.findUnique({ where: { id: customerId } });
+      if (customer) {
+        const oldRemainder = Number(customer.totalSpent) % 1000;
+        const newlyEarnedPoints = Math.floor((oldRemainder + total) / 1000);
+
+        const newTotalSpent = Number(customer.totalSpent) + total;
+        const finalPoints = Math.max(0, customer.loyaltyPoints + newlyEarnedPoints - pointsDeducted);
+        const finalCardBalance = Math.max(0, Number(customer.cardBalance) + cardBalanceIncrement - balanceDeducted);
+
+        await prisma.erpCustomer.update({
+          where: { id: customerId },
+          data: {
+            totalSpent: newTotalSpent,
+            loyaltyPoints: finalPoints,
+            cardBalance: finalCardBalance,
+          },
+        });
+      }
+    } catch (err) {
+      console.error('Failed to update customer loyalty:', err);
+    }
+  }
 
   for (const l of lineData) {
     await prisma.erpProduct.update({
