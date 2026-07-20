@@ -283,7 +283,7 @@ export default function RequisitionsPage() {
       case 'PENDING':
         return <Badge variant="warning">Awaiting Treasurer (First)</Badge>;
       case 'TREASURER_APPROVED':
-        return <Badge variant="info" className="bg-blue-100 text-blue-800 hover:bg-blue-200">Awaiting Finance Manager (Final)</Badge>;
+        return <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-200">Awaiting Finance Manager (Final)</Badge>;
       case 'APPROVED':
         return <Badge variant="success">Approved & Issued</Badge>;
       case 'REJECTED':

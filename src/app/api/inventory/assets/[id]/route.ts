@@ -2,12 +2,13 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, unauthorized, notFound, ok, getBody, badRequest } from '@/lib/api';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
   const asset = await prisma.erpAsset.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       category: true,
       branch: true,
@@ -22,7 +23,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   return ok(asset);
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
@@ -42,11 +44,11 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     nextInspection,
   } = body;
 
-  const asset = await prisma.erpAsset.findUnique({ where: { id: params.id } });
+  const asset = await prisma.erpAsset.findUnique({ where: { id } });
   if (!asset) return notFound('Asset not found');
 
   const updated = await prisma.erpAsset.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       name: name ? (name as string) : undefined,
       description: description ? (description as string) : undefined,
@@ -67,13 +69,14 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   return ok(updated);
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const asset = await prisma.erpAsset.findUnique({ where: { id: params.id } });
+  const asset = await prisma.erpAsset.findUnique({ where: { id } });
   if (!asset) return notFound('Asset not found');
 
-  await prisma.erpAsset.delete({ where: { id: params.id } });
+  await prisma.erpAsset.delete({ where: { id } });
   return ok({ message: 'Asset deleted successfully' });
 }

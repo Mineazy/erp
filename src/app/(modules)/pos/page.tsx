@@ -22,6 +22,7 @@ interface Product {
   categoryId?: string;
   minStock?: number;
   barcode?: string;
+  description?: string;
 }
 
 interface CartItem {
@@ -48,6 +49,8 @@ interface Transaction {
   discount: number;
   paidAmount: number;
   changeAmount: number;
+  createdAt: string;
+  fiscalisedDocId?: string | null;
   payments?: { method: string; amount: number; reference?: string; currency?: string; exchangeRate?: number }[];
   lines?: { productName: string; quantity: number; unitPrice: number; total: number }[];
   branch?: { id: string; code: string; name: string; address?: string | null; city?: string | null; country?: string | null; phone?: string | null; email?: string | null } | null;
@@ -57,7 +60,7 @@ interface PaymentEntry {
   method: string;
   amount: string;
   reference: string;
-  currency: string;
+  currency?: string;
 }
 
 const SESSION_MAX_MS = 24 * 60 * 60 * 1000;

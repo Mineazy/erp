@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { toast } from '@/components/ui/toast';
 import { CreditCard, ArrowUpRight, ShieldAlert, Sparkles, Scale } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface FuelRecord {
   id: string;

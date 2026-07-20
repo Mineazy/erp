@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const body = await getBody(request);
+  const body = (await getBody(request)) as any;
   const { action, fuelType, quantity, pricePerLiter, notes } = body;
 
   if (!fuelType || !['Diesel', 'Petrol'].includes(fuelType)) {

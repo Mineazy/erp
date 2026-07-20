@@ -2,28 +2,30 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, unauthorized, notFound, ok, getBody, badRequest, created, getNextSequence } from '@/lib/api';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
   // Verify asset exists
-  const asset = await prisma.erpAsset.findUnique({ where: { id: params.id } });
+  const asset = await prisma.erpAsset.findUnique({ where: { id } });
   if (!asset) return notFound('Asset not found');
 
   const checkouts = await prisma.erpAssetCheckout.findMany({
-    where: { assetId: params.id },
+    where: { assetId: id },
     orderBy: { createdAt: 'desc' },
   });
 
   return ok(checkouts);
 }
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
   // Verify asset exists
-  const asset = await prisma.erpAsset.findUnique({ where: { id: params.id } });
+  const asset = await prisma.erpAsset.findUnique({ where: { id } });
   if (!asset) return notFound('Asset not found');
 
   const body = await getBody(request);
@@ -38,7 +40,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   const checkout = await prisma.erpAssetCheckout.create({
     data: {
       checkoutNo,
-      assetId: params.id,
+      assetId: id,
       checkedOutBy: checkedOutBy as string,
       expectedReturn: expectedReturn ? new Date(expectedReturn as string) : undefined,
       purpose: purpose as string | undefined,
@@ -50,11 +52,12 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   return created(checkout);
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const body = await getBody(request);
+  const body = (await getBody(request)) as any;
   const { checkoutId, checkedInBy, condition, notes } = body;
 
   if (!checkoutId || !checkedInBy) {

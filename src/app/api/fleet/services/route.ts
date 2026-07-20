@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const services = await prisma.erpVehicleService.findMany({
+  const services = await prisma.erpServiceRecord.findMany({
     orderBy: { serviceDate: 'desc' },
     include: { vehicle: true }
   });
@@ -18,20 +18,20 @@ export async function POST(request: NextRequest) {
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const body = await getBody(request);
+  const body = (await getBody(request)) as any;
   const { vehicleId, serviceType, cost, description, odometerAtService, serviceDate } = body;
 
   if (!vehicleId || !serviceType || !cost) {
     return badRequest('Vehicle, service type, and cost are required');
   }
 
-  const service = await prisma.erpVehicleService.create({
+  const service = await prisma.erpServiceRecord.create({
     data: {
       vehicleId,
       serviceType,
       cost: Number(cost),
       description: description || '',
-      odometerAtService: Number(odometerAtService || 0),
+      odometer: Number(odometerAtService || 0),
       serviceDate: new Date(serviceDate || Date.now())
     }
   });

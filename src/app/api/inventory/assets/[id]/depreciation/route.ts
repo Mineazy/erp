@@ -2,19 +2,20 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, unauthorized, notFound, ok, badRequest } from '@/lib/api';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
   const asset = await prisma.erpAsset.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { category: true, depreciations: true },
   });
 
   if (!asset) return notFound('Asset not found');
 
   const depreciations = await prisma.erpAssetDepreciation.findMany({
-    where: { assetId: params.id },
+    where: { assetId: id },
     orderBy: { createdAt: 'desc' },
   });
 
@@ -31,12 +32,13 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   });
 }
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
   const asset = await prisma.erpAsset.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { category: true },
   });
 
@@ -60,7 +62,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
   // Get last depreciation to calculate opening value
   const lastDep = await prisma.erpAssetDepreciation.findFirst({
-    where: { assetId: params.id },
+    where: { assetId: id },
     orderBy: { createdAt: 'desc' },
   });
 
@@ -70,11 +72,11 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
   const depreciation = await prisma.erpAssetDepreciation.create({
     data: {
-      assetId: params.id,
+      assetId: id,
       period: period as string,
-      openingValue: new Decimal(openingValue),
-      depreciationExp: new Decimal(depreciationExp),
-      closingValue: new Decimal(closingValue),
+      openingValue: openingValue,
+      depreciationExp: depreciationExp,
+      closingValue: closingValue,
       status: 'pending',
     },
   });
@@ -84,8 +86,4 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
 async function getRequest(request: NextRequest) {
   return request.json();
-}
-
-class Decimal {
-  constructor(private value: number) {}
 }

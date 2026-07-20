@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const body = await getBody(request);
+  const body = (await getBody(request)) as any;
   const { action, vehicleId, litersRequested, purpose, requisitionId } = body;
   const currentUserId = (session.user as any)?.id || 'system';
   const currentUserName = session.user?.name || 'Administrator';
@@ -69,10 +69,10 @@ export async function POST(request: NextRequest) {
   if (action === 'approve_finance') {
     if (!requisitionId) return badRequest('Requisition ID is required');
 
-    const req = await prisma.erpFuelRequisition.findUnique({
+    const req = (await prisma.erpFuelRequisition.findUnique({
       where: { id: requisitionId },
       include: { vehicle: true }
-    });
+    })) as any;
     if (!req) return badRequest('Requisition not found');
     if (req.status !== 'TREASURER_APPROVED') {
       return badRequest('Requisition must be approved by Treasurer first');

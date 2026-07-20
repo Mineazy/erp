@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const body = await getBody(request);
+  const body = (await getBody(request)) as any;
   const { plateNumber, make, model, type, status, currentOdometer, assignedDriver } = body;
 
   if (!plateNumber || !make || !model) {
@@ -91,7 +91,7 @@ export async function PUT(request: NextRequest) {
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const body = await getBody(request);
+  const body = (await getBody(request)) as any;
   const { vehicleId, simulateMove } = body;
 
   if (!vehicleId) return badRequest('Vehicle ID is required');

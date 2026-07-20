@@ -2,28 +2,30 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, unauthorized, notFound, ok, getBody, badRequest, created, getNextSequence } from '@/lib/api';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
   // Verify asset exists
-  const asset = await prisma.erpAsset.findUnique({ where: { id: params.id } });
+  const asset = await prisma.erpAsset.findUnique({ where: { id } });
   if (!asset) return notFound('Asset not found');
 
   const transfers = await prisma.erpAssetTransfer.findMany({
-    where: { assetId: params.id },
+    where: { assetId: id },
     orderBy: { createdAt: 'desc' },
   });
 
   return ok(transfers);
 }
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
   // Verify asset exists
-  const asset = await prisma.erpAsset.findUnique({ where: { id: params.id } });
+  const asset = await prisma.erpAsset.findUnique({ where: { id } });
   if (!asset) return notFound('Asset not found');
 
   const body = await getBody(request);
@@ -38,7 +40,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   const transfer = await prisma.erpAssetTransfer.create({
     data: {
       transferNo,
-      assetId: params.id,
+      assetId: id,
       fromLocation: fromLocation as string,
       toLocation: toLocation as string,
       transferDate: new Date(transferDate as string),

@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   if (!session) return unauthorized();
 
   const totalVehicles = await prisma.erpVehicle.count();
-  const totalServiceCostsAgg = await prisma.erpVehicleService.aggregate({
+  const totalServiceCostsAgg = await prisma.erpServiceRecord.aggregate({
     _sum: { cost: true }
   });
   const totalServiceCosts = Number(totalServiceCostsAgg._sum.cost || 0);
