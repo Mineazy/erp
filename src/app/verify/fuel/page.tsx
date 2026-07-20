@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ShieldCheck, ShieldAlert, Loader2, ArrowLeft, Fuel } from 'lucide-react';
 import Link from 'next/link';
@@ -18,7 +18,7 @@ interface Voucher {
   createdAt: string;
 }
 
-export default function VerifyFuelPage() {
+function VerifyFuelContent() {
   const searchParams = useSearchParams();
   const id = searchParams.get('id');
   
@@ -195,5 +195,18 @@ export default function VerifyFuelPage() {
         &copy; 2026 Mineazy Logistics Inc. All rights reserved. Secure verification portal.
       </div>
     </div>
+  );
+}
+
+export default function VerifyFuelPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center py-12">
+        <Loader2 className="h-10 w-10 text-indigo-600 animate-spin" />
+        <p className="text-sm text-slate-500 font-medium mt-3">Loading Secure Verification Portal...</p>
+      </div>
+    }>
+      <VerifyFuelContent />
+    </Suspense>
   );
 }

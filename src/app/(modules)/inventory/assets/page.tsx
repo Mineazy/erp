@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Table,
@@ -41,7 +41,7 @@ interface Asset {
   usefulLifeYears?: number;
 }
 
-export default function AssetsPage() {
+function AssetsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -727,5 +727,17 @@ export default function AssetsPage() {
       </Dialog>
 
     </div>
+  );
+}
+
+export default function AssetsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex justify-center items-center py-16">
+        <Loader2 className="w-6 h-6 animate-spin text-slate-500" />
+      </div>
+    }>
+      <AssetsContent />
+    </Suspense>
   );
 }
