@@ -37,6 +37,7 @@ export default function CustomersPage() {
   const [data, setData] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [segmentFilter, setSegmentFilter] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -46,6 +47,7 @@ export default function CustomersPage() {
       setLoading(true);
       const params = new URLSearchParams();
       if (search) params.set('search', search);
+      if (segmentFilter !== 'all') params.set('segment', segmentFilter);
       const res = await fetch(`/api/crm/customers?${params}`);
       if (!res.ok) throw new Error('Failed to fetch');
       const json = await res.json();
@@ -57,7 +59,7 @@ export default function CustomersPage() {
     }
   };
 
-  useEffect(() => { fetchData(); }, [search]);
+  useEffect(() => { fetchData(); }, [search, segmentFilter]);
 
   const openCreate = () => {
     setEditingCustomer(null);
@@ -193,9 +195,22 @@ export default function CustomersPage() {
               <Users className="h-5 w-5 text-mine-blue-800" />
               Customer List
             </CardTitle>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <input type="text" placeholder="Search customers..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-mine-blue-500 w-64" />
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input type="text" placeholder="Search customers..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-mine-blue-500 w-64" />
+              </div>
+              <Select
+                options={[
+                  { value: 'all', label: 'All Segments' },
+                  { value: 'retail', label: 'Retail' },
+                  { value: 'wholesale', label: 'Wholesale' },
+                  { value: 'reseller', label: 'Resellers' },
+                ]}
+                value={segmentFilter}
+                onChange={(e) => setSegmentFilter(e.target.value)}
+                className="w-36"
+              />
             </div>
           </div>
         </CardHeader>
@@ -224,11 +239,16 @@ export default function CustomersPage() {
                     <TableCell className="font-mono text-xs">{customer.code}</TableCell>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-medium flex items-center gap-1.5">
+                        <span className="font-medium flex items-center gap-1.5 flex-wrap">
                           {customer.name}
                           {isBigSpender && (
                             <Badge className="bg-amber-100 hover:bg-amber-100 text-amber-800 border-amber-200 text-[10px] py-0 px-1 font-semibold">
                               ★ VIP
+                            </Badge>
+                          )}
+                          {customer.segment === 'reseller' && (
+                            <Badge className="bg-indigo-100 hover:bg-indigo-100 text-indigo-800 border-indigo-200 text-[10px] py-0 px-1 font-bold">
+                              🤝 Reseller ({Number(customer.resellerDiscount || 0).toFixed(0)}% Off)
                             </Badge>
                           )}
                         </span>
