@@ -116,6 +116,7 @@ export function checkApiAccess(
   pathname: string,
   method: string,
   role: string,
+  department?: string | null,
 ): boolean {
   const normalizedRole = role as UserRole;
 
@@ -127,30 +128,51 @@ export function checkApiAccess(
   }
 
   if (method === 'GET') {
-    return roleCanRead(module, normalizedRole);
+    return canAccessModule(module, normalizedRole, department);
   }
 
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
-    return roleCanWrite(module, normalizedRole);
+    return canWriteModule(module, normalizedRole, department);
   }
 
   return false;
 }
 
-export function canAccessModule(module: string, role: string | undefined): boolean {
+export function canAccessModule(module: string, role: string | undefined, department?: string | null): boolean {
   if (!role) return false;
+
+  // Custom overrides for users registered under the Purchasing Department
+  if (department && department.toLowerCase() === 'purchasing') {
+    const allowedModules = ['purchasing', 'inventory', 'warehouse', 'fleet', 'messaging'];
+    if (allowedModules.includes(module.toLowerCase())) {
+      return true;
+    }
+    // Block non-admin users from accessing other modules if in the Purchasing department
+    if (role !== 'admin') {
+      return false;
+    }
+  }
+
   const access = getModuleAccess(module, role as UserRole);
   return access === true || access === 'readonly';
 }
 
-export function canWriteModule(module: string, role: string | undefined): boolean {
+export function canWriteModule(module: string, role: string | undefined, department?: string | null): boolean {
   if (!role) return false;
+
+  if (department && department.toLowerCase() === 'purchasing') {
+    const allowedModules = ['purchasing', 'inventory', 'warehouse', 'fleet', 'messaging'];
+    if (allowedModules.includes(module.toLowerCase())) {
+      return true;
+    }
+  }
+
   return roleCanWrite(module, role as UserRole);
 }
 
-export function getVisibleModules(role: string | undefined): string[] {
+export function getVisibleModules(role: string | undefined, department?: string | null): string[] {
   if (!role) return [];
   return Object.keys(MODULE_PERMISSIONS).filter((mod) =>
-    canAccessModule(mod, role),
+    canAccessModule(mod, role, department),
   );
 }

@@ -186,13 +186,14 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const { data: session, status } = useSession();
   const role = (session?.user as { role?: string } | undefined)?.role as UserRole | undefined;
+  const department = (session?.user as { department?: string } | undefined)?.department;
   const isLoading = status === 'loading';
 
   const visibleGroups = isLoading || !role
     ? navGroups
     : navGroups.filter((group) => {
         if (!group.module || group.module === 'main') return true;
-        return canAccessModule(group.module, role);
+        return canAccessModule(group.module, role, department);
       });
 
   const [expandedGroups, setExpandedGroups] = useState<string[]>(
