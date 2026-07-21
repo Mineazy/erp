@@ -36,7 +36,7 @@ interface Branch {
   code: string;
 }
 
-const DEPARTMENTS = ['Admin', 'Finance', 'Purchasing', 'Warehouse', 'Business', 'Audit', 'Operations', 'IT'];
+const DEPARTMENTS = ['Admin', 'Finance', 'Purchasing', 'Warehouse', 'Business Development', 'Audit', 'Operations', 'IT'];
 const ROLES = ['Admin', 'User', 'Manager', 'Accountant'];
 const ACTIONS = ['CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT'];
 const MODULES = [
@@ -147,7 +147,7 @@ export default function AuditTrailPage() {
       Finance: 'bg-amber-50 text-amber-700 border-amber-200',
       Purchasing: 'bg-sky-50 text-sky-700 border-sky-200',
       Warehouse: 'bg-orange-50 text-orange-700 border-orange-200',
-      Business: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+      'Business Development': 'bg-indigo-50 text-indigo-700 border-indigo-200',
       Audit: 'bg-rose-50 text-rose-700 border-rose-200',
       IT: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     };

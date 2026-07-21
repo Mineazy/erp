@@ -165,13 +165,13 @@ export function canAccessModule(module: string, role: string | undefined, depart
     }
   }
 
-  // Custom overrides for users registered under the Business Department
-  if (department && department.toLowerCase() === 'business') {
+  // Custom overrides for users registered under the Business Development Department
+  if (department && (department.toLowerCase() === 'business' || department.toLowerCase() === 'business development')) {
     const allowedModules = ['crm', 'pos', 'workshop', 'messaging'];
     if (allowedModules.includes(module.toLowerCase())) {
       return true;
     }
-    // Block non-admin users from accessing other modules if in the Business department
+    // Block non-admin users from accessing other modules if in the Business Development department
     if (role !== 'admin') {
       return false;
     }
@@ -210,7 +210,7 @@ export function canWriteModule(module: string, role: string | undefined, departm
     }
   }
 
-  if (department && department.toLowerCase() === 'business') {
+  if (department && (department.toLowerCase() === 'business' || department.toLowerCase() === 'business development')) {
     const allowedModules = ['crm', 'pos', 'workshop', 'messaging'];
     if (allowedModules.includes(module.toLowerCase())) {
       return true;

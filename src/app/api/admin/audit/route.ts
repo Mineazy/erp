@@ -35,11 +35,11 @@ export async function GET(request: NextRequest) {
     }
 
     const hashedPassword = await bcrypt.hash('admin123', 12);
-    const departments = ['Purchasing', 'Finance', 'Warehouse', 'Business', 'Admin'];
+    const departments = ['Purchasing', 'Finance', 'Warehouse', 'Business Development', 'Admin'];
 
     // Ensure seed users exist so mappings succeed
     for (const dep of departments) {
-      const email = `${dep.toLowerCase()}@mineazy.com`;
+      const email = `${dep.replace(/\s+/g, '').toLowerCase()}@mineazy.com`;
       const exists = await prisma.erpUser.findUnique({ where: { email } });
       if (!exists) {
         await prisma.erpUser.create({
@@ -103,8 +103,8 @@ export async function GET(request: NextRequest) {
         createdAt: new Date(Date.now() - 3600000 * 5.8),
       },
       {
-        userId: 'business@mineazy.com',
-        userName: 'Business Department User',
+        userId: 'businessdevelopment@mineazy.com',
+        userName: 'Business Development Department User',
         action: 'CREATE',
         entityType: 'Customer',
         entityId: 'cust-908',
@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
       const dep = departments[i % departments.length];
       const act = actions[i % actions.length];
       const ent = entities[i % entities.length];
-      const userEmail = `${dep.toLowerCase()}@mineazy.com`;
+      const userEmail = `${dep.replace(/\s+/g, '').toLowerCase()}@mineazy.com`;
 
       seedLogsData.push({
         userId: userEmail,
