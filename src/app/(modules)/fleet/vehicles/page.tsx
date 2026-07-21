@@ -237,7 +237,7 @@ export default function VehiclesPage() {
               <div className="z-10 mt-auto text-xs text-slate-400 font-mono bg-slate-950/80 p-2.5 rounded border border-slate-800">
                 <p className="text-white font-bold mb-1">Live Map Feed logs:</p>
                 {vehicles.map((v) => (
-                  <p key={v.id}>&gt; Vehicle {v.plateNumber} pinged at [{v.latitude.toFixed(4)}, {v.longitude.toFixed(4)}] - Status: {v.status.toUpperCase()}</p>
+                  <p key={v.id}>&gt; Vehicle {v.plateNumber} pinged at [{parseFloat(String(v.latitude || '0')).toFixed(4)}, {parseFloat(String(v.longitude || '0')).toFixed(4)}] - Status: {v.status.toUpperCase()}</p>
                 ))}
               </div>
             </CardContent>
