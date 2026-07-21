@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
     data: {
       name: name as string,
       type: type as string,
-      config: config as object,
+      config: typeof config === 'string' ? config : JSON.stringify(config),
       createdBy: (session.user as { id: string }).id,
       isPublic: isPublic !== undefined ? Boolean(isPublic) : false,
     },

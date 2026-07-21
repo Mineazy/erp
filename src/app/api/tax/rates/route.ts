@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
       category: category as string,
       rate: parseFloat(rate as string),
       isActive: isActive !== undefined ? Boolean(isActive) : true,
-      rules: (rules as object) || undefined,
+      rules: rules ? (typeof rules === 'string' ? rules : JSON.stringify(rules)) : undefined,
     },
   });
   return created(item);
