@@ -98,8 +98,8 @@ interface Customer {
 export default function POSTerminalPage() {
   const { isOnline } = useNetwork();
   const [products, setProducts] = useState<Product[]>([]);
-  const [vatRate, setVatRate] = useState<number>(0);
-  const [vatName, setVatName] = useState<string>('VAT');
+  const [taxes, setTaxes] = useState<any[]>([]);
+  const [selectedTaxId, setSelectedTaxId] = useState<string>('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
@@ -161,37 +161,42 @@ export default function POSTerminalPage() {
     }
   }, [cart, paymentDialogOpen]);
 
-  const fetchVatRate = useCallback(async () => {
+  const fetchTaxes = useCallback(async () => {
     try {
       if (!isOnline) {
-        const cached = await getCachedData('vat_rate_cache');
+        const cached = await getCachedData('taxes_cache');
         if (cached.length > 0) {
-          setVatRate(cached[0].rate);
-          setVatName(cached[0].name);
+          setTaxes(cached);
+          const vat = cached.find((t: any) => t.code === 'VAT' || t.name.toLowerCase().includes('value added tax'));
+          if (vat) setSelectedTaxId(vat.id);
+          else if (cached.length > 0) setSelectedTaxId(cached[0].id);
           return;
         }
       }
 
-      const res = await fetch('/api/tax/rates?search=VAT');
+      const res = await fetch('/api/tax/rates');
       if (res.ok) {
         const data = await res.json();
         const items = Array.isArray(data) ? data : data.data || [];
-        const vat = items.find((t: any) => t.name.toLowerCase().includes('vat') && t.isActive);
+        const activeTaxes = items.filter((t: any) => t.isActive);
+        setTaxes(activeTaxes);
+        if (isOnline) {
+          await cacheData('taxes_cache', activeTaxes);
+        }
+        
+        const vat = activeTaxes.find((t: any) => t.code === 'VAT' || t.name.toLowerCase().includes('value added tax'));
         if (vat) {
-          const rate = Number(vat.rate) / 100;
-          setVatRate(rate);
-          setVatName(vat.name);
-          if (isOnline) {
-            await cacheData('vat_rate_cache', [{ id: vat.id, rate, name: vat.name }]);
-          }
+          setSelectedTaxId(vat.id);
+        } else if (activeTaxes.length > 0) {
+          setSelectedTaxId(activeTaxes[0].id);
         }
       }
     } catch {}
   }, [isOnline]);
 
   useEffect(() => {
-    fetchVatRate();
-  }, [fetchVatRate]);
+    fetchTaxes();
+  }, [fetchTaxes]);
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -458,7 +463,8 @@ export default function POSTerminalPage() {
   }, [warningLevel, session]);
 
   const subtotal = cart.reduce((sum, item) => sum + item.product.sellingPrice * item.quantity, 0);
-  const taxRate = vatRate;
+  const selectedTax = taxes.find(t => t.id === selectedTaxId);
+  const taxRate = selectedTax ? Number(selectedTax.rate) / 100 : 0;
   const tax = subtotal * taxRate;
   const discount = 0;
   const total = subtotal + tax - discount;
@@ -1016,8 +1022,20 @@ export default function POSTerminalPage() {
                     <span>Subtotal</span>
                     <span className="font-mono">${subtotal.toLocaleString()}</span>
                   </div>
-                  <div className="flex justify-between text-sm text-slate-600">
-                    <span>{vatName} ({(vatRate * 100).toFixed(1)}%)</span>
+                  <div className="flex justify-between items-center text-sm text-slate-600">
+                    <div className="flex items-center gap-2">
+                      <span>Tax</span>
+                      <select 
+                        className="border border-slate-200 rounded p-1 text-xs outline-none bg-transparent"
+                        value={selectedTaxId}
+                        onChange={(e) => setSelectedTaxId(e.target.value)}
+                      >
+                        <option value="">No Tax (0%)</option>
+                        {taxes.map(t => (
+                          <option key={t.id} value={t.id}>{t.name} ({t.rate}%)</option>
+                        ))}
+                      </select>
+                    </div>
                     <span className="font-mono">${tax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                   {discount > 0 && (
