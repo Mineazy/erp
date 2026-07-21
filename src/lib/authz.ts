@@ -153,6 +153,18 @@ export function canAccessModule(module: string, role: string | undefined, depart
     }
   }
 
+  // Custom overrides for users registered under the Finance Department
+  if (department && (department.toLowerCase() === 'finance' || department.toLowerCase() === 'financial')) {
+    const allowedModules = ['financial', 'crm', 'pos', 'fleet', 'fdms', 'reports', 'messaging'];
+    if (allowedModules.includes(module.toLowerCase())) {
+      return true;
+    }
+    // Block non-admin users from accessing other modules if in the Finance department
+    if (role !== 'admin') {
+      return false;
+    }
+  }
+
   const access = getModuleAccess(module, role as UserRole);
   return access === true || access === 'readonly';
 }
@@ -162,6 +174,13 @@ export function canWriteModule(module: string, role: string | undefined, departm
 
   if (department && department.toLowerCase() === 'purchasing') {
     const allowedModules = ['purchasing', 'inventory', 'warehouse', 'fleet', 'messaging'];
+    if (allowedModules.includes(module.toLowerCase())) {
+      return true;
+    }
+  }
+
+  if (department && (department.toLowerCase() === 'finance' || department.toLowerCase() === 'financial')) {
+    const allowedModules = ['financial', 'crm', 'pos', 'fleet', 'fdms', 'reports', 'messaging'];
     if (allowedModules.includes(module.toLowerCase())) {
       return true;
     }
