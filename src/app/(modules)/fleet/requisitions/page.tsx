@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { toast } from '@/components/ui/toast';
 import { Dialog } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuContent } from '@/components/ui/dropdown-menu';
+
 import { ClipboardList, Plus, Check, X, QrCode, Printer, Download, Eye, Fuel, CheckCircle, Clock, Search, Filter, MoreVertical, Building, MapPin, CheckSquare, Settings2, Trash2 } from 'lucide-react';
 import { useNetwork } from '@/lib/hooks/use-network';
 import { cacheData, getCachedData, saveOfflineTransaction } from '@/lib/db';
@@ -177,14 +177,18 @@ export default function FuelRequisitionsPage() {
           id: `off-${Date.now()}`,
           vehicleId: selectedVehicle,
           vehicle: veh || { id: '', plateNumber: 'Offline', make: '', model: '' },
+          userId: 'offline-user',
+          userName: 'Offline User',
           fuelType,
           gasStation,
           litersRequested: Number(requestedLiters),
           purpose: reqPurpose,
           status: 'PENDING',
+          approvedBy: null,
           treasurerApprovedBy: null,
-          financeApprovedBy: null,
-          token: null,
+          financeManagerApprovedBy: null,
+          qrCodeUrl: null,
+          redeemToken: null,
           createdAt: new Date().toISOString()
         };
         setRequisitions(prev => [simReq, ...prev]);
