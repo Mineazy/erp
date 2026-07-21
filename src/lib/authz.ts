@@ -177,6 +177,18 @@ export function canAccessModule(module: string, role: string | undefined, depart
     }
   }
 
+  // Custom overrides for users registered under the Warehouse Department
+  if (department && (department.toLowerCase() === 'warehouse' || department.toLowerCase() === 'inventory')) {
+    const allowedModules = ['inventory', 'warehouse', 'messaging'];
+    if (allowedModules.includes(module.toLowerCase())) {
+      return true;
+    }
+    // Block non-admin users from accessing other modules if in the Warehouse department
+    if (role !== 'admin') {
+      return false;
+    }
+  }
+
   const access = getModuleAccess(module, role as UserRole);
   return access === true || access === 'readonly';
 }
@@ -200,6 +212,13 @@ export function canWriteModule(module: string, role: string | undefined, departm
 
   if (department && department.toLowerCase() === 'business') {
     const allowedModules = ['crm', 'pos', 'workshop', 'messaging'];
+    if (allowedModules.includes(module.toLowerCase())) {
+      return true;
+    }
+  }
+
+  if (department && (department.toLowerCase() === 'warehouse' || department.toLowerCase() === 'inventory')) {
+    const allowedModules = ['inventory', 'warehouse', 'messaging'];
     if (allowedModules.includes(module.toLowerCase())) {
       return true;
     }
