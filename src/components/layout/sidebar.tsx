@@ -12,7 +12,7 @@ import {
   LucideIcon, Target, Percent, ClipboardList, Warehouse, ArrowLeftRight,
   ClipboardCheck, Wrench, QrCode, BarChart3, Shield, Settings, FolderTree,
   RotateCcw, MessageCircle, AlertTriangle, TrendingUp, LineChart, Bell,
-  FileBarChart, ScrollText,
+  FileBarChart, ScrollText, Award, Crown,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -21,7 +21,7 @@ const iconMap: Record<string, LucideIcon> = {
   Package, ShoppingCart, Truck, Users, Building2, Target, Percent, ClipboardList,
   Warehouse, ArrowLeftRight, ClipboardCheck, Wrench, QrCode, BarChart3, Shield, Settings,
   RotateCcw, MessageCircle, AlertTriangle, TrendingUp, LineChart, Bell,
-  FileBarChart, ScrollText, FolderTree,
+  FileBarChart, ScrollText, FolderTree, Award, Crown,
 };
 
 const navGroups = [
@@ -64,6 +64,8 @@ const navGroups = [
       { label: 'Customers', href: '/crm/customers', icon: 'Users' },
       { label: 'Leads', href: '/crm/leads', icon: 'Target' },
       { label: 'Suppliers', href: '/suppliers', icon: 'Building2' },
+      { label: 'Loyalty Program', href: '/crm/loyalty', icon: 'Award' },
+      { label: 'Big Spenders', href: '/crm/spenders', icon: 'Crown' },
       { label: 'Reports & Analytics', href: '/crm/reports', icon: 'FileBarChart' },
     ],
   },
