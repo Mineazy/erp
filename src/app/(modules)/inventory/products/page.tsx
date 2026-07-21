@@ -77,7 +77,12 @@ export default function ProductsPage() {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
       const res = await fetch(`/api/inventory/products?${params}`);
-      if (!res.ok) throw new Error('Failed to fetch');
+      if (!res.ok) {
+        let errText = '';
+        try { errText = JSON.stringify(await res.json()); } catch { errText = await res.text(); }
+        console.error('SERVER GET ERROR:', res.status, errText);
+        throw new Error('Failed to fetch: ' + errText);
+      }
       const json = await res.json();
       setData(json.items ?? json);
     } catch (e) {
