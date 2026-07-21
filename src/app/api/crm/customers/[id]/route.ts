@@ -21,7 +21,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   if (!existing) return notFound('Customer not found');
 
   const body = await getBody(request);
-  const { name, type, contactPerson, email, phone, mobile, address, city, country, taxId, creditLimit, notes, isActive, loyaltyCardBarcode, loyaltyPoints, totalSpent, cardBalance } = body;
+  const { name, type, contactPerson, email, phone, mobile, address, city, country, taxId, creditLimit, notes, isActive, loyaltyCardBarcode, loyaltyPoints, totalSpent, cardBalance, segment, resellerDiscount } = body;
 
   const data: Record<string, unknown> = {};
   if (name) data.name = name as string;
@@ -41,6 +41,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   if (loyaltyPoints !== undefined) data.loyaltyPoints = parseInt(loyaltyPoints as string);
   if (totalSpent !== undefined) data.totalSpent = parseFloat(totalSpent as string);
   if (cardBalance !== undefined) data.cardBalance = parseFloat(cardBalance as string);
+  if (segment !== undefined) data.segment = segment as string | null;
+  if (resellerDiscount !== undefined) data.resellerDiscount = parseFloat(resellerDiscount as string);
 
   const item = await prisma.erpCustomer.update({
     where: { id: id },

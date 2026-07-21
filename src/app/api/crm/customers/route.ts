@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const search = searchParams.get('search') || '';
   const status = searchParams.get('status');
+  const segment = searchParams.get('segment');
 
   const branchFilter = getBranchFilter(session);
   const where: any = {};
@@ -24,6 +25,7 @@ export async function GET(request: NextRequest) {
   }
   if (status === 'active') where.isActive = true;
   else if (status === 'inactive') where.isActive = false;
+  if (segment) where.segment = segment;
 
   const items = await prisma.erpCustomer.findMany({
     where,
@@ -37,7 +39,7 @@ export async function POST(request: NextRequest) {
   if (!session) return unauthorized();
 
   const body = await getBody(request);
-  const { name, type, contactPerson, email, phone, mobile, address, city, country, taxId, creditLimit, notes, loyaltyCardBarcode } = body;
+  const { name, type, contactPerson, email, phone, mobile, address, city, country, taxId, creditLimit, notes, loyaltyCardBarcode, segment, resellerDiscount } = body;
 
   if (!name) return badRequest('Name is required');
 
@@ -48,6 +50,8 @@ export async function POST(request: NextRequest) {
       code,
       name: name as string,
       type: (type as string) || 'company',
+      segment: (segment as string) || 'retail',
+      resellerDiscount: parseFloat((resellerDiscount as string) || '0'),
       contactPerson: contactPerson as string,
       email: email as string,
       phone: phone as string,

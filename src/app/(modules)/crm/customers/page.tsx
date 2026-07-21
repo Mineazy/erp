@@ -27,9 +27,11 @@ interface Customer {
   loyaltyPoints: number;
   totalSpent: number;
   cardBalance: number;
+  segment?: string | null;
+  resellerDiscount?: number;
 }
 
-const emptyForm = { code: '', name: '', type: 'company', contactPerson: '', email: '', phone: '', city: '', taxId: '', loyaltyCardBarcode: '' };
+const emptyForm = { code: '', name: '', type: 'company', segment: 'retail', resellerDiscount: '0.00', contactPerson: '', email: '', phone: '', city: '', taxId: '', loyaltyCardBarcode: '' };
 
 export default function CustomersPage() {
   const [data, setData] = useState<Customer[]>([]);
@@ -69,6 +71,8 @@ export default function CustomersPage() {
       code: customer.code || '',
       name: customer.name || '',
       type: customer.type || 'company',
+      segment: customer.segment || 'retail',
+      resellerDiscount: String(customer.resellerDiscount || '0.00'),
       contactPerson: customer.contactPerson || '',
       email: customer.email || '',
       phone: customer.phone || '',
@@ -296,7 +300,13 @@ export default function CustomersPage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <Input label="Loyalty Card Barcode" value={form.loyaltyCardBarcode} onChange={(e) => setForm({ ...form, loyaltyCardBarcode: e.target.value })} placeholder="e.g. LOYAL-1001" />
+            <Select label="Customer Segment" options={[{ value: 'retail', label: 'Retail' }, { value: 'wholesale', label: 'Wholesale' }, { value: 'reseller', label: 'Reseller' }]} value={form.segment} onChange={(e) => setForm({ ...form, segment: e.target.value })} />
           </div>
+          {form.segment === 'reseller' && (
+            <div className="grid grid-cols-2 gap-4">
+              <Input label="Reseller Discount (%)" type="number" step="0.01" value={form.resellerDiscount} onChange={(e) => setForm({ ...form, resellerDiscount: e.target.value })} placeholder="e.g. 15.00" />
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => { setDialogOpen(false); setEditingCustomer(null); }}>Cancel</Button>
