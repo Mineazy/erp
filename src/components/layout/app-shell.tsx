@@ -22,8 +22,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <Header collapsed={collapsed} onToggleSidebar={() => setCollapsed(!collapsed)} />
       <main
         className={cn(
-          'pt-20 pb-8 px-6 transition-all duration-300',
-          collapsed ? 'ml-16' : 'ml-64'
+          'pt-20 pb-8 px-4 md:px-6 transition-all duration-300 ml-0',
+          collapsed ? 'md:ml-16' : 'md:ml-64'
         )}
       >
         {children}

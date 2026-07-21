@@ -69,8 +69,8 @@ export function Header({ collapsed, onToggleSidebar }: HeaderProps) {
     <>
       <header
         className={cn(
-          'fixed top-0 right-0 z-30 h-16 bg-white border-b border-slate-200 transition-all duration-300 flex items-center justify-between px-6',
-          collapsed ? 'left-16' : 'left-64'
+          'fixed top-0 right-0 z-30 h-16 bg-white border-b border-slate-200 transition-all duration-300 flex items-center justify-between px-4 md:px-6 left-0',
+          collapsed ? 'md:left-16' : 'md:left-64'
         )}
       >
         <div className="flex items-center gap-4">

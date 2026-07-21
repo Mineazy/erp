@@ -52,7 +52,7 @@ export function Dialog({ open, onClose, title, description, children, className,
       <div
         ref={ref}
         className={cn(
-          'relative z-50 w-full rounded-lg border border-slate-200 bg-white p-6 shadow-lg',
+          'relative z-50 w-[92%] sm:w-full max-h-[90vh] overflow-y-auto rounded-lg border border-slate-200 bg-white p-6 shadow-lg',
           sizeClasses[size],
           className
         )}
