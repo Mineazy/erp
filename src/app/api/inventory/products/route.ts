@@ -46,31 +46,36 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
-  if (!session) return unauthorized();
+  try {
+    const session = await getSession();
+    if (!session) return unauthorized();
 
-  const body = await getBody(request);
-  const { name, description, categoryId, unit, costPrice, sellingPrice, stock, minStock, location, barcode } = body;
-  if (!name) return badRequest('Product name is required');
+    const body = await getBody(request);
+    const { name, description, categoryId, unit, costPrice, sellingPrice, stock, minStock, location, barcode } = body;
+    if (!name) return badRequest('Product name is required');
 
-  const code = await getNextSequence(prisma, 'erpProduct', 'code', 'PRD');
+    const code = await getNextSequence(prisma, 'erpProduct', 'code', 'PRD');
 
-  const product = await prisma.erpProduct.create({
-    data: {
-      code,
-      name: name as string,
-      description: description as string | undefined,
-      categoryId: categoryId as string | undefined,
-      unit: (unit as string) || 'each',
-      costPrice: parseFloat(costPrice as string) || 0,
-      sellingPrice: parseFloat(sellingPrice as string) || 0,
-      stock: parseFloat(stock as string) || 0,
-      minStock: parseFloat(minStock as string) || 0,
-      location: location as string | undefined,
-      barcode: barcode as string | undefined,
-      branchId: (session.user as any)?.branchId || null,
-    },
-  });
+    const product = await prisma.erpProduct.create({
+      data: {
+        code,
+        name: name as string,
+        description: description as string | undefined,
+        categoryId: categoryId as string | undefined,
+        unit: (unit as string) || 'each',
+        costPrice: parseFloat(costPrice as string) || 0,
+        sellingPrice: parseFloat(sellingPrice as string) || 0,
+        stock: parseFloat(stock as string) || 0,
+        minStock: parseFloat(minStock as string) || 0,
+        location: location as string | undefined,
+        barcode: barcode as string | undefined,
+        branchId: (session.user as any)?.branchId || null,
+      },
+    });
 
-  return created(product);
+    return created(product);
+  } catch (error: any) {
+    console.error('API ERROR in POST /api/inventory/products:', error);
+    return new Response(JSON.stringify({ error: error.message || 'Internal Error', stack: error.stack }), { status: 500 });
+  }
 }
