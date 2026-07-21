@@ -80,6 +80,10 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(15);
+  const [total, setTotal] = useState(0);
+  const [stats, setStats] = useState({ total: 0, admin: 0, accountant: 0, manager: 0, user: 0 });
 
   const fetchBranches = async () => {
     try {
@@ -98,10 +102,16 @@ export default function UsersPage() {
       setLoading(true);
       const params = new URLSearchParams();
       if (search) params.set('search', search);
+      params.set('page', page.toString());
+      params.set('limit', limit.toString());
       const res = await fetch(`/api/admin/users?${params}`);
       if (!res.ok) throw new Error('Failed to fetch');
       const json = await res.json();
-      setData(json);
+      setData(json.items || []);
+      setTotal(json.total || 0);
+      if (json.stats) {
+        setStats(json.stats);
+      }
     } catch (e) {
       console.error('Failed to fetch users', e);
     } finally {
@@ -109,7 +119,11 @@ export default function UsersPage() {
     }
   };
 
-  useEffect(() => { fetchData(); }, [search]);
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  useEffect(() => { fetchData(); }, [page, limit]);
 
   const openCreate = () => {
     setEditingUser(null);
@@ -220,31 +234,31 @@ export default function UsersPage() {
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-slate-500">Total</p>
-            <p className="text-xl font-bold text-slate-900">{data.length}</p>
+            <p className="text-xl font-bold text-slate-900">{stats.total}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-slate-500">Admin</p>
-            <p className="text-xl font-bold text-red-600">{data.filter(u => u.role === 'admin').length}</p>
+            <p className="text-xl font-bold text-red-600">{stats.admin}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-slate-500">Accountant</p>
-            <p className="text-xl font-bold text-mine-blue-800">{data.filter(u => u.role === 'accountant').length}</p>
+            <p className="text-xl font-bold text-mine-blue-800">{stats.accountant}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-slate-500">Manager</p>
-            <p className="text-xl font-bold text-amber-600">{data.filter(u => u.role === 'manager').length}</p>
+            <p className="text-xl font-bold text-amber-600">{stats.manager}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-slate-500">User</p>
-            <p className="text-xl font-bold text-slate-500">{data.filter(u => u.role === 'user').length}</p>
+            <p className="text-xl font-bold text-slate-500">{stats.user}</p>
           </CardContent>
         </Card>
       </div>
@@ -310,6 +324,39 @@ export default function UsersPage() {
             </TableBody>
           </Table>
         </CardContent>
+
+        {/* Pagination */}
+        {total > 0 && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+            <div className="text-sm text-slate-500">
+              Showing <span className="font-semibold text-slate-700">{total === 0 ? 0 : (page - 1) * limit + 1}</span> to{' '}
+              <span className="font-semibold text-slate-700">
+                {Math.min(page * limit, total)}
+              </span>{' '}
+              of <span className="font-semibold text-slate-700">{total}</span> users
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.max(p - 1, 1))}
+                disabled={page === 1}
+                className="h-8 rounded-lg"
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.min(p + 1, Math.ceil(total / limit)))}
+                disabled={page * limit >= total}
+                className="h-8 rounded-lg"
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
 
       <Dialog open={dialogOpen} onClose={() => { setDialogOpen(false); setEditingUser(null); }} title={editingUser ? 'Edit User' : 'Add User'}>

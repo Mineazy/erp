@@ -10,6 +10,8 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const search = searchParams.get('search') || '';
   const role = searchParams.get('role');
+  const page = searchParams.get('page') ? parseInt(searchParams.get('page')!, 10) : null;
+  const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : 50;
 
   const where: any = {};
   if (search) {
@@ -20,7 +22,9 @@ export async function GET(request: NextRequest) {
   }
   if (role) where.role = role;
 
-  const items = await prisma.erpUser.findMany({
+  const total = await prisma.erpUser.count({ where });
+
+  const queryOptions: any = {
     where,
     select: {
       id: true,
@@ -37,7 +41,35 @@ export async function GET(request: NextRequest) {
       updatedAt: true,
     },
     orderBy: { createdAt: 'desc' },
-  });
+  };
+
+  if (page !== null) {
+    queryOptions.skip = (page - 1) * limit;
+    queryOptions.take = limit;
+  }
+
+  const items = await prisma.erpUser.findMany(queryOptions);
+
+  if (page !== null) {
+    const adminCount = await prisma.erpUser.count({ where: { role: 'admin' } });
+    const accountantCount = await prisma.erpUser.count({ where: { role: 'accountant' } });
+    const managerCount = await prisma.erpUser.count({ where: { role: 'manager' } });
+    const userCount = await prisma.erpUser.count({ where: { role: 'user' } });
+
+    return ok({
+      items,
+      total,
+      page,
+      limit,
+      stats: {
+        total: await prisma.erpUser.count(),
+        admin: adminCount,
+        accountant: accountantCount,
+        manager: managerCount,
+        user: userCount,
+      }
+    });
+  }
   return ok(items);
 }
 

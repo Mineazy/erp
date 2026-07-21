@@ -376,7 +376,7 @@ export default function AuditTrailPage() {
         </Table>
 
         {/* Pagination */}
-        {total > limit && (
+        {total > 0 && (
           <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/50">
             <div className="text-sm text-slate-500">
               Showing <span className="font-semibold text-slate-700">{(page - 1) * limit + 1}</span> to{' '}
