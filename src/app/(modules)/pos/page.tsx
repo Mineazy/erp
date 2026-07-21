@@ -9,6 +9,8 @@ import { Select } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
 import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, X, Printer, RotateCcw, LogOut, LogIn, Banknote, Landmark, Smartphone, Clock, ShieldAlert, LayoutGrid, List } from 'lucide-react';
+import { useNetwork } from '@/lib/hooks/use-network';
+import { cacheData, getCachedData, saveOfflineTransaction } from '@/lib/db';
 
 interface Product {
   id: string;
@@ -94,6 +96,7 @@ interface Customer {
 }
 
 export default function POSTerminalPage() {
+  const { isOnline } = useNetwork();
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState('');
@@ -158,29 +161,65 @@ export default function POSTerminalPage() {
 
   const fetchProducts = useCallback(async () => {
     try {
+      if (!isOnline) {
+        const cached = await getCachedData('products_cache');
+        if (cached.length > 0) {
+          let filtered = cached;
+          if (search) {
+            filtered = cached.filter(p => 
+              p.name.toLowerCase().includes(search.toLowerCase()) || 
+              p.code.toLowerCase().includes(search.toLowerCase()) ||
+              p.barcode?.toLowerCase().includes(search.toLowerCase())
+            );
+          }
+          setProducts(filtered);
+          setLoading(false);
+          return;
+        }
+      }
+
       const params = new URLSearchParams();
       if (search) params.set('search', search);
       const res = await fetch(`/api/inventory/products?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
-      setProducts(Array.isArray(data) ? data : data.items || data.data || []);
+      const items = Array.isArray(data) ? data : data.items || data.data || [];
+      setProducts(items);
+      
+      // Cache products if we're not searching, so we have the full active list
+      if (!search && isOnline) {
+        await cacheData('products_cache', items.filter((p: any) => p.isActive));
+      }
     } catch {
       setProducts([]);
     } finally {
       setLoading(false);
     }
-  }, [search]);
+  }, [search, isOnline]);
 
   const fetchSession = useCallback(async () => {
     try {
+      if (!isOnline) {
+        const cached = await getCachedData('session_cache');
+        if (cached.length > 0) {
+          setSession(cached[0]);
+          return;
+        }
+      }
+
       const res = await fetch('/api/pos/sessions?status=open');
       const data = await res.json();
       const sessions: Session[] = Array.isArray(data) ? data : data.data || [];
-      setSession(sessions.length > 0 ? sessions[0] : null);
+      const activeSession = sessions.length > 0 ? sessions[0] : null;
+      setSession(activeSession);
+      
+      if (activeSession && isOnline) {
+        await cacheData('session_cache', [activeSession]);
+      }
     } catch {
       setSession(null);
     }
-  }, []);
+  }, [isOnline]);
 
   useEffect(() => {
     fetchSession();
@@ -189,6 +228,17 @@ export default function POSTerminalPage() {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
+        if (!isOnline) {
+          const cached = await getCachedData('categories_cache');
+          if (cached.length > 0) {
+            setCategories([
+              { value: '', label: 'All Categories' },
+              ...cached.map((c: any) => ({ value: c.id, label: c.name }))
+            ]);
+            return;
+          }
+        }
+
         const res = await fetch('/api/inventory/categories');
         if (res.ok) {
           const data = await res.json();
@@ -197,13 +247,16 @@ export default function POSTerminalPage() {
             { value: '', label: 'All Categories' },
             ...items.map((c: any) => ({ value: c.id, label: c.name }))
           ]);
+          if (isOnline) {
+            await cacheData('categories_cache', items);
+          }
         }
       } catch (e) {
         console.error(e);
       }
     };
     fetchCategories();
-  }, []);
+  }, [isOnline]);
 
   useEffect(() => {
     if (session?.status === 'open') {
@@ -459,34 +512,65 @@ export default function POSTerminalPage() {
 
     setProcessingPayment(true);
     try {
+      const payload = {
+        sessionId: session.id,
+        customerId: selectedCustomer?.id || undefined,
+        customerName: selectedCustomer?.name || undefined,
+        transferChangeToCard,
+        lines: cart.map((item) => ({
+          productId: item.product.id,
+          productName: item.product.name,
+          quantity: item.quantity,
+          unitPrice: item.product.sellingPrice,
+        })),
+        subtotal,
+        taxAmount: tax,
+        discount,
+        payments: validPayments.map(p => ({
+          method: p.method,
+          amount: parseFloat(p.amount),
+          reference: p.reference || undefined,
+          currency: p.currency,
+          exchangeRate: currencies.find(c => c.code === p.currency)?.rate || 1,
+        })),
+      };
+
+      if (!isOnline) {
+        const offlineId = crypto.randomUUID();
+        await saveOfflineTransaction({
+          id: offlineId,
+          type: 'pos_payment',
+          payload,
+          timestamp: Date.now()
+        });
+        
+        toast('Offline payment saved locally', 'success');
+        const simulatedData = {
+          id: `offline-${offlineId.substring(0,8)}`,
+          transactionNumber: `OFF-${Date.now()}`,
+          total,
+          status: 'OFFLINE_PENDING',
+          ...payload
+        };
+        setLastTransaction(simulatedData as any);
+        setReceiptCustomer(selectedCustomer);
+        setPaymentDialogOpen(false);
+        setReceiptDialogOpen(true);
+        setCart([]);
+        setPayments([{ method: 'cash', amount: '', reference: '' }]);
+        setSelectedCustomer(null);
+        setTransferChangeToCard(false);
+        setProcessingPayment(false);
+        return;
+      }
+
       const tid = toast('Processing payment...', 'info', 120000);
       let res;
       try {
         res = await fetch('/api/pos/transactions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionId: session.id,
-            customerId: selectedCustomer?.id || undefined,
-            customerName: selectedCustomer?.name || undefined,
-            transferChangeToCard,
-            lines: cart.map((item) => ({
-              productId: item.product.id,
-              productName: item.product.name,
-              quantity: item.quantity,
-              unitPrice: item.product.sellingPrice,
-            })),
-            subtotal,
-            taxAmount: tax,
-            discount,
-            payments: validPayments.map(p => ({
-              method: p.method,
-              amount: parseFloat(p.amount),
-              reference: p.reference || undefined,
-              currency: p.currency,
-              exchangeRate: currencies.find(c => c.code === p.currency)?.rate || 1,
-            })),
-          }),
+          body: JSON.stringify(payload),
         });
       } catch (e) { dismissToast(tid); throw e; }
       if (!res.ok) {

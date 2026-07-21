@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { toast } from '@/components/ui/toast';
 import { ArrowLeftRight, Truck, Navigation, CheckCircle } from 'lucide-react';
+import { useNetwork } from '@/lib/hooks/use-network';
+import { cacheData, getCachedData, saveOfflineTransaction } from '@/lib/db';
 
 interface Vehicle {
   id: string;
@@ -30,6 +32,7 @@ interface HaulingTrip {
 }
 
 export default function HaulingTripsPage() {
+  const { isOnline } = useNetwork();
   const [trips, setTrips] = useState<HaulingTrip[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +46,13 @@ export default function HaulingTripsPage() {
 
   const fetchData = async () => {
     try {
+      if (!isOnline) {
+        const cachedVehicles = await getCachedData('fleet_vehicles_cache');
+        if (cachedVehicles.length > 0) setVehicles(cachedVehicles);
+        setLoading(false);
+        return;
+      }
+      
       const [tripsRes, vehiclesRes] = await Promise.all([
         fetch('/api/fleet/hauling'),
         fetch('/api/fleet/vehicles')
@@ -52,6 +62,10 @@ export default function HaulingTripsPage() {
         const vehiclesData = await vehiclesRes.json();
         setTrips(tripsData);
         setVehicles(vehiclesData);
+        
+        if (isOnline) {
+          await cacheData('fleet_vehicles_cache', vehiclesData);
+        }
       }
     } catch (_) {
       toast('Failed to load hauling trips', 'error');
@@ -70,18 +84,58 @@ export default function HaulingTripsPage() {
       toast('Please complete all form fields', 'warning');
       return;
     }
+    
+    const payload = {
+      action: 'create',
+      vehicleId: selectedVehicle,
+      driverName,
+      sourceWarehouseName: sourceWarehouse,
+      destinationBranchName: destBranch,
+      productDetails: cargoDetails
+    };
+
+    if (!isOnline) {
+      try {
+        await saveOfflineTransaction({
+          id: crypto.randomUUID(),
+          type: 'fleet_hauling',
+          payload,
+          timestamp: Date.now()
+        });
+        toast('Offline hauling trip saved locally', 'success');
+        
+        const veh = vehicles.find(v => v.id === selectedVehicle);
+        const simTrip: HaulingTrip = {
+          id: `off-${Date.now()}`,
+          vehicleId: selectedVehicle,
+          vehicle: veh || { id: '', plateNumber: 'Offline', make: '', model: '' },
+          driverName,
+          sourceWarehouseName: sourceWarehouse,
+          destinationBranchName: destBranch,
+          status: 'SCHEDULED',
+          productDetails: cargoDetails,
+          departureTime: null,
+          arrivalTime: null,
+          createdAt: new Date().toISOString()
+        };
+        setTrips(prev => [simTrip, ...prev]);
+        
+        setSelectedVehicle('');
+        setDriverName('');
+        setSourceWarehouse('');
+        setDestBranch('');
+        setCargoDetails('');
+      } catch {
+        toast('Failed to save offline trip', 'error');
+      }
+      return;
+    }
+
     try {
       const res = await fetch('/api/fleet/hauling', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'create',
-          vehicleId: selectedVehicle,
-          driverName,
-          sourceWarehouseName: sourceWarehouse,
-          destinationBranchName: destBranch,
-          productDetails: cargoDetails
-        })
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         toast('Hauling trip scheduled successfully', 'success');

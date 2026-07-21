@@ -7,7 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { toast } from '@/components/ui/toast';
 import { Dialog } from '@/components/ui/dialog';
-import { ClipboardList, Plus, Check, X, QrCode, Printer, Download, Eye } from 'lucide-react';
+import { DropdownMenu, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuContent } from '@/components/ui/dropdown-menu';
+import { ClipboardList, Plus, Check, X, QrCode, Printer, Download, Eye, Fuel, CheckCircle, Clock, Search, Filter, MoreVertical, Building, MapPin, CheckSquare, Settings2, Trash2 } from 'lucide-react';
+import { useNetwork } from '@/lib/hooks/use-network';
+import { cacheData, getCachedData, saveOfflineTransaction } from '@/lib/db';
 
 interface Vehicle {
   id: string;
@@ -95,7 +98,8 @@ function getBarcodeSvg(value: string) {
   return `<svg width="240" height="60" style="margin: 0 auto; display: block;">${rects}</svg>`;
 }
 
-export default function RequisitionsPage() {
+export default function FuelRequisitionsPage() {
+  const { isOnline } = useNetwork();
   const [requisitions, setRequisitions] = useState<Requisition[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,6 +114,13 @@ export default function RequisitionsPage() {
 
   const fetchData = async () => {
     try {
+      if (!isOnline) {
+        const cachedVehicles = await getCachedData('fleet_vehicles_cache');
+        if (cachedVehicles.length > 0) setVehicles(cachedVehicles);
+        setLoading(false);
+        return;
+      }
+
       const [reqsRes, vehiclesRes] = await Promise.all([
         fetch('/api/fleet/requisitions'),
         fetch('/api/fleet/vehicles')
@@ -119,6 +130,10 @@ export default function RequisitionsPage() {
         const vehiclesData = await vehiclesRes.json();
         setRequisitions(reqsData);
         setVehicles(vehiclesData);
+        
+        if (isOnline) {
+          await cacheData('fleet_vehicles_cache', vehiclesData);
+        }
       }
     } catch (_) {
       toast('Failed to load requisitions data', 'error');
@@ -137,18 +152,57 @@ export default function RequisitionsPage() {
       toast('Please complete all form fields', 'warning');
       return;
     }
+    
+    const payload = {
+      action: 'create',
+      vehicleId: selectedVehicle,
+      fuelType,
+      gasStation,
+      litersRequested: Number(requestedLiters),
+      purpose: reqPurpose
+    };
+
+    if (!isOnline) {
+      try {
+        await saveOfflineTransaction({
+          id: crypto.randomUUID(),
+          type: 'fleet_requisition',
+          payload,
+          timestamp: Date.now()
+        });
+        toast('Offline fuel requisition saved locally', 'success');
+        
+        const veh = vehicles.find(v => v.id === selectedVehicle);
+        const simReq: Requisition = {
+          id: `off-${Date.now()}`,
+          vehicleId: selectedVehicle,
+          vehicle: veh || { id: '', plateNumber: 'Offline', make: '', model: '' },
+          fuelType,
+          gasStation,
+          litersRequested: Number(requestedLiters),
+          purpose: reqPurpose,
+          status: 'PENDING',
+          treasurerApprovedBy: null,
+          financeApprovedBy: null,
+          token: null,
+          createdAt: new Date().toISOString()
+        };
+        setRequisitions(prev => [simReq, ...prev]);
+        
+        setSelectedVehicle('');
+        setRequestedLiters('');
+        setReqPurpose('');
+      } catch {
+        toast('Failed to save offline requisition', 'error');
+      }
+      return;
+    }
+
     try {
       const res = await fetch('/api/fleet/requisitions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'create',
-          vehicleId: selectedVehicle,
-          fuelType,
-          gasStation,
-          litersRequested: Number(requestedLiters),
-          purpose: reqPurpose
-        })
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         toast('Fuel requisition submitted successfully', 'success');

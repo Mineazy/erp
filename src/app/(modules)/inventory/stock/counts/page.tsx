@@ -11,6 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
 import { ClipboardCheck, Plus, Search, Trash2, CheckCircle, Package, AlertTriangle } from 'lucide-react';
 import { COUNT_STATUS } from '@/lib/constants';
+import { useNetwork } from '@/lib/hooks/use-network';
+import { cacheData, getCachedData, saveOfflineTransaction } from '@/lib/db';
 
 interface CL { id: string; product: { id: string; code: string; name: string }; systemQty: number; countedQty: number; variance: number }
 interface CS { id: string; countNo: string; status: string; lines: CL[]; countedBy?: { name: string } | null; approvedBy?: { name: string } | null; createdAt: string }
@@ -21,6 +23,7 @@ const sv: Record<string, 'secondary' | 'warning' | 'default' | 'success'> = { dr
 async function api(url: string, opts?: RequestInit) { const r = await fetch(url, opts); if (!r.ok) throw new Error((await r.json().catch(() => ({ error: 'Request failed' }))).error || 'Request failed'); return r.json(); }
 
 export default function StockCountsPage() {
+  const { isOnline } = useNetwork();
   const [data, setData] = useState<CS[]>([]);
   const [prods, setProds] = useState<LI[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,6 +36,10 @@ export default function StockCountsPage() {
 
   const fetchData = async () => {
     try {
+      if (!isOnline) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       const p = new URLSearchParams();
       if (search) p.set('search', search);
@@ -44,9 +51,21 @@ export default function StockCountsPage() {
 
   const fetchProds = async () => {
     try {
+      if (!isOnline) {
+        const cached = await getCachedData('products_cache');
+        if (cached.length > 0) {
+          setProds(cached.map((p: any) => ({ productId: p.id, productCode: p.code, productName: p.name, systemQty: p.stock, countedQty: p.stock })));
+        }
+        return;
+      }
+      
       const json = await api('/api/inventory/products?limit=500');
       const items = json.items ?? json;
       setProds(items.map((p: any) => ({ productId: p.id, productCode: p.code, productName: p.name, systemQty: p.stock, countedQty: p.stock })));
+      
+      if (isOnline) {
+        await cacheData('products_cache', items);
+      }
     } catch (_) {}
   };
 
@@ -60,11 +79,29 @@ export default function StockCountsPage() {
   const openView = (c: CS) => { setSc(c); setVd(true); };
 
   const handleSave = async () => {
+    const payload = { lines: li.map((l) => ({ productId: l.productId, systemQty: l.systemQty, countedQty: l.countedQty })) };
+    
+    if (!isOnline) {
+      try {
+        await saveOfflineTransaction({
+          id: crypto.randomUUID(),
+          type: 'inventory_count',
+          payload,
+          timestamp: Date.now()
+        });
+        toast('Offline stock count saved locally', 'success');
+        setCd(false);
+      } catch {
+        toast('Failed to save offline count', 'error');
+      }
+      return;
+    }
+
     try {
       const tid = toast('Creating count...', 'info', 120000);
       let res;
       try {
-        res = await fetch('/api/inventory/stock/counts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lines: li.map((l) => ({ productId: l.productId, systemQty: l.systemQty, countedQty: l.countedQty })) }) });
+        res = await fetch('/api/inventory/stock/counts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       } catch (e) { dismissToast(tid); throw e; }
       if (!res.ok) { const err = await res.json().catch(() => ({ error: 'Save failed' })); dismissToast(tid); toast(err.error || 'Failed to create count', 'error'); return; }
       dismissToast(tid);

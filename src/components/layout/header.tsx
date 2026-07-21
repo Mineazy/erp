@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { toast, dismissToast } from '@/components/ui/toast';
 import { Menu, LogOut, User, Lock, ChevronLeft, Mail, Shield, Clock, Building } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SyncManager } from '@/components/sync-manager';
 
 interface HeaderProps {
   collapsed: boolean;
@@ -80,9 +81,12 @@ export function Header({ collapsed, onToggleSidebar }: HeaderProps) {
           >
             {collapsed ? <Menu className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
           </button>
-          <div>
-            <h1 className="text-lg font-semibold text-slate-900">ERP System</h1>
-            <p className="text-xs text-slate-500">Mineazy Mining Solutions</p>
+          <div className="flex items-center gap-4">
+            <div>
+              <h1 className="text-lg font-semibold text-slate-900">ERP System</h1>
+              <p className="text-xs text-slate-500">Mineazy Mining Solutions</p>
+            </div>
+            <SyncManager />
           </div>
         </div>
 
