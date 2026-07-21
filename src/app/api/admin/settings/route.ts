@@ -31,13 +31,13 @@ export async function POST(request: NextRequest) {
   const item = await prisma.systemSetting.upsert({
     where: { key: key as string },
     update: {
-      value: value as object,
+      value: typeof value === 'string' ? value : JSON.stringify(value),
       category: (category as string) || 'general',
       description: description as string | undefined,
     },
     create: {
       key: key as string,
-      value: value as object,
+      value: typeof value === 'string' ? value : JSON.stringify(value),
       category: (category as string) || 'general',
       description: description as string | undefined,
     },
