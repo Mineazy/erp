@@ -98,6 +98,8 @@ interface Customer {
 export default function POSTerminalPage() {
   const { isOnline } = useNetwork();
   const [products, setProducts] = useState<Product[]>([]);
+  const [vatRate, setVatRate] = useState<number>(0);
+  const [vatName, setVatName] = useState<string>('VAT');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
@@ -158,6 +160,38 @@ export default function POSTerminalPage() {
       setPaymentDialogOpen(false);
     }
   }, [cart, paymentDialogOpen]);
+
+  const fetchVatRate = useCallback(async () => {
+    try {
+      if (!isOnline) {
+        const cached = await getCachedData('vat_rate_cache');
+        if (cached.length > 0) {
+          setVatRate(cached[0].rate);
+          setVatName(cached[0].name);
+          return;
+        }
+      }
+
+      const res = await fetch('/api/tax/rates?search=VAT');
+      if (res.ok) {
+        const data = await res.json();
+        const items = Array.isArray(data) ? data : data.data || [];
+        const vat = items.find((t: any) => t.name.toLowerCase().includes('vat') && t.isActive);
+        if (vat) {
+          const rate = Number(vat.rate) / 100;
+          setVatRate(rate);
+          setVatName(vat.name);
+          if (isOnline) {
+            await cacheData('vat_rate_cache', [{ id: vat.id, rate, name: vat.name }]);
+          }
+        }
+      }
+    } catch {}
+  }, [isOnline]);
+
+  useEffect(() => {
+    fetchVatRate();
+  }, [fetchVatRate]);
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -424,7 +458,7 @@ export default function POSTerminalPage() {
   }, [warningLevel, session]);
 
   const subtotal = cart.reduce((sum, item) => sum + item.product.sellingPrice * item.quantity, 0);
-  const taxRate = 0.1;
+  const taxRate = vatRate;
   const tax = subtotal * taxRate;
   const discount = 0;
   const total = subtotal + tax - discount;
@@ -983,8 +1017,8 @@ export default function POSTerminalPage() {
                     <span className="font-mono">${subtotal.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-sm text-slate-600">
-                    <span>Tax (10%)</span>
-                    <span className="font-mono">${tax.toLocaleString()}</span>
+                    <span>{vatName} ({(vatRate * 100).toFixed(1)}%)</span>
+                    <span className="font-mono">${tax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                   {discount > 0 && (
                     <div className="flex justify-between text-sm text-green-600">
