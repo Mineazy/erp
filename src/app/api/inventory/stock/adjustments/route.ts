@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
       entityType: 'stock_adjustment',
       entityId: adjustment.id,
       description: `Stock adjustment ${adjustmentNo}: ${adjustmentType} ${qty} of ${productName} (${currentStock} → ${newStock})`,
-      changes: { adjustmentNo, productId, productName, adjustmentType, qty, currentStock, newStock },
+      changes: JSON.stringify({ adjustmentNo, productId, productName, adjustmentType, qty, currentStock, newStock }),
       userId: (session.user as any).email || 'unknown',
       userName: (session.user as any).name || null,
       branchId: (session.user as any)?.branchId || null,
