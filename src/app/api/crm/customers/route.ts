@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, unauthorized, notFound, badRequest, ok, created, getBody, getNextSequence, getBranchFilter } from '@/lib/api';
+import { logAudit } from '@/lib/audit';
 
 export async function GET(request: NextRequest) {
   const session = await getSession();
@@ -66,5 +67,16 @@ export async function POST(request: NextRequest) {
       branchId: (session.user as any)?.branchId || null,
     },
   });
+
+  const u = session.user as any;
+  await logAudit({
+    userId: u.email || u.id,
+    userName: u.name || u.email,
+    action: 'CREATE',
+    entityType: 'Customer',
+    entityId: item.id,
+    changes: { code: item.code, name: item.name, segment: item.segment },
+  });
+
   return created(item);
 }

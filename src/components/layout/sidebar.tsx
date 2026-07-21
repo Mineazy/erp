@@ -173,6 +173,7 @@ const navGroups = [
       { label: 'Users', href: '/admin/users', icon: 'Shield' },
       { label: 'Branches', href: '/admin/branches', icon: 'Building2' },
       { label: 'Settings', href: '/admin/settings', icon: 'Settings' },
+      { label: 'Audit Trail', href: '/admin/audit', icon: 'ScrollText' },
     ],
   },
 ];

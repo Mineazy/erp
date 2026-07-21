@@ -81,6 +81,25 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
+  events: {
+    async signIn(message) {
+      if (message?.user) {
+        try {
+          const { logAudit } = await import('./audit');
+          await logAudit({
+            userId: message.user.email || message.user.id,
+            userName: message.user.name || message.user.email || 'System',
+            action: 'LOGIN',
+            entityType: 'UserSession',
+            entityId: message.user.id,
+            changes: { method: 'credentials', timestamp: new Date().toISOString() },
+          });
+        } catch (err) {
+          console.error('[Auth] Failed to write signIn audit log:', err);
+        }
+      }
+    }
+  },
   pages: {
     signIn: '/login',
   },
