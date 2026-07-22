@@ -9,9 +9,11 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^4.0.17",
     "@hookform/resolvers": "^3.6.0",
     "@prisma/client": "^5.14.0",
     "@tanstack/react-table": "^8.17.0",
+    "ai": "^3.4.33",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Sidebar } from './sidebar';
 import { Header } from './header';
 import { FloatingChatWidget } from './floating-chat';
+import { FloatingAiChatWidget } from './floating-ai-chat';
 import { cn } from '@/lib/utils';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -29,6 +30,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       <FloatingChatWidget />
+      <FloatingAiChatWidget />
     </div>
   );
 }
