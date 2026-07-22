@@ -88,7 +88,7 @@ When queried for information, always attempt to use the available tools to fetch
       },
     });
 
-    return result.toTextStreamResponse();
+    return result.toUIMessageStreamResponse();
   } catch (error) {
     console.error('AI Chat Error:', error);
     return new NextResponse('Internal Server Error', { status: 500 });
