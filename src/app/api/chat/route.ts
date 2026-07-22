@@ -26,7 +26,7 @@ Do not share sensitive financial data if the user's role is not "admin" or "acco
 When queried for information, always attempt to use the available tools to fetch live data from the system rather than guessing.`;
 
     const result = await streamText({
-      model: openai('gpt-4o') as any,
+      model: openai('gpt-4o'),
       system: systemPrompt,
       messages,
       tools: {
