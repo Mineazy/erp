@@ -11,14 +11,15 @@ export function FloatingAiChatWidget() {
   const [isMinimized, setIsMinimized] = useState(false);
   const [input, setInput] = useState('');
   
-  const { messages: chatMessages, sendMessage, status } = useChat({
-    messages: [
+  const { messages: chatMessages, append, status } = useChat({
+    api: '/api/chat',
+    initialMessages: [
       {
         id: 'initial-msg',
         role: 'assistant',
-        parts: [{ type: 'text', text: 'Hi! I am Ezzie, your AI assistant. How can I help you with your ERP tasks today?' }]
+        content: 'Hi! I am Ezzie, your AI assistant. How can I help you with your ERP tasks today?'
       }
-    ] as any
+    ]
   });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -103,7 +104,7 @@ export function FloatingAiChatWidget() {
                   msg.role === 'user' ? "bg-slate-800 text-white" : "bg-white border border-slate-200 text-slate-800"
                 )}>
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                    {msg.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n') || ''}
+                    {msg.content || (msg as any).parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n') || ''}
                   </p>
                 </div>
               </div>
@@ -131,7 +132,7 @@ export function FloatingAiChatWidget() {
                 if (input.trim()) {
                   const messageText = input;
                   setInput('');
-                  sendMessage({ role: 'user', parts: [{ type: 'text', text: messageText }] } as any);
+                  append({ role: 'user', content: messageText });
                 }
               }}
               className="flex items-end gap-2"
@@ -149,7 +150,7 @@ export function FloatingAiChatWidget() {
                       if (input.trim()) {
                         const messageText = input;
                         setInput('');
-                        sendMessage({ role: 'user', parts: [{ type: 'text', text: messageText }] } as any);
+                        append({ role: 'user', content: messageText });
                       }
                     }
                   }}
