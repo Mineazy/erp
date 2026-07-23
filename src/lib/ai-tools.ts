@@ -1,6 +1,7 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
 export function getAiTools(userRole: string) {
   // Helpers for role checks
@@ -13,6 +14,65 @@ export function getAiTools(userRole: string) {
   const isWorkshop = userRole === 'workshop' || isAdmin;
 
   return {
+    // === GENERIC DATABASE TOOLS ===
+    getDatabaseSchema: tool({
+      description: 'Get a simplified overview of the database schema (available models and their fields) to understand what data can be queried.',
+      parameters: z.object({ dummy: z.string().optional() }),
+      execute: async () => {
+        // Return a condensed map to save token space
+        const models = Prisma.dmmf.datamodel.models.map(m => ({
+          model: m.name,
+          fields: m.fields.filter(f => f.kind !== 'object').map(f => f.name),
+        }));
+        return models;
+      }
+    } as any),
+    queryDatabase: tool({
+      description: 'Query the database dynamically by providing a modelName and query arguments (where, take, select, orderBy). Use this only when you know the exact schema.',
+      parameters: z.object({
+        modelName: z.string().describe("The exact Prisma model name (e.g. 'ErpProduct', 'ErpSalesOrder')"),
+        queryArgs: z.any().describe("A JSON object representing Prisma findMany arguments. Example: { take: 5, where: { status: 'active' } }")
+      }),
+      execute: async ({ modelName, queryArgs }: any) => {
+        // Basic RBAC checking based on modelName prefix or keyword
+        const lowerModel = modelName.toLowerCase();
+        
+        // Deny HR data unless HR or Admin
+        if ((lowerModel.includes('employee') || lowerModel.includes('payroll') || lowerModel.includes('leave') || lowerModel.includes('attendance')) && !isHR) {
+          return { error: 'Access Denied: Your role does not permit access to HR data.' };
+        }
+        
+        // Deny Financial data unless Accountant or Admin
+        if ((lowerModel.includes('journal') || lowerModel.includes('account') || lowerModel.includes('ledger') || lowerModel.includes('tax') || lowerModel.includes('cashbook')) && !isAccountant) {
+          return { error: 'Access Denied: Your role does not permit access to Financial data.' };
+        }
+        
+        // Enforce max records limit to prevent massive data dumps
+        const safeQueryArgs = { ...queryArgs };
+        if (!safeQueryArgs.take || safeQueryArgs.take > 20) {
+          safeQueryArgs.take = 20;
+        }
+
+        try {
+          // Prisma models are usually camel cased on the prisma client: erpProduct
+          const clientModelName = modelName.charAt(0).toLowerCase() + modelName.slice(1);
+          
+          if (!(prisma as any)[clientModelName]) {
+            return { error: `Model ${modelName} not found in database client.` };
+          }
+
+          const results = await (prisma as any)[clientModelName].findMany(safeQueryArgs);
+          return {
+            count: results.length,
+            note: results.length === 20 ? 'Results limited to 20 to prevent data overload.' : undefined,
+            data: results
+          };
+        } catch (e: any) {
+          return { error: `Query failed: ${e.message}` };
+        }
+      }
+    } as any),
+
     // === INVENTORY TOOLS ===
     getInventoryStatus: tool({
       description: 'Get the current inventory status, including low stock products, total value, and product counts.',
