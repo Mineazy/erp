@@ -20,7 +20,7 @@ export function FloatingAiChatWidget() {
         content: 'Hi! I am Ezzie, your AI assistant. How can I help you with your ERP tasks today?'
       }
     ]
-  });
+  } as any) as any;
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -85,7 +85,7 @@ export function FloatingAiChatWidget() {
       {!isMinimized && (
         <>
           <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[400px]">
-            {chatMessages.map((msg) => (
+            {chatMessages.map((msg: any) => (
               <div
                 key={msg.id}
                 className={cn(
