@@ -614,6 +614,8 @@ model ErpWarehouse {
   counts    ErpCycleCount[]
   stocks    ErpWarehouseStock[]
   zones     ErpWarehouseZone[]
+  fromTransfers ErpStockTransfer[] @relation("WarehouseFromTransfer")
+  toTransfers   ErpStockTransfer[] @relation("WarehouseToTransfer")
 
   @@map("erp_warehouses")
 }
@@ -625,6 +627,9 @@ model ErpWarehouseZone {
   name        String
   type        String       @default("'storage'")
   capacity    Decimal?     @db.Decimal(15, 2)
+  aisle       String?
+  shelf       String?
+  bin         String?
   createdAt   DateTime     @default(now()) @map("created_at")
   warehouse   ErpWarehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
 
@@ -638,6 +643,9 @@ model ErpWarehouseStock {
   productId   String       @map("product_id")
   quantity    Decimal      @default(0.00) @db.Decimal(15, 2)
   location    String?
+  aisle       String?
+  shelf       String?
+  bin         String?
   batchNo     String?      @map("batch_no")
   serialNo    String?      @map("serial_no")
   product     ErpProduct   @relation(fields: [productId], references: [id])
@@ -954,8 +962,10 @@ model ErpStockAdjustment {
 model ErpStockTransfer {
   id           String                 @id @default(uuid())
   transferNo   String                 @unique @map("transfer_no")
-  fromBranchId String                 @map("from_branch_id")
-  toBranchId   String                 @map("to_branch_id")
+  fromBranchId String?                @map("from_branch_id")
+  toBranchId   String?                @map("to_branch_id")
+  fromWarehouseId String?             @map("from_warehouse_id")
+  toWarehouseId   String?             @map("to_warehouse_id")
   status       String                 @default("'draft'")
   requestedBy  String                 @map("requested_by")
   approvedBy   String?                @map("approved_by")
@@ -965,11 +975,15 @@ model ErpStockTransfer {
   createdAt    DateTime               @default(now()) @map("created_at")
   updatedAt    DateTime               @updatedAt @map("updated_at")
   lines        ErpStockTransferLine[]
-  fromBranch   ErpBranch              @relation("FromBranch", fields: [fromBranchId], references: [id])
-  toBranch     ErpBranch              @relation("ToBranch", fields: [toBranchId], references: [id])
+  fromBranch   ErpBranch?             @relation("FromBranch", fields: [fromBranchId], references: [id])
+  toBranch     ErpBranch?             @relation("ToBranch", fields: [toBranchId], references: [id])
+  fromWarehouse ErpWarehouse?         @relation("WarehouseFromTransfer", fields: [fromWarehouseId], references: [id])
+  toWarehouse   ErpWarehouse?         @relation("WarehouseToTransfer", fields: [toWarehouseId], references: [id])
 
   @@index([fromBranchId], map: "erp_stock_transfers_from_branch_id_fkey")
   @@index([toBranchId], map: "erp_stock_transfers_to_branch_id_fkey")
+  @@index([fromWarehouseId], map: "erp_stock_transfers_from_warehouse_id_fkey")
+  @@index([toWarehouseId], map: "erp_stock_transfers_to_warehouse_id_fkey")
   @@map("erp_stock_transfers")
 }
 
@@ -1439,6 +1453,7 @@ model ErpBranch {
   stockMovements         ErpStockMovement[]
   fromTransfers          ErpStockTransfer[]         @relation("FromBranch")
   toTransfers            ErpStockTransfer[]         @relation("ToBranch")
+  backOrders             ErpBackOrder[]
   suppliers              ErpSupplier[]
   users                  ErpUser[]
   fdmsDevices            FdmsDevice[]
@@ -1734,4 +1749,38 @@ model ErpHaulingTrip {
 
   @@index([vehicleId], map: "erp_hauling_trips_vehicle_id_fkey")
   @@map("erp_hauling_trips")
+}
+
+model ErpBackOrder {
+  id              String              @id @default(uuid())
+  orderNumber     String              @unique @map("order_number")
+  branchId        String              @map("branch_id")
+  status          String              @default("'draft'")
+  requestedBy     String              @map("requested_by")
+  approvedBy      String?             @map("approved_by")
+  approvedAt      DateTime?           @map("approved_at")
+  notes           String?
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+  branch          ErpBranch           @relation(fields: [branchId], references: [id])
+  lines           ErpBackOrderLine[]
+
+  @@index([branchId], map: "erp_back_orders_branch_id_fkey")
+  @@map("erp_back_orders")
+}
+
+model ErpBackOrderLine {
+  id              String       @id @default(uuid())
+  backOrderId     String       @map("back_order_id")
+  productId       String       @map("product_id")
+  productName     String       @map("product_name")
+  requestedQty    Decimal      @map("requested_qty") @db.Decimal(15, 2)
+  allocatedQty    Decimal      @default(0.00) @map("allocated_qty") @db.Decimal(15, 2)
+  outstandingQty  Decimal      @map("outstanding_qty") @db.Decimal(15, 2)
+  status          String       @default("'pending'")
+  notes           String?
+  backOrder       ErpBackOrder @relation(fields: [backOrderId], references: [id], onDelete: Cascade)
+
+  @@index([backOrderId], map: "erp_back_order_lines_back_order_id_fkey")
+  @@map("erp_back_order_lines")
 }
