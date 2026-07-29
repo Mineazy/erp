@@ -683,6 +683,10 @@ export default function POSTerminalPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => window.open('/mobile-pos/index.html', '_blank')}>
+            <Smartphone className="h-4 w-4 mr-2" />
+            Mobile POS
+          </Button>
           {sessionOpen ? (
             <Button variant="destructive" onClick={closeSession}>
               <LogOut className="h-4 w-4 mr-2" />
