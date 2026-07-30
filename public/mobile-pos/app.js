@@ -15,8 +15,8 @@ const state = {
 };
 
 // ---- API Client ----
-const ERP_DEFAULT = (typeof window !== 'undefined' && window.location.hostname === 'localhost') ? 'http://localhost:3005' : 'http://192.168.1.66:3005';
-const API_BASE = localStorage.getItem('erp_api_url') || ERP_DEFAULT;
+const ERP_DEFAULT = typeof window !== 'undefined' ? window.location.origin : '';
+const API_BASE = ERP_DEFAULT;
 function setAPIBase(url) { localStorage.setItem('erp_api_url', url); location.reload(); }
 const DEVICE_ID = (() => {
   let id = localStorage.getItem('mineazy_device_id');

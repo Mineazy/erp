@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const PUBLIC_PATHS = ['/login', '/api/auth', '/verify', '/api/verify'];
+const PUBLIC_PATHS = ['/login', '/api/auth', '/verify', '/api/verify', '/mobile-pos'];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname.startsWith(p));
