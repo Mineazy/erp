@@ -952,7 +952,7 @@ async function submitOrder() {
     status: 'confirmed',
     erpReference: orderNum,
     createdAt: new Date().toISOString(),
-    items: c.items.map(i => ({ sku: i.sku, name: i.name, qty: i.quantity, unitPrice: i.price })),
+    items: c.items.map(i => ({ productId: i.productId, sku: i.sku, name: i.name, qty: i.quantity, unitPrice: i.price })),
   };
 
   // Try sync to ERP, fall back to local

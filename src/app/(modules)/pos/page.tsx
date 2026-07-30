@@ -121,6 +121,9 @@ export default function POSTerminalPage() {
   const [customerSearch, setCustomerSearch] = useState('');
   const [customerSearchResults, setCustomerSearchResults] = useState<Customer[]>([]);
   const [transferChangeToCard, setTransferChangeToCard] = useState(false);
+  const [mobileOrders, setMobileOrders] = useState<any[]>([]);
+  const [mobileOrdersDialogOpen, setMobileOrdersDialogOpen] = useState(false);
+  const [linkedMobileOrderId, setLinkedMobileOrderId] = useState<string | null>(null);
 
   // Debounced customer search
   useEffect(() => {
@@ -153,6 +156,46 @@ export default function POSTerminalPage() {
 
     return () => clearTimeout(delayDebounce);
   }, [customerSearch]);
+
+  const fetchMobileOrders = async () => {
+    try {
+      const res = await fetch('/api/pos/mobile-orders');
+      if (res.ok) {
+        const data = await res.json();
+        setMobileOrders(data.items || []);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const loadMobileOrder = (order: any) => {
+    const newCart = order.lines.map((line: any) => ({
+      product: {
+        id: line.productId,
+        name: line.productName,
+        sellingPrice: Number(line.unitPrice),
+      },
+      quantity: Number(line.quantity)
+    }));
+    setCart(newCart);
+    setLinkedMobileOrderId(order.id);
+    
+    if (order.customerId && order.customerId !== 'walk-in') {
+      fetch(`/api/crm/customers/${order.customerId}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(cust => {
+           if (cust) setSelectedCustomer(cust);
+           else setSelectedCustomer({ id: order.customerId, name: order.customerName } as any);
+        })
+        .catch(() => setSelectedCustomer({ id: order.customerId, name: order.customerName } as any));
+    } else {
+      setSelectedCustomer(null);
+    }
+    
+    setMobileOrdersDialogOpen(false);
+    toast('Mobile order loaded into cart', 'success');
+  };
 
   // If cart is edited inside payment dialog and becomes empty, close the dialog
   useEffect(() => {
@@ -566,6 +609,7 @@ export default function POSTerminalPage() {
         subtotal,
         taxAmount: tax,
         discount,
+        linkedMobileOrderId,
         payments: validPayments.map(p => ({
           method: p.method,
           amount: parseFloat(p.amount),
@@ -600,6 +644,7 @@ export default function POSTerminalPage() {
         setPayments([{ method: 'cash', amount: '', reference: '' }]);
         setSelectedCustomer(null);
         setTransferChangeToCard(false);
+        setLinkedMobileOrderId(null);
         setProcessingPayment(false);
         return;
       }
@@ -630,6 +675,7 @@ export default function POSTerminalPage() {
       setPayments([{ method: 'cash', amount: '', reference: '' }]);
       setSelectedCustomer(null);
       setTransferChangeToCard(false);
+      setLinkedMobileOrderId(null);
     } catch (e) {
       toast('Network error. Please try again.', 'error');
     } finally {
@@ -686,6 +732,10 @@ export default function POSTerminalPage() {
           <Button variant="outline" onClick={() => window.open('/mobile-pos/index.html', '_blank')}>
             <Smartphone className="h-4 w-4 mr-2" />
             Mobile POS
+          </Button>
+          <Button variant="outline" onClick={() => { fetchMobileOrders(); setMobileOrdersDialogOpen(true); }}>
+            <List className="h-4 w-4 mr-2" />
+            Mobile Orders
           </Button>
           {sessionOpen ? (
             <Button variant="destructive" onClick={closeSession}>
@@ -1484,6 +1534,71 @@ export default function POSTerminalPage() {
             <LogIn className="h-4 w-4 mr-2" />
             Open New Session
           </Button>
+        </DialogFooter>
+      </Dialog>
+
+      {/* Mobile Orders Dialog */}
+      <Dialog
+        open={mobileOrdersDialogOpen}
+        onClose={() => setMobileOrdersDialogOpen(false)}
+        title="Mobile POS Orders"
+        description="Select a pending mobile order to load into the cart"
+        size="lg"
+      >
+        <div className="max-h-[60vh] overflow-y-auto space-y-4 pr-2">
+          {mobileOrders.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">
+              <Smartphone className="h-12 w-12 mx-auto text-slate-300 mb-3" />
+              <p>No pending mobile orders found.</p>
+            </div>
+          ) : (
+            mobileOrders.map((order) => (
+              <div key={order.id} className="p-4 border rounded-lg shadow-sm bg-white hover:border-mine-blue-300 transition-colors">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <span className="text-xs font-mono bg-mine-blue-50 text-mine-blue-700 px-2 py-1 rounded">
+                      {order.orderNumber}
+                    </span>
+                    <h3 className="font-semibold text-slate-800 mt-1">{order.customerName}</h3>
+                    <p className="text-xs text-slate-500">
+                      {new Date(order.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-lg">${Number(order.total).toFixed(2)}</p>
+                    <Badge variant="outline" className="text-orange-600 border-orange-200 bg-orange-50">Pending Sync</Badge>
+                  </div>
+                </div>
+                
+                <div className="border-t border-slate-100 my-3 pt-3">
+                  <p className="text-xs font-semibold text-slate-500 mb-2 uppercase">Items ({order.lines.length})</p>
+                  <div className="space-y-1">
+                    {order.lines.slice(0, 3).map((line: any) => (
+                      <div key={line.id} className="flex justify-between text-sm">
+                        <span className="text-slate-700">{Number(line.quantity)}x {line.productName}</span>
+                        <span className="text-slate-600">${(Number(line.quantity) * Number(line.unitPrice)).toFixed(2)}</span>
+                      </div>
+                    ))}
+                    {order.lines.length > 3 && (
+                      <p className="text-xs text-slate-400 italic">...and {order.lines.length - 3} more items</p>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="mt-4 flex justify-end">
+                  <Button 
+                    onClick={() => loadMobileOrder(order)}
+                    className="w-full sm:w-auto"
+                  >
+                    Load into Cart
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setMobileOrdersDialogOpen(false)}>Close</Button>
         </DialogFooter>
       </Dialog>
     </div>

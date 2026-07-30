@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
   const sessionId = body.sessionId as string | undefined;
   const customerId = body.customerId as string | undefined;
   const customerName = body.customerName as string | undefined;
+  const linkedMobileOrderId = body.linkedMobileOrderId as string | undefined;
   const lines = body.lines as any[] | undefined;
   const payments = body.payments as any[] | undefined;
   const taxAmount = body.taxAmount as string | undefined;
@@ -176,6 +177,17 @@ export async function POST(request: NextRequest) {
       }
     } catch (err) {
       console.error('Failed to update customer loyalty:', err);
+    }
+  }
+
+  if (linkedMobileOrderId) {
+    try {
+      await prisma.erpSalesOrder.update({
+        where: { id: linkedMobileOrderId },
+        data: { status: 'completed' }
+      });
+    } catch (err) {
+      console.error('Failed to update mobile order status:', err);
     }
   }
 
