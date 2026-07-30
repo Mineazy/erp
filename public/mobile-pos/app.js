@@ -1649,6 +1649,9 @@ async function init() {
 
   // Periodic sync check
   setInterval(syncPendingOrders, 60000 * 15); // Every 15 minutes
+  
+  // Auto-sync products to keep inventory fresh
+  setInterval(syncProductsFromERP, 60000); // Every 1 minute
 }
 
 document.addEventListener('DOMContentLoaded', init);

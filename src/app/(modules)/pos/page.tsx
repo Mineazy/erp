@@ -676,6 +676,9 @@ export default function POSTerminalPage() {
       setSelectedCustomer(null);
       setTransferChangeToCard(false);
       setLinkedMobileOrderId(null);
+      
+      // Refetch products to update inventory display
+      fetchProducts();
     } catch (e) {
       toast('Network error. Please try again.', 'error');
     } finally {
