@@ -21,19 +21,25 @@ export async function GET(request: NextRequest) {
     }
   });
 
-  const formatted = products.map(p => ({
-    id: p.id,
-    code: p.code || p.id.substring(0, 8),
-    name: p.name,
-    category: p.category?.name || 'Uncategorized',
-    sellingPrice: Number(p.sellingPrice),
-    stockQuantity: Number(p.stock),
-    minStock: Number(p.minStock),
-    unit: p.unit,
-    isActive: p.isActive,
-    barcode: p.barcode,
-    image: null
-  }));
+  const formatted = products.map(p => {
+    const price = Number(p.sellingPrice);
+    return {
+      id: p.id,
+      sku: p.code || p.id.substring(0, 8),
+      name: p.name,
+      description: p.description || '',
+      category: p.category?.name || 'Uncategorized',
+      price: price,
+      priceExcl: price / 1.15,
+      stockQuantity: Number(p.stock),
+      unitOfMeasure: p.unit || 'EA',
+      shelfLocation: p.location || '',
+      binNumber: '',
+      aisleNumber: '',
+      barcode: p.barcode || '',
+      partNumber: p.code || ''
+    };
+  });
 
   return ok(formatted);
 }
