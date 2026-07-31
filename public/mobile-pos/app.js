@@ -521,7 +521,12 @@ async function loadCategoryTabs() {
 
 function filterByCategory(cat, el) {
   currentCategory = cat;
-  document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.cat-tab').forEach(t => {
+    t.classList.remove('active');
+    if (!el && t.textContent.startsWith(cat === 'all' ? 'All ' : cat + ' ')) {
+      el = t;
+    }
+  });
   if (el) el.classList.add('active');
   const searchVal = document.getElementById('search-input').value;
   searchProducts(searchVal);
@@ -1577,14 +1582,22 @@ async function syncPendingOrders() {
 async function syncProductsFromERP() {
   if (!state.isOnline) return;
   try {
-    const products = await api('GET', '/api/mobile/products');
+    let res = await api('GET', '/api/mobile/products');
+    let products = res.data ? res.data : res;
+    
     if (products && products.length > 0) {
       await dbClear('products');
       await dbPutAll('products', products);
       console.log('Synced ' + products.length + ' products from ERP');
       localStorage.setItem('erp_last_products_sync', new Date().toISOString());
       allProductsCache = [];
-      loadCategoryTabs();
+      
+      if (state.currentScreen === 'search') {
+        await loadCategoryTabs();
+        filterByCategory(currentCategory);
+      } else {
+        await loadCategoryTabs();
+      }
       return true;
     }
   } catch (e) {
