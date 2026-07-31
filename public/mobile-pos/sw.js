@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mineazy-v1';
+const CACHE_NAME = 'mineazy-v2';
 const ASSETS = [
   '/',
   '/index.html',
@@ -30,6 +30,8 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  // Do not cache API requests
+  if (event.request.url.includes('/api/')) return;
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
