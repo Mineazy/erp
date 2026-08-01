@@ -14,7 +14,6 @@ export async function GET(
     where: { id },
     include: {
       lines: true,
-      po: { select: { poNumber: true, supplierName: true } },
     },
   });
 
@@ -34,7 +33,7 @@ export async function PUT(
   if (!existing) return notFound('Goods receipt not found');
 
   const body = await request.json();
-  const { notes, inspectedBy, inspectionStatus, status, lines } = body;
+  const { notes, status, lines } = body;
 
   if (lines && Array.isArray(lines) && lines.length > 0) {
     await prisma.erpGoodsReceiptLine.deleteMany({ where: { receiptId: id } });
@@ -45,8 +44,11 @@ export async function PUT(
           receiptId: id,
           productId: line.productId,
           productName: line.productName,
-          poLineId: line.poLineId || '',
+          orderedQty: parseFloat(line.orderedQty) || 0,
           quantity: parseFloat(line.quantity) || 0,
+          damagedQty: parseFloat(line.damagedQty) || 0,
+          acceptedQty: parseFloat(line.acceptedQty) || 0,
+          remarks: line.remarks || null,
           batchNo: line.batchNo || null,
           serialNo: line.serialNo || null,
           location: line.location || null,
@@ -59,11 +61,9 @@ export async function PUT(
     where: { id },
     data: {
       notes: notes !== undefined ? (notes as string) : undefined,
-      inspectedBy: inspectedBy !== undefined ? (inspectedBy as string) : undefined,
-      inspectionStatus: inspectionStatus !== undefined ? (inspectionStatus as string) : undefined,
       status: status !== undefined ? (status as string) : undefined,
     },
-    include: { lines: true, po: { select: { poNumber: true, supplierName: true } } },
+    include: { lines: true },
   });
 
   return ok(updated);

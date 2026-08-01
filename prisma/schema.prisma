@@ -377,7 +377,6 @@ model ErpPurchaseOrder {
   createdAt     DateTime                @default(now()) @map("created_at")
   updatedAt     DateTime                @updatedAt @map("updated_at")
   branchId      String?                 @map("branch_id")
-  receipts      ErpGoodsReceipt[]
   lines         ErpPurchaseOrderLine[]
   branch        ErpBranch?              @relation(fields: [branchId], references: [id])
   requisition   ErpPurchaseRequisition? @relation(fields: [requisitionId], references: [id])
@@ -403,25 +402,28 @@ model ErpPurchaseOrderLine {
 }
 
 model ErpGoodsReceipt {
-  id               String                @id @default(uuid())
-  receiptNo        String                @unique @map("receipt_no")
-  poId             String                @map("po_id")
-  supplierId       String?               @map("supplier_id")
-  supplierName     String?               @map("supplier_name")
-  receivedAt       DateTime              @default(now()) @map("received_at")
-  status           String                @default("pending")
-  notes            String?
-  inspectedBy      String?               @map("inspected_by")
-  inspectionStatus String?               @map("inspection_status")
-  createdAt        DateTime              @default(now()) @map("created_at")
-  updatedAt        DateTime              @updatedAt @map("updated_at")
-  branchId         String?               @map("branch_id")
-  lines            ErpGoodsReceiptLine[]
-  branch           ErpBranch?            @relation(fields: [branchId], references: [id])
-  po               ErpPurchaseOrder      @relation(fields: [poId], references: [id])
+  id                 String                @id @default(uuid())
+  receiptNo          String                @unique @map("receipt_no")
+  insightPoNumber    String?               @map("insight_po_number")
+  deliveryNoteNumber String?               @map("delivery_note_number")
+  invoiceNumber      String?               @map("invoice_number")
+  supplierId         String?               @map("supplier_id")
+  supplierName       String?               @map("supplier_name")
+  receivedAt         DateTime              @default(now()) @map("received_at")
+  status             String                @default("Pending Review")
+  notes              String?
+  capturedBy         String?               @map("captured_by")
+  reviewedBy         String?               @map("reviewed_by")
+  reviewerSignature  String?               @db.LongText @map("reviewer_signature")
+  approvedAt         DateTime?             @map("approved_at")
+  attachments        Json?
+  createdAt          DateTime              @default(now()) @map("created_at")
+  updatedAt          DateTime              @updatedAt @map("updated_at")
+  branchId           String?               @map("branch_id")
+  lines              ErpGoodsReceiptLine[]
+  branch             ErpBranch?            @relation(fields: [branchId], references: [id])
 
   @@index([branchId], map: "erp_goods_receipts_branch_id_fkey")
-  @@index([poId], map: "erp_goods_receipts_po_id_fkey")
   @@map("erp_goods_receipts")
 }
 
@@ -430,8 +432,11 @@ model ErpGoodsReceiptLine {
   receiptId   String          @map("receipt_id")
   productId   String          @map("product_id")
   productName String          @map("product_name")
-  poLineId    String          @map("po_line_id")
+  orderedQty  Decimal         @default(0.00) @map("ordered_qty") @db.Decimal(15, 2)
   quantity    Decimal         @db.Decimal(15, 2)
+  damagedQty  Decimal         @default(0.00) @map("damaged_qty") @db.Decimal(15, 2)
+  acceptedQty Decimal         @default(0.00) @map("accepted_qty") @db.Decimal(15, 2)
+  remarks     String?
   batchNo     String?         @map("batch_no")
   serialNo    String?         @map("serial_no")
   location    String?

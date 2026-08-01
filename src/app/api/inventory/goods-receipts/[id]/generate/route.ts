@@ -13,10 +13,7 @@ export async function POST(
   const receipt = await prisma.erpGoodsReceipt.findUnique({
     where: { id },
     include: {
-      lines: true,
-      po: {
-        select: { poNumber: true, supplierName: true, orderDate: true },
-      },
+      lines: true
     },
   });
 
@@ -37,11 +34,11 @@ export async function POST(
     title: 'GOODS RECEIVED VOUCHER',
     receiptNo: receipt.receiptNo,
     receiptDate: receipt.receivedAt.toISOString(),
-    poNumber: receipt.po?.poNumber || '',
-    supplierName: receipt.supplierName || receipt.po?.supplierName || '',
+    poNumber: receipt.insightPoNumber || '',
+    supplierName: receipt.supplierName || '',
     status: receipt.status === 'draft' ? 'generated' : receipt.status,
-    inspectedBy: receipt.inspectedBy || '',
-    inspectionStatus: receipt.inspectionStatus || '',
+    inspectedBy: receipt.reviewedBy || '',
+    inspectionStatus: receipt.status || '',
     notes: receipt.notes || '',
     branch: branch?.name || '',
     lines: receipt.lines.map((l) => ({
