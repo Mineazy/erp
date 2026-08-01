@@ -76,6 +76,7 @@ const navGroups = [
     items: [
       { label: 'Dashboard', href: '/inventory/dashboard', icon: 'LayoutDashboard' },
       { label: 'Products', href: '/inventory/products', icon: 'Package' },
+      { label: 'Goods Receipts', href: '/inventory/goods-receipts', icon: 'ClipboardCheck' },
       { label: 'Customer Orders', href: '/inventory/customer-orders', icon: 'ShoppingCart' },
       { label: 'Sales Management', href: '/inventory/sales-management', icon: 'BarChart' },
       { label: 'Sales Forecasting', href: '/inventory/sales-forecasting', icon: 'TrendingUp' },
@@ -100,7 +101,7 @@ const navGroups = [
       { label: 'Warehouses', href: '/warehouse/warehouses', icon: 'Warehouse' },
       { label: 'Branches', href: '/warehouse/branches', icon: 'Building2' },
       { label: 'Back Order Management', href: '/warehouse/back-orders', icon: 'AlertTriangle' },
-      { label: 'Goods Receiving', href: '/warehouse/goods-receiving', icon: 'ClipboardCheck' },
+      { label: 'Goods Receiving', href: '/inventory/goods-receipts', icon: 'ClipboardCheck' },
       { label: 'Stock Transfers', href: '/warehouse/stock-transfers', icon: 'ArrowLeftRight' },
       { label: 'Storage Locations', href: '/warehouse/storage-locations', icon: 'Package' },
       { label: 'Cycle Counts', href: '/warehouse/cycle-counts', icon: 'ClipboardList' },
