@@ -76,7 +76,6 @@ const navGroups = [
     items: [
       { label: 'Dashboard', href: '/inventory/dashboard', icon: 'LayoutDashboard' },
       { label: 'Products', href: '/inventory/products', icon: 'Package' },
-      { label: 'Goods Receipts', href: '/inventory/goods-receipts', icon: 'ClipboardCheck' },
       { label: 'Customer Orders', href: '/inventory/customer-orders', icon: 'ShoppingCart' },
       { label: 'Sales Management', href: '/inventory/sales-management', icon: 'BarChart' },
       { label: 'Sales Forecasting', href: '/inventory/sales-forecasting', icon: 'TrendingUp' },

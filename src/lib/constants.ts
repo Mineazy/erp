@@ -226,7 +226,6 @@ export const NAV_ITEMS = [
       { label: 'Sales Orders', href: '/inventory/sales-orders', icon: 'ShoppingCart' },
       { label: 'Purchase Orders', href: '/inventory/purchase-orders', icon: 'Truck' },
       { label: 'Returns', href: '/inventory/returns', icon: 'RotateCcw' },
-      { label: 'Goods Receipts', href: '/inventory/goods-receipts', icon: 'ClipboardCheck' },
       { label: 'Dispatch Notes', href: '/inventory/dispatch-notes', icon: 'FileText' },
       { label: 'Quotations', href: '/inventory/quotations', icon: 'FileText' },
       { label: 'Stock Adjustments', href: '/inventory/stock/adjustments', icon: 'AlertTriangle' },
