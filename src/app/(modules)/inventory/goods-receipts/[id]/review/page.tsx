@@ -19,9 +19,7 @@ export default function GoodsReceiptReviewPage() {
   const [loading, setLoading] = useState(true);
   
   const [comments, setComments] = useState('');
-  const [signature, setSignature] = useState('');
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
 
   useEffect(() => {
     fetch(`/api/inventory/goods-receipts/${id}`)
@@ -36,82 +34,14 @@ export default function GoodsReceiptReviewPage() {
       .finally(() => setLoading(false));
   }, [id, router]);
 
-  const initCanvas = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.lineWidth = 2;
-      ctx.lineCap = 'round';
-      ctx.strokeStyle = '#000';
-    }
-  };
-
-  useEffect(() => {
-    if (!loading) {
-      setTimeout(initCanvas, 100);
-    }
-  }, [loading]);
-
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    setIsDrawing(true);
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
-    
-    const rect = canvas.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    
-    ctx.beginPath();
-    ctx.moveTo(clientX - rect.left, clientY - rect.top);
-  };
-
-  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
-    
-    const rect = canvas.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    
-    ctx.lineTo(clientX - rect.left, clientY - rect.top);
-    ctx.stroke();
-  };
-
-  const stopDrawing = () => {
-    if (isDrawing) {
-      setIsDrawing(false);
-      const canvas = canvasRef.current;
-      if (canvas) {
-        setSignature(canvas.toDataURL('image/png'));
-      }
-    }
-  };
-
-  const clearSignature = () => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (canvas && ctx) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      setSignature('');
-    }
-  };
-
   const submitReview = async (status: 'Approved' | 'Rejected') => {
-    if (status === 'Approved' && !signature) {
-      toast('Electronic signature is required for approval', 'error');
-      return;
-    }
 
     const tid = toast(`Submitting ${status.toLowerCase()}...`, 'info', 120000);
     try {
       const res = await fetch(`/api/inventory/goods-receipts/${id}/review`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, comments, signature })
+        body: JSON.stringify({ status, comments })
       });
       
       if (!res.ok) {
@@ -120,7 +50,14 @@ export default function GoodsReceiptReviewPage() {
       }
       
       toast(`Goods receipt ${status} successfully`, 'success');
-      router.push('/inventory/goods-receipts');
+      
+      if (status === 'Approved') {
+        const verifyLink = `${window.location.origin}/verify/goods-receipt/${id}`;
+        setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(verifyLink)}`);
+        setData((prev: any) => ({ ...prev, status: 'Approved' }));
+      } else {
+        router.push('/inventory/goods-receipts');
+      }
     } catch (e: any) {
       toast(e.message, 'error');
     } finally {
@@ -224,44 +161,22 @@ export default function GoodsReceiptReviewPage() {
                 />
               </div>
 
-              {data.status === 'Pending Review' ? (
+              {data.status === 'Pending Review' ? null : (
                 <div>
-                  <label className="block text-sm font-medium mb-1 flex justify-between">
-                    <span>Electronic Signature *</span>
-                    <button type="button" onClick={clearSignature} className="text-xs text-mine-blue-600 hover:underline">Clear</button>
-                  </label>
-                  <div className="border-2 border-dashed rounded-md bg-slate-50 relative">
-                    <canvas 
-                      ref={canvasRef}
-                      width={300} 
-                      height={150} 
-                      className="w-full cursor-crosshair touch-none"
-                      onMouseDown={startDrawing}
-                      onMouseMove={draw}
-                      onMouseUp={stopDrawing}
-                      onMouseOut={stopDrawing}
-                      onTouchStart={startDrawing}
-                      onTouchMove={draw}
-                      onTouchEnd={stopDrawing}
+                  <label className="block text-sm font-medium mb-1">Verification QR Code</label>
+                  <div className="border rounded-md bg-white p-4 flex flex-col items-center justify-center">
+                    <img 
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(typeof window !== 'undefined' ? window.location.origin + '/verify/goods-receipt/' + id : '')}`}
+                      alt="Verification QR Code" 
+                      className="w-48 h-48 object-contain mb-4" 
                     />
-                    {!signature && !isDrawing && (
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-slate-400 text-sm">
-                        Draw signature here
-                      </div>
-                    )}
+                    <p className="text-sm font-medium text-slate-700">Scan to Verify Receipt</p>
                   </div>
-                </div>
-              ) : data.reviewerSignature ? (
-                <div>
-                  <label className="block text-sm font-medium mb-1">Signature</label>
-                  <div className="border rounded-md bg-white p-2">
-                    <img src={data.reviewerSignature} alt="Signature" className="max-h-24 object-contain" />
-                  </div>
-                  <p className="text-xs text-slate-500 mt-2">
+                  <p className="text-xs text-slate-500 mt-2 text-center">
                     Reviewed by {data.reviewedBy} on {new Date(data.approvedAt || data.updatedAt).toLocaleString()}
                   </p>
                 </div>
-              ) : null}
+              )}
 
               {data.status === 'Pending Review' && (
                 <div className="flex flex-col gap-2 pt-4">
@@ -269,7 +184,7 @@ export default function GoodsReceiptReviewPage() {
                     className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
                     onClick={() => submitReview('Approved')}
                   >
-                    <CheckCircle className="h-4 w-4 mr-2" /> Approve & Update Inventory
+                    <CheckCircle className="h-4 w-4 mr-2" /> Approve & Generate QR
                   </Button>
                   <Button 
                     variant="outline" 
