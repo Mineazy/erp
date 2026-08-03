@@ -73,7 +73,9 @@ const EXPIRY_POLL_MS = 30000;
 const paymentMethods = [
   { value: 'cash', label: 'Cash', icon: Banknote },
   { value: 'bank_transfer', label: 'Bank Transfer', icon: Landmark },
-  { value: 'mobile_wallet', label: 'Mobile Wallet', icon: Smartphone },
+  { value: 'mobile_wallet', label: 'Mobile Wallet (Manual)', icon: Smartphone },
+  { value: 'paynow_ecocash', label: 'Paynow - Ecocash', icon: Smartphone },
+  { value: 'paynow_onemoney', label: 'Paynow - OneMoney', icon: Smartphone },
   { value: 'credit', label: 'Credit', icon: CreditCard },
   { value: 'loyalty_points', label: 'Loyalty Points', icon: CreditCard },
   { value: 'loyalty_card_balance', label: 'Loyalty Card Balance', icon: CreditCard },
@@ -123,6 +125,7 @@ export default function POSTerminalPage() {
   const [transferChangeToCard, setTransferChangeToCard] = useState(false);
   const [transferChangeToWallet, setTransferChangeToWallet] = useState(false);
   const [walkinWalletNumber, setWalkinWalletNumber] = useState('');
+  const [paynowDialog, setPaynowDialog] = useState<{open: boolean, pollUrl: string, instructions: string, invoiceNumber: string, payload: any, status: string}>({ open: false, pollUrl: '', instructions: '', invoiceNumber: '', payload: null, status: '' });
   const [mobileOrders, setMobileOrders] = useState<any[]>([]);
   const [mobileOrdersDialogOpen, setMobileOrdersDialogOpen] = useState(false);
   const [linkedMobileOrderId, setLinkedMobileOrderId] = useState<string | null>(null);
@@ -242,6 +245,38 @@ export default function POSTerminalPage() {
   useEffect(() => {
     fetchTaxes();
   }, [fetchTaxes]);
+
+  useEffect(() => {
+    if (!paynowDialog.open || !paynowDialog.pollUrl) return;
+    
+    let interval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/pos/paynow/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pollUrl: paynowDialog.pollUrl })
+        });
+        const data = await res.json();
+        
+        if (data.success && data.status) {
+          setPaynowDialog(prev => ({ ...prev, status: data.status }));
+          if (data.status === 'Paid') {
+            clearInterval(interval);
+            setPaynowDialog(prev => ({ ...prev, open: false }));
+            if (paynowDialog.payload) finalizeTransaction(paynowDialog.payload);
+          } else if (data.status === 'Cancelled' || data.status === 'Failed') {
+            clearInterval(interval);
+            toast(`Paynow transaction ${data.status.toLowerCase()}`, 'error');
+            setPaynowDialog(prev => ({ ...prev, open: false }));
+          }
+        }
+      } catch (err) {
+        console.error('Polling error', err);
+      }
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, [paynowDialog.open, paynowDialog.pollUrl, paynowDialog.payload]);
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -628,6 +663,52 @@ export default function POSTerminalPage() {
         })),
       };
 
+      const paynowPayment = validPayments.find(p => p.method.startsWith('paynow_'));
+      if (paynowPayment) {
+        if (!paynowPayment.reference) {
+          toast('Please enter customer phone number for Paynow', 'error');
+          setProcessingPayment(false);
+          return;
+        }
+        
+        const method = paynowPayment.method.split('_')[1]; // 'ecocash' or 'onemoney'
+        const initRes = await fetch('/api/pos/paynow/initiate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: parseFloat(paynowPayment.amount),
+            phone: paynowPayment.reference,
+            method: method,
+          })
+        });
+        const initData = await initRes.json();
+        
+        if (!initData.success) {
+          toast(initData.error || 'Failed to initiate Paynow transaction', 'error');
+          setProcessingPayment(false);
+          return;
+        }
+
+        setPaynowDialog({
+          open: true,
+          pollUrl: initData.pollUrl,
+          instructions: initData.instructions,
+          invoiceNumber: initData.invoiceNumber,
+          payload,
+          status: 'Initiated'
+        });
+        setProcessingPayment(false);
+        return; 
+      }
+
+      await finalizeTransaction(payload);
+    } catch (e) {
+      toast('Network error. Please try again.', 'error');
+      setProcessingPayment(false);
+    }
+  };
+
+  const finalizeTransaction = async (payload: any) => {
       if (!isOnline) {
         const offlineId = crypto.randomUUID();
         await saveOfflineTransaction({
@@ -689,14 +770,10 @@ export default function POSTerminalPage() {
       setTransferChangeToWallet(false);
       setWalkinWalletNumber('');
       setLinkedMobileOrderId(null);
+      setProcessingPayment(false);
       
       // Refetch products to update inventory display
       fetchProducts();
-    } catch (e) {
-      toast('Network error. Please try again.', 'error');
-    } finally {
-      setProcessingPayment(false);
-    }
   };
 
   const sessionOpen = session?.status === 'open';
@@ -1309,7 +1386,7 @@ export default function POSTerminalPage() {
                       </div>
 
                       {/* Reference Row (Conditional) */}
-                      {(p.method === 'bank_transfer' || p.method === 'mobile_wallet') && (
+                      {(p.method === 'bank_transfer' || p.method === 'mobile_wallet' || p.method.startsWith('paynow_')) && (
                         <div className="space-y-1 pt-1">
                           <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Reference / Txn ID</label>
                           <input
@@ -1404,6 +1481,38 @@ export default function POSTerminalPage() {
             Complete Payment
           </Button>
         </DialogFooter>
+      </Dialog>
+
+      {/* Paynow Polling Dialog */}
+      <Dialog
+        open={paynowDialog.open}
+        onClose={() => setPaynowDialog(prev => ({ ...prev, open: false }))}
+        title="Waiting for Mobile Payment"
+        size="sm"
+      >
+        <div className="space-y-6 text-center py-4">
+          <div className="flex justify-center">
+            <Smartphone className="h-16 w-16 text-mine-blue-600 animate-pulse" />
+          </div>
+          
+          <div className="space-y-2">
+            <h4 className="text-lg font-bold text-slate-800">Check Customer Phone</h4>
+            <p className="text-sm text-slate-600">
+              {paynowDialog.instructions || "Please ask the customer to check their phone and enter their PIN to authorize the transaction."}
+            </p>
+          </div>
+
+          <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+            <p className="text-xs text-slate-500 uppercase tracking-wider font-bold mb-1">Status</p>
+            <p className="text-mine-blue-700 font-medium">
+              {paynowDialog.status === 'Initiated' ? 'Waiting for customer...' : paynowDialog.status}
+            </p>
+          </div>
+
+          <p className="text-xs text-slate-400">
+            This dialog will close automatically once the payment is confirmed.
+          </p>
+        </div>
       </Dialog>
 
       {/* Receipt Dialog */}
