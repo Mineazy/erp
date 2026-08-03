@@ -1480,7 +1480,7 @@ export default function POSTerminalPage() {
               <span className="font-mono">${Number(lastTransaction?.subtotal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between text-slate-500">
-              <span>VAT (10%)</span>
+              <span>VAT (15.5%)</span>
               <span className="font-mono">${Number(lastTransaction?.taxAmount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
             </div>
             {Number(lastTransaction?.discount ?? 0) > 0 && (
@@ -1523,12 +1523,30 @@ export default function POSTerminalPage() {
                   <span className="font-mono font-medium">${Number(lastTransaction?.paidAmount ?? 0).toFixed(2)}</span>
                 </div>
               )}
-              {Number(lastTransaction?.changeAmount ?? 0) > 0 && (
-                <div className="flex justify-between text-amber-700 pt-1 border-t border-emerald-200/50">
-                  <span>Change Given</span>
-                  <span className="font-mono">-${Number(lastTransaction?.changeAmount ?? 0).toFixed(2)}</span>
-                </div>
-              )}
+              {(() => {
+                const txTotal = Number(lastTransaction?.total ?? 0);
+                const paid = Number(lastTransaction?.paidAmount ?? 0);
+                const returnedCash = Number(lastTransaction?.changeAmount ?? 0);
+                const actualChange = Math.max(0, paid - txTotal);
+                const transferredChange = actualChange - returnedCash;
+
+                return (
+                  <>
+                    {returnedCash > 0 && (
+                      <div className="flex justify-between text-amber-700 pt-1 border-t border-emerald-200/50">
+                        <span>Change Given (Cash)</span>
+                        <span className="font-mono">-${returnedCash.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {transferredChange > 0 && (
+                      <div className="flex justify-between text-blue-700 pt-1 border-t border-emerald-200/50">
+                        <span>Change Transferred (Wallet/Card)</span>
+                        <span className="font-mono">-${transferredChange.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </div>
 
