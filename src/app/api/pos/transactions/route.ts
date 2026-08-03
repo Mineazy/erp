@@ -95,8 +95,12 @@ export async function POST(request: NextRequest) {
 
     let actualChangeAmount = change;
     let cardBalanceIncrement = 0;
+    let walletBalanceIncrement = 0;
     if (body.transferChangeToCard && change > 0 && customerId) {
       cardBalanceIncrement = change;
+      actualChangeAmount = 0;
+    } else if (body.transferChangeToWallet && change > 0 && customerId) {
+      walletBalanceIncrement = change;
       actualChangeAmount = 0;
     }
 
@@ -164,6 +168,7 @@ export async function POST(request: NextRequest) {
           const newTotalSpent = Number(customer.totalSpent) + total;
           const finalPoints = Math.max(0, customer.loyaltyPoints + newlyEarnedPoints - pointsDeducted);
           const finalCardBalance = Math.max(0, Number(customer.cardBalance) + cardBalanceIncrement - balanceDeducted);
+          const finalWalletBalance = Number(customer.walletBalance || 0) + walletBalanceIncrement;
 
           await prisma.erpCustomer.update({
             where: { id: customerId },
@@ -171,6 +176,7 @@ export async function POST(request: NextRequest) {
               totalSpent: newTotalSpent,
               loyaltyPoints: finalPoints,
               cardBalance: finalCardBalance,
+              walletBalance: finalWalletBalance,
             },
           });
         }

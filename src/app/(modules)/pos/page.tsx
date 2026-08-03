@@ -121,6 +121,7 @@ export default function POSTerminalPage() {
   const [customerSearch, setCustomerSearch] = useState('');
   const [customerSearchResults, setCustomerSearchResults] = useState<Customer[]>([]);
   const [transferChangeToCard, setTransferChangeToCard] = useState(false);
+  const [transferChangeToWallet, setTransferChangeToWallet] = useState(false);
   const [mobileOrders, setMobileOrders] = useState<any[]>([]);
   const [mobileOrdersDialogOpen, setMobileOrdersDialogOpen] = useState(false);
   const [linkedMobileOrderId, setLinkedMobileOrderId] = useState<string | null>(null);
@@ -600,6 +601,7 @@ export default function POSTerminalPage() {
         customerId: selectedCustomer?.id || undefined,
         customerName: selectedCustomer?.name || undefined,
         transferChangeToCard,
+        transferChangeToWallet,
         lines: cart.map((item) => ({
           productId: item.product.id,
           productName: item.product.name,
@@ -644,6 +646,7 @@ export default function POSTerminalPage() {
         setPayments([{ method: 'cash', amount: '', reference: '' }]);
         setSelectedCustomer(null);
         setTransferChangeToCard(false);
+        setTransferChangeToWallet(false);
         setLinkedMobileOrderId(null);
         setProcessingPayment(false);
         return;
@@ -672,9 +675,10 @@ export default function POSTerminalPage() {
       setPaymentDialogOpen(false);
       setReceiptDialogOpen(true);
       setCart([]);
-      setPayments([{ method: 'cash', amount: '', reference: '' }]);
+      setPayments([{ method: 'cash', amount: '', reference: '', currency: 'USD' }]);
       setSelectedCustomer(null);
       setTransferChangeToCard(false);
+      setTransferChangeToWallet(false);
       setLinkedMobileOrderId(null);
       
       // Refetch products to update inventory display
@@ -1013,6 +1017,7 @@ export default function POSTerminalPage() {
                         onClick={() => {
                           setSelectedCustomer(null);
                           setTransferChangeToCard(false);
+                          setTransferChangeToWallet(false);
                         }}
                         className="text-slate-400 hover:text-slate-600 p-0.5 rounded"
                       >
@@ -1327,20 +1332,40 @@ export default function POSTerminalPage() {
                 <div className="space-y-3 bg-green-50 rounded-lg p-3">
                   <div className="flex justify-between text-sm font-medium text-green-600">
                     <span>Change Due (Cash)</span>
-                    <span className="font-mono font-bold">{transferChangeToCard ? '$0.00' : `$${changeDue.toFixed(2)}`}</span>
+                    <span className="font-mono font-bold">{(transferChangeToCard || transferChangeToWallet) ? '$0.00' : `$${changeDue.toFixed(2)}`}</span>
                   </div>
                   {selectedCustomer && (
-                    <div className="flex items-center gap-2 pt-2 border-t border-green-200/50">
-                      <input
-                        type="checkbox"
-                        id="transferChangeToCard"
-                        checked={transferChangeToCard}
-                        onChange={(e) => setTransferChangeToCard(e.target.checked)}
-                        className="h-4 w-4 rounded text-mine-blue-600 border-slate-300 focus:ring-mine-blue-500"
-                      />
-                      <label htmlFor="transferChangeToCard" className="text-xs font-semibold text-green-700 cursor-pointer select-none">
-                        Transfer change (${changeDue.toFixed(2)}) to Loyalty Card balance
-                      </label>
+                    <div className="flex flex-col gap-2 pt-2 border-t border-green-200/50">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="transferChangeToCard"
+                          checked={transferChangeToCard}
+                          onChange={(e) => {
+                            setTransferChangeToCard(e.target.checked);
+                            if (e.target.checked) setTransferChangeToWallet(false);
+                          }}
+                          className="h-4 w-4 rounded text-mine-blue-600 border-slate-300 focus:ring-mine-blue-500"
+                        />
+                        <label htmlFor="transferChangeToCard" className="text-xs font-semibold text-green-700 cursor-pointer select-none">
+                          Transfer change (${changeDue.toFixed(2)}) to Loyalty Card balance
+                        </label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="transferChangeToWallet"
+                          checked={transferChangeToWallet}
+                          onChange={(e) => {
+                            setTransferChangeToWallet(e.target.checked);
+                            if (e.target.checked) setTransferChangeToCard(false);
+                          }}
+                          className="h-4 w-4 rounded text-mine-blue-600 border-slate-300 focus:ring-mine-blue-500"
+                        />
+                        <label htmlFor="transferChangeToWallet" className="text-xs font-semibold text-green-700 cursor-pointer select-none">
+                          Transfer change (${changeDue.toFixed(2)}) to Mobile Wallet balance
+                        </label>
+                      </div>
                     </div>
                   )}
                 </div>

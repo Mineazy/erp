@@ -507,6 +507,7 @@ model ErpCustomer {
   loyaltyPoints      Int        @default(0) @map("loyalty_points")
   totalSpent         Decimal    @default(0.00) @map("total_spent") @db.Decimal(15, 2)
   cardBalance        Decimal    @default(0.00) @map("card_balance") @db.Decimal(15, 2)
+  walletBalance      Decimal    @default(0.00) @map("wallet_balance") @db.Decimal(15, 2)
   createdAt          DateTime   @default(now()) @map("created_at")
   updatedAt          DateTime   @updatedAt @map("updated_at")
   branchId           String?    @map("branch_id")
