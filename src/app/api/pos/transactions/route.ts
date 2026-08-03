@@ -96,12 +96,17 @@ export async function POST(request: NextRequest) {
     let actualChangeAmount = change;
     let cardBalanceIncrement = 0;
     let walletBalanceIncrement = 0;
+    let transactionNotes: string | undefined = undefined;
     if (body.transferChangeToCard && change > 0 && customerId) {
       cardBalanceIncrement = change;
       actualChangeAmount = 0;
-    } else if (body.transferChangeToWallet && change > 0 && customerId) {
-      walletBalanceIncrement = change;
+    } else if (body.transferChangeToWallet && change > 0) {
       actualChangeAmount = 0;
+      if (customerId) {
+        walletBalanceIncrement = change;
+      } else if (body.walkinWalletNumber) {
+        transactionNotes = `Mobile Wallet Transfer to: ${body.walkinWalletNumber}`;
+      }
     }
 
     let pointsDeducted = 0;
@@ -142,6 +147,7 @@ export async function POST(request: NextRequest) {
         paidAmount: paid,
         changeAmount: actualChangeAmount,
         paymentMethod: (payments?.[0]?.method) || 'cash',
+        notes: transactionNotes,
         branchId: (session.user as any)?.branchId || null,
         lines: { create: lineData },
         payments: payments

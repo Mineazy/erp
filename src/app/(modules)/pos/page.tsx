@@ -122,6 +122,7 @@ export default function POSTerminalPage() {
   const [customerSearchResults, setCustomerSearchResults] = useState<Customer[]>([]);
   const [transferChangeToCard, setTransferChangeToCard] = useState(false);
   const [transferChangeToWallet, setTransferChangeToWallet] = useState(false);
+  const [walkinWalletNumber, setWalkinWalletNumber] = useState('');
   const [mobileOrders, setMobileOrders] = useState<any[]>([]);
   const [mobileOrdersDialogOpen, setMobileOrdersDialogOpen] = useState(false);
   const [linkedMobileOrderId, setLinkedMobileOrderId] = useState<string | null>(null);
@@ -594,6 +595,11 @@ export default function POSTerminalPage() {
       }
     }
 
+    if (transferChangeToWallet && !selectedCustomer && !walkinWalletNumber) {
+      toast('Please enter a mobile wallet number for the transfer', 'error');
+      return;
+    }
+
     setProcessingPayment(true);
     try {
       const payload = {
@@ -602,6 +608,7 @@ export default function POSTerminalPage() {
         customerName: selectedCustomer?.name || undefined,
         transferChangeToCard,
         transferChangeToWallet,
+        walkinWalletNumber,
         lines: cart.map((item) => ({
           productId: item.product.id,
           productName: item.product.name,
@@ -647,6 +654,7 @@ export default function POSTerminalPage() {
         setSelectedCustomer(null);
         setTransferChangeToCard(false);
         setTransferChangeToWallet(false);
+        setWalkinWalletNumber('');
         setLinkedMobileOrderId(null);
         setProcessingPayment(false);
         return;
@@ -679,6 +687,7 @@ export default function POSTerminalPage() {
       setSelectedCustomer(null);
       setTransferChangeToCard(false);
       setTransferChangeToWallet(false);
+      setWalkinWalletNumber('');
       setLinkedMobileOrderId(null);
       
       // Refetch products to update inventory display
@@ -1018,6 +1027,7 @@ export default function POSTerminalPage() {
                           setSelectedCustomer(null);
                           setTransferChangeToCard(false);
                           setTransferChangeToWallet(false);
+                          setWalkinWalletNumber('');
                         }}
                         className="text-slate-400 hover:text-slate-600 p-0.5 rounded"
                       >
@@ -1334,8 +1344,8 @@ export default function POSTerminalPage() {
                     <span>Change Due (Cash)</span>
                     <span className="font-mono font-bold">{(transferChangeToCard || transferChangeToWallet) ? '$0.00' : `$${changeDue.toFixed(2)}`}</span>
                   </div>
-                  {selectedCustomer && (
-                    <div className="flex flex-col gap-2 pt-2 border-t border-green-200/50">
+                  <div className="flex flex-col gap-2 pt-2 border-t border-green-200/50">
+                    {selectedCustomer && (
                       <div className="flex items-center gap-2">
                         <input
                           type="checkbox"
@@ -1351,6 +1361,8 @@ export default function POSTerminalPage() {
                           Transfer change (${changeDue.toFixed(2)}) to Loyalty Card balance
                         </label>
                       </div>
+                    )}
+                    <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2">
                         <input
                           type="checkbox"
@@ -1366,8 +1378,19 @@ export default function POSTerminalPage() {
                           Transfer change (${changeDue.toFixed(2)}) to Mobile Wallet balance
                         </label>
                       </div>
+                      {transferChangeToWallet && !selectedCustomer && (
+                        <div className="ml-6">
+                          <input
+                            type="text"
+                            placeholder="Enter Mobile Wallet Number"
+                            value={walkinWalletNumber}
+                            onChange={(e) => setWalkinWalletNumber(e.target.value)}
+                            className="w-full px-2 py-1 text-xs border border-green-300 rounded focus:outline-none focus:ring-1 focus:ring-green-500"
+                          />
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
               )}
             </div>
