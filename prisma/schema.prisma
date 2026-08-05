@@ -739,9 +739,40 @@ model ErpPosSession {
   branchId       String?             @map("branch_id")
   branch         ErpBranch?          @relation(fields: [branchId], references: [id])
   transactions   ErpPosTransaction[]
+  zReport        ErpZReport?
 
   @@index([branchId], map: "erp_pos_sessions_branch_id_fkey")
   @@map("erp_pos_sessions")
+}
+
+model ErpZReport {
+  id              String        @id @default(uuid())
+  reportNumber    String        @unique @map("report_number")
+  sessionId       String        @unique @map("session_id")
+  session         ErpPosSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  branchId        String?       @map("branch_id")
+  branch          ErpBranch?    @relation(fields: [branchId], references: [id])
+  openedAt        DateTime      @map("opened_at")
+  closedAt        DateTime      @map("closed_at")
+  generatedAt     DateTime      @default(now()) @map("generated_at")
+  generatedBy     String        @map("generated_by")
+  totalSales      Decimal       @db.Decimal(15, 2) @map("total_sales")
+  totalRefunds    Decimal       @db.Decimal(15, 2) @map("total_refunds")
+  totalTax        Decimal       @db.Decimal(15, 2) @map("total_tax")
+  totalDiscounts  Decimal       @db.Decimal(15, 2) @map("total_discounts")
+  cashSales       Decimal       @db.Decimal(15, 2) @map("cash_sales")
+  cardSales       Decimal       @db.Decimal(15, 2) @map("card_sales")
+  mobileSales     Decimal       @db.Decimal(15, 2) @map("mobile_sales")
+  creditSales     Decimal       @db.Decimal(15, 2) @map("credit_sales")
+  expectedCash    Decimal       @db.Decimal(15, 2) @map("expected_cash")
+  actualCash      Decimal       @db.Decimal(15, 2) @map("actual_cash")
+  cashDifference  Decimal       @db.Decimal(15, 2) @map("cash_difference")
+  notes           String?
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  @@index([branchId], map: "erp_z_reports_branch_id_fkey")
+  @@map("erp_z_reports")
 }
 
 model ErpPosTransaction {
@@ -1448,6 +1479,7 @@ model ErpBranch {
   journalEntries         ErpJournalEntry[]
   posSessions            ErpPosSession[]
   posTransactions        ErpPosTransaction[]
+  zReports               ErpZReport[]
   products               ErpProduct[]
   purchaseOrders         ErpPurchaseOrder[]
   requisitions           ErpPurchaseRequisition[]
