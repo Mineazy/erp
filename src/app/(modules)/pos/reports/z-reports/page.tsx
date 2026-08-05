@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { useState, useEffect, useCallback } from 'react';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { Search, Eye, FileText, ArrowRight } from 'lucide-react';
+import { Select } from '@/components/ui/select';
+import { Search, FileText, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 
 interface ZReport {
@@ -22,19 +23,54 @@ interface ZReport {
 export default function ZReportsPage() {
   const [reports, setReports] = useState<ZReport[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Filters
   const [search, setSearch] = useState('');
+  const [branchId, setBranchId] = useState('');
+  const [branches, setBranches] = useState<{value: string, label: string}[]>([]);
+  
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const limit = 10; // Number of items per page
+
+  useEffect(() => {
+    fetchBranches();
+  }, []);
 
   useEffect(() => {
     fetchReports();
-  }, []);
+  }, [page, branchId]);
 
-  const fetchReports = async (query = '') => {
+  const fetchBranches = async () => {
+    try {
+      const res = await fetch('/api/admin/branches');
+      if (res.ok) {
+        const data = await res.json();
+        const opts = data.items ? data.items.map((b: any) => ({ value: b.id, label: b.name })) : [];
+        setBranches([{ value: '', label: 'All Branches' }, ...opts]);
+      }
+    } catch (e) {
+      console.error('Failed to fetch branches', e);
+    }
+  };
+
+  const fetchReports = async (query = search) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/pos/reports/z-reports?search=${encodeURIComponent(query)}`);
+      const params = new URLSearchParams({
+        search: query,
+        page: page.toString(),
+        limit: limit.toString(),
+        ...(branchId && { branchId })
+      });
+      const res = await fetch(`/api/pos/reports/z-reports?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
         setReports(data.items || []);
+        setTotalPages(data.totalPages || 1);
+        setTotalItems(data.total || 0);
       }
     } catch (error) {
       console.error('Failed to fetch reports:', error);
@@ -44,7 +80,13 @@ export default function ZReportsPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    setPage(1); // Reset to first page on search
     fetchReports(search);
+  };
+
+  const handleBranchChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setBranchId(e.target.value);
+    setPage(1); // Reset to first page
   };
 
   return (
@@ -58,24 +100,36 @@ export default function ZReportsPage() {
 
       <Card>
         <CardHeader className="border-b border-slate-100 pb-4">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             <CardTitle className="text-lg font-semibold text-slate-800 flex items-center gap-2">
               <FileText className="h-5 w-5 text-mine-blue-600" />
               Generated Reports
             </CardTitle>
-            <form onSubmit={handleSearch} className="flex gap-2 w-full md:w-auto">
-              <div className="relative flex-1 md:w-64">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-                <Input
-                  type="text"
-                  placeholder="Search report # or cashier..."
-                  className="pl-9 bg-slate-50 border-slate-200"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+            
+            <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+              <div className="w-full sm:w-48">
+                <Select 
+                  value={branchId}
+                  onChange={handleBranchChange}
+                  options={branches}
+                  placeholder="Filter by Branch"
+                  className="w-full"
                 />
               </div>
-              <Button type="submit" variant="secondary">Search</Button>
-            </form>
+              <form onSubmit={handleSearch} className="flex gap-2 flex-1">
+                <div className="relative flex-1 sm:w-64">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
+                  <Input
+                    type="text"
+                    placeholder="Search report # or cashier..."
+                    className="pl-9 bg-slate-50 border-slate-200 w-full"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+                <Button type="submit" variant="secondary">Search</Button>
+              </form>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -104,7 +158,7 @@ export default function ZReportsPage() {
                 ) : reports.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="h-32 text-center text-slate-500">
-                      No Z reports found.
+                      No Z reports found matching your criteria.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -149,6 +203,36 @@ export default function ZReportsPage() {
             </Table>
           </div>
         </CardContent>
+        {totalPages > 1 && (
+          <CardFooter className="flex items-center justify-between border-t border-slate-100 p-4">
+            <div className="text-sm text-slate-500">
+              Showing <span className="font-medium">{Math.min((page - 1) * limit + 1, totalItems)}</span> to{' '}
+              <span className="font-medium">{Math.min(page * limit, totalItems)}</span> of{' '}
+              <span className="font-medium">{totalItems}</span> results
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1 || loading}
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" /> Previous
+              </Button>
+              <div className="text-sm font-medium text-slate-600 px-2">
+                Page {page} of {totalPages}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages || loading}
+              >
+                Next <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </CardFooter>
+        )}
       </Card>
     </div>
   );
