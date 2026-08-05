@@ -190,7 +190,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="text-right">
                           <p className={`text-sm font-medium ${tx.type === 'receipt' ? 'text-green-600' : 'text-red-600'}`}>
-                            {tx.type === 'receipt' ? '+' : '-'}${tx.amount.toLocaleString()}
+                            {tx.type === 'receipt' ? '+' : '-'}${Number(tx.amount || 0).toLocaleString()}
                           </p>
                           <Badge variant={tx.status === 'completed' ? 'success' : 'warning'} className="text-[10px] px-1.5 py-0">
                             {tx.status}

@@ -30,7 +30,18 @@ export async function GET(request: NextRequest) {
     },
     orderBy: { entryDate: 'desc' },
   });
-  return ok(entries);
+
+  const mappedEntries = entries.map((e: any) => {
+    let totalDebit = 0;
+    let totalCredit = 0;
+    for (const line of e.lines) {
+      totalDebit += Number(line.debit || 0);
+      totalCredit += Number(line.credit || 0);
+    }
+    return { ...e, totalDebit, totalCredit };
+  });
+
+  return ok(mappedEntries);
 }
 
 export async function POST(request: NextRequest) {
