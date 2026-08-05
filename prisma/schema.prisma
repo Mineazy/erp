@@ -28,7 +28,7 @@ model CurrencyRate {
   toCurrency   String   @map("to_currency")
   rate         Decimal  @db.Decimal(15, 6)
   date         DateTime @default(now())
-  source       String   @default("manual")
+  source       String   @default("'manual'")
   createdAt    DateTime @default(now()) @map("created_at")
 
   @@map("currency_rates")
@@ -57,7 +57,7 @@ model TaxTransaction {
   taxableAmount Decimal    @map("taxable_amount") @db.Decimal(15, 2)
   taxAmount     Decimal    @map("tax_amount") @db.Decimal(15, 2)
   rate          Decimal    @db.Decimal(5, 2)
-  currency      String     @default("USD")
+  currency      String     @default("'USD'")
   exchangeRate  Decimal    @default(1.000000) @map("exchange_rate") @db.Decimal(15, 6)
   postedToTaRMS Boolean    @default(false) @map("posted_to_tarms")
   createdAt     DateTime   @default(now()) @map("created_at")
@@ -94,7 +94,7 @@ model FdmsDevice {
   activationKey       String?              @map("activation_key")
   certificate         String?              @db.Text
   privateKey          String?              @map("private_key") @db.Text
-  status              String               @default("registered")
+  status              String               @default("'registered'")
   fiscalDayNo         Int                  @default(0) @map("fiscal_day_no")
   receiptCounter      Int                  @default(0) @map("receipt_counter")
   receiptGlobalNo     Int                  @default(0) @map("receipt_global_no")
@@ -121,7 +121,7 @@ model FiscalisedDocument {
   qrCodeData      String?            @map("qr_code_data")
   qrCodeUrl       String?            @map("qr_code_url")
   submittedAt     DateTime?          @map("submitted_at")
-  status          String             @default("pending")
+  status          String             @default("'pending'")
   errorMessage    String?            @map("error_message")
   retryCount      Int                @default(0) @map("retry_count")
   createdAt       DateTime           @default(now()) @map("created_at")
@@ -145,7 +145,7 @@ model ErpChartOfAccounts {
   isHeader     Boolean              @default(false) @map("is_header")
   parentId     String?              @map("parent_id")
   balance      Decimal              @default(0.00) @db.Decimal(15, 2)
-  currency     String               @default("USD")
+  currency     String               @default("'USD'")
   isActive     Boolean              @default(true) @map("is_active")
   createdAt    DateTime             @default(now()) @map("created_at")
   updatedAt    DateTime             @updatedAt @map("updated_at")
@@ -163,10 +163,10 @@ model ErpJournalEntry {
   description  String
   entryDate    DateTime         @map("entry_date")
   period       String
-  status       String           @default("draft")
+  status       String           @default("'draft'")
   postedAt     DateTime?        @map("posted_at")
   postedBy     String?          @map("posted_by")
-  currency     String           @default("USD")
+  currency     String           @default("'USD'")
   exchangeRate Decimal          @default(1.000000) @map("exchange_rate") @db.Decimal(15, 6)
   createdAt    DateTime         @default(now()) @map("created_at")
   updatedAt    DateTime         @updatedAt @map("updated_at")
@@ -185,7 +185,7 @@ model ErpJournalLine {
   description String?
   debit       Decimal            @default(0.00) @db.Decimal(15, 2)
   credit      Decimal            @default(0.00) @db.Decimal(15, 2)
-  currency    String             @default("USD")
+  currency    String             @default("'USD'")
   createdAt   DateTime           @default(now()) @map("created_at")
   account     ErpChartOfAccounts @relation(fields: [accountId], references: [id])
   entry       ErpJournalEntry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
@@ -205,8 +205,8 @@ model ErpAccountReceivable {
   amount          Decimal    @db.Decimal(15, 2)
   paidAmount      Decimal    @default(0.00) @map("paid_amount") @db.Decimal(15, 2)
   balance         Decimal    @db.Decimal(15, 2)
-  status          String     @default("pending")
-  currency        String     @default("USD")
+  status          String     @default("'pending'")
+  currency        String     @default("'USD'")
   description     String?
   journalEntryId  String?    @map("journal_entry_id")
   fiscalisedDocId String?    @map("fiscalised_doc_id")
@@ -229,8 +229,8 @@ model ErpAccountPayable {
   amount         Decimal    @db.Decimal(15, 2)
   paidAmount     Decimal    @default(0.00) @map("paid_amount") @db.Decimal(15, 2)
   balance        Decimal    @db.Decimal(15, 2)
-  status         String     @default("pending")
-  currency       String     @default("USD")
+  status         String     @default("'pending'")
+  currency       String     @default("'USD'")
   description    String?
   journalEntryId String?    @map("journal_entry_id")
   createdAt      DateTime   @default(now()) @map("created_at")
@@ -250,10 +250,10 @@ model ErpCashbook {
   accountId    String     @map("account_id")
   description  String
   amount       Decimal    @db.Decimal(15, 2)
-  currency     String     @default("USD")
+  currency     String     @default("'USD'")
   exchangeRate Decimal    @default(1.000000) @map("exchange_rate") @db.Decimal(15, 6)
   reference    String?
-  status       String     @default("posted")
+  status       String     @default("'posted'")
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
   branchId     String?    @map("branch_id")
@@ -269,7 +269,7 @@ model ErpProduct {
   name            String
   description     String?
   categoryId      String?             @map("category_id")
-  unit            String              @default("each")
+  unit            String              @default("'each'")
   costPrice       Decimal             @default(0.00) @map("cost_price") @db.Decimal(15, 2)
   sellingPrice    Decimal             @default(0.00) @map("selling_price") @db.Decimal(15, 2)
   stock           Decimal             @default(0.00) @db.Decimal(15, 2)
@@ -277,7 +277,7 @@ model ErpProduct {
   maxStock        Decimal?            @default(0.00) @map("max_stock") @db.Decimal(15, 2)
   location        String?
   barcode         String?
-  costingMethod   String              @default("weighted_average") @map("costing_method")
+  costingMethod   String              @default("'weighted_average'") @map("costing_method")
   isActive        Boolean             @default(true) @map("is_active")
   grade           String?
   purity          Decimal?            @db.Decimal(5, 2)
@@ -327,12 +327,12 @@ model ErpSalesOrder {
   customerId   String              @map("customer_id")
   customerName String              @map("customer_name")
   orderDate    DateTime            @map("order_date")
-  status       String              @default("draft")
+  status       String              @default("'draft'")
   subtotal     Decimal             @db.Decimal(15, 2)
   taxAmount    Decimal             @default(0.00) @map("tax_amount") @db.Decimal(15, 2)
   discount     Decimal             @default(0.00) @db.Decimal(15, 2)
   total        Decimal             @db.Decimal(15, 2)
-  currency     String              @default("USD")
+  currency     String              @default("'USD'")
   exchangeRate Decimal             @default(1.000000) @map("exchange_rate") @db.Decimal(15, 6)
   notes        String?
   createdAt    DateTime            @default(now()) @map("created_at")
@@ -366,11 +366,11 @@ model ErpPurchaseOrder {
   supplierName  String                  @map("supplier_name")
   orderDate     DateTime                @map("order_date")
   expectedDate  DateTime?               @map("expected_date")
-  status        String                  @default("draft")
+  status        String                  @default("'draft'")
   subtotal      Decimal                 @db.Decimal(15, 2)
   taxAmount     Decimal                 @default(0.00) @map("tax_amount") @db.Decimal(15, 2)
   total         Decimal                 @db.Decimal(15, 2)
-  currency      String                  @default("USD")
+  currency      String                  @default("'USD'")
   exchangeRate  Decimal                 @default(1.000000) @map("exchange_rate") @db.Decimal(15, 6)
   notes         String?
   requisitionId String?                 @map("requisition_id")
@@ -404,22 +404,22 @@ model ErpPurchaseOrderLine {
 model ErpGoodsReceipt {
   id                 String                @id @default(uuid())
   receiptNo          String                @unique @map("receipt_no")
-  insightPoNumber    String?               @map("insight_po_number")
-  deliveryNoteNumber String?               @map("delivery_note_number")
-  invoiceNumber      String?               @map("invoice_number")
   supplierId         String?               @map("supplier_id")
   supplierName       String?               @map("supplier_name")
   receivedAt         DateTime              @default(now()) @map("received_at")
-  status             String                @default("Pending Review")
+  status             String                @default("'Pending Review'")
   notes              String?
-  capturedBy         String?               @map("captured_by")
-  reviewedBy         String?               @map("reviewed_by")
-  reviewerSignature  String?               @db.LongText @map("reviewer_signature")
-  approvedAt         DateTime?             @map("approved_at")
-  attachments        Json?
   createdAt          DateTime              @default(now()) @map("created_at")
   updatedAt          DateTime              @updatedAt @map("updated_at")
   branchId           String?               @map("branch_id")
+  approvedAt         DateTime?             @map("approved_at")
+  attachments        String?               @db.LongText
+  capturedBy         String?               @map("captured_by")
+  deliveryNoteNumber String?               @map("delivery_note_number")
+  insightPoNumber    String?               @map("insight_po_number")
+  invoiceNumber      String?               @map("invoice_number")
+  reviewedBy         String?               @map("reviewed_by")
+  reviewerSignature  String?               @map("reviewer_signature") @db.LongText
   lines              ErpGoodsReceiptLine[]
   branch             ErpBranch?            @relation(fields: [branchId], references: [id])
 
@@ -432,15 +432,15 @@ model ErpGoodsReceiptLine {
   receiptId   String          @map("receipt_id")
   productId   String          @map("product_id")
   productName String          @map("product_name")
-  orderedQty  Decimal         @default(0.00) @map("ordered_qty") @db.Decimal(15, 2)
   quantity    Decimal         @db.Decimal(15, 2)
-  damagedQty  Decimal         @default(0.00) @map("damaged_qty") @db.Decimal(15, 2)
-  acceptedQty Decimal         @default(0.00) @map("accepted_qty") @db.Decimal(15, 2)
-  remarks     String?
   batchNo     String?         @map("batch_no")
   serialNo    String?         @map("serial_no")
   location    String?
   createdAt   DateTime        @default(now()) @map("created_at")
+  acceptedQty Decimal         @default(0.00) @map("accepted_qty") @db.Decimal(15, 2)
+  damagedQty  Decimal         @default(0.00) @map("damaged_qty") @db.Decimal(15, 2)
+  orderedQty  Decimal         @default(0.00) @map("ordered_qty") @db.Decimal(15, 2)
+  remarks     String?
   receipt     ErpGoodsReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
 
   @@index([receiptId], map: "erp_goods_receipt_lines_receipt_id_fkey")
@@ -453,7 +453,7 @@ model ErpPurchaseRequisition {
   requestedBy   String                       @map("requested_by")
   department    String
   requiredDate  DateTime                     @map("required_date")
-  status        String                       @default("draft")
+  status        String                       @default("'draft'")
   notes         String?
   approvedBy    String?                      @map("approved_by")
   approvedAt    DateTime?                    @map("approved_at")
@@ -487,8 +487,8 @@ model ErpCustomer {
   id                 String     @id @default(uuid())
   code               String     @unique
   name               String
-  type               String     @default("company")
-  segment            String?    @default("retail")
+  type               String     @default("'company'")
+  segment            String?    @default("'retail'")
   contactPerson      String?    @map("contact_person")
   email              String?
   phone              String?
@@ -507,11 +507,11 @@ model ErpCustomer {
   loyaltyPoints      Int        @default(0) @map("loyalty_points")
   totalSpent         Decimal    @default(0.00) @map("total_spent") @db.Decimal(15, 2)
   cardBalance        Decimal    @default(0.00) @map("card_balance") @db.Decimal(15, 2)
-  walletBalance      Decimal    @default(0.00) @map("wallet_balance") @db.Decimal(15, 2)
   createdAt          DateTime   @default(now()) @map("created_at")
   updatedAt          DateTime   @updatedAt @map("updated_at")
   branchId           String?    @map("branch_id")
   resellerDiscount   Decimal    @default(0.00) @map("reseller_discount") @db.Decimal(5, 2)
+  walletBalance      Decimal    @default(0.00) @map("wallet_balance") @db.Decimal(15, 2)
   branch             ErpBranch? @relation(fields: [branchId], references: [id])
   leads              ErpLead[]
 
@@ -527,7 +527,7 @@ model ErpLead {
   email             String?
   phone             String?
   source            String?
-  stage             String               @default("new")
+  stage             String               @default("'new'")
   value             Decimal              @default(0.00) @db.Decimal(15, 2)
   probability       Int                  @default(0)
   assignedTo        String?              @map("assigned_to")
@@ -568,13 +568,13 @@ model ErpSupplier {
   taxId            String?               @map("tax_id")
   vatNumber        String?               @map("vat_number")
   tinNumber        String?               @map("tin_number")
-  itf263Status     String                @default("unknown") @map("itf263_status")
+  itf263Status     String                @default("'unknown'") @map("itf263_status")
   itf263Expiry     DateTime?             @map("itf263_expiry")
   itf263DocUrl     String?               @map("itf263_doc_url")
   paymentTerms     String?               @map("payment_terms")
   balance          Decimal               @default(0.00) @db.Decimal(15, 2)
   performanceScore Int?                  @map("performance_score")
-  category         String?               @default("general")
+  category         String?               @default("'general'")
   blacklisted      Boolean               @default(false)
   notes            String?
   isActive         Boolean               @default(true) @map("is_active")
@@ -596,8 +596,8 @@ model ErpSupplierContract {
   startDate  DateTime    @map("start_date")
   endDate    DateTime    @map("end_date")
   value      Decimal     @db.Decimal(15, 2)
-  currency   String      @default("USD")
-  status     String      @default("active")
+  currency   String      @default("'USD'")
+  status     String      @default("'active'")
   terms      String?
   docUrl     String?     @map("doc_url")
   createdAt  DateTime    @default(now()) @map("created_at")
@@ -609,19 +609,19 @@ model ErpSupplierContract {
 }
 
 model ErpWarehouse {
-  id        String              @id @default(uuid())
-  code      String              @unique
-  name      String
-  location  String?
-  type      String              @default("standard")
-  isActive  Boolean             @default(true) @map("is_active")
-  createdAt DateTime            @default(now()) @map("created_at")
-  updatedAt DateTime            @updatedAt @map("updated_at")
-  counts    ErpCycleCount[]
-  stocks    ErpWarehouseStock[]
-  zones     ErpWarehouseZone[]
-  fromTransfers ErpStockTransfer[] @relation("WarehouseFromTransfer")
-  toTransfers   ErpStockTransfer[] @relation("WarehouseToTransfer")
+  id            String              @id @default(uuid())
+  code          String              @unique
+  name          String
+  location      String?
+  type          String              @default("'standard'")
+  isActive      Boolean             @default(true) @map("is_active")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+  counts        ErpCycleCount[]
+  fromTransfers ErpStockTransfer[]  @relation("WarehouseFromTransfer")
+  toTransfers   ErpStockTransfer[]  @relation("WarehouseToTransfer")
+  stocks        ErpWarehouseStock[]
+  zones         ErpWarehouseZone[]
 
   @@map("erp_warehouses")
 }
@@ -631,12 +631,12 @@ model ErpWarehouseZone {
   warehouseId String       @map("warehouse_id")
   code        String
   name        String
-  type        String       @default("storage")
+  type        String       @default("'storage'")
   capacity    Decimal?     @db.Decimal(15, 2)
-  aisle       String?
-  shelf       String?
-  bin         String?
   createdAt   DateTime     @default(now()) @map("created_at")
+  aisle       String?
+  bin         String?
+  shelf       String?
   warehouse   ErpWarehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
 
   @@index([warehouseId], map: "erp_warehouse_zones_warehouse_id_fkey")
@@ -649,11 +649,11 @@ model ErpWarehouseStock {
   productId   String       @map("product_id")
   quantity    Decimal      @default(0.00) @db.Decimal(15, 2)
   location    String?
-  aisle       String?
-  shelf       String?
-  bin         String?
   batchNo     String?      @map("batch_no")
   serialNo    String?      @map("serial_no")
+  aisle       String?
+  bin         String?
+  shelf       String?
   product     ErpProduct   @relation(fields: [productId], references: [id])
   warehouse   ErpWarehouse @relation(fields: [warehouseId], references: [id])
 
@@ -687,7 +687,7 @@ model ErpCycleCount {
   id          String              @id @default(uuid())
   countNo     String              @unique @map("count_no")
   warehouseId String              @map("warehouse_id")
-  status      String              @default("draft")
+  status      String              @default("'draft'")
   countedBy   String              @map("counted_by")
   countedAt   DateTime            @default(now()) @map("counted_at")
   approvedBy  String?             @map("approved_by")
@@ -721,7 +721,7 @@ model ErpPosSession {
   sessionNumber  String              @unique @map("session_number")
   openedAt       DateTime            @default(now()) @map("opened_at")
   closedAt       DateTime?           @map("closed_at")
-  status         String              @default("open")
+  status         String              @default("'open'")
   openedBy       String              @map("opened_by")
   closedBy       String?             @map("closed_by")
   openingBalance Decimal             @default(0.00) @map("opening_balance") @db.Decimal(15, 2)
@@ -732,7 +732,7 @@ model ErpPosSession {
   cardSales      Decimal             @default(0.00) @map("card_sales") @db.Decimal(15, 2)
   mobileSales    Decimal             @default(0.00) @map("mobile_sales") @db.Decimal(15, 2)
   creditSales    Decimal             @default(0.00) @map("credit_sales") @db.Decimal(15, 2)
-  currency       String              @default("USD")
+  currency       String              @default("'USD'")
   notes          String?
   createdAt      DateTime            @default(now()) @map("created_at")
   updatedAt      DateTime            @updatedAt @map("updated_at")
@@ -746,30 +746,30 @@ model ErpPosSession {
 }
 
 model ErpZReport {
-  id              String        @id @default(uuid())
-  reportNumber    String        @unique @map("report_number")
-  sessionId       String        @unique @map("session_id")
-  session         ErpPosSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  branchId        String?       @map("branch_id")
-  branch          ErpBranch?    @relation(fields: [branchId], references: [id])
-  openedAt        DateTime      @map("opened_at")
-  closedAt        DateTime      @map("closed_at")
-  generatedAt     DateTime      @default(now()) @map("generated_at")
-  generatedBy     String        @map("generated_by")
-  totalSales      Decimal       @db.Decimal(15, 2) @map("total_sales")
-  totalRefunds    Decimal       @db.Decimal(15, 2) @map("total_refunds")
-  totalTax        Decimal       @db.Decimal(15, 2) @map("total_tax")
-  totalDiscounts  Decimal       @db.Decimal(15, 2) @map("total_discounts")
-  cashSales       Decimal       @db.Decimal(15, 2) @map("cash_sales")
-  cardSales       Decimal       @db.Decimal(15, 2) @map("card_sales")
-  mobileSales     Decimal       @db.Decimal(15, 2) @map("mobile_sales")
-  creditSales     Decimal       @db.Decimal(15, 2) @map("credit_sales")
-  expectedCash    Decimal       @db.Decimal(15, 2) @map("expected_cash")
-  actualCash      Decimal       @db.Decimal(15, 2) @map("actual_cash")
-  cashDifference  Decimal       @db.Decimal(15, 2) @map("cash_difference")
-  notes           String?
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @updatedAt @map("updated_at")
+  id             String        @id @default(uuid())
+  reportNumber   String        @unique @map("report_number")
+  sessionId      String        @unique @map("session_id")
+  branchId       String?       @map("branch_id")
+  openedAt       DateTime      @map("opened_at")
+  closedAt       DateTime      @map("closed_at")
+  generatedAt    DateTime      @default(now()) @map("generated_at")
+  generatedBy    String        @map("generated_by")
+  totalSales     Decimal       @map("total_sales") @db.Decimal(15, 2)
+  totalRefunds   Decimal       @map("total_refunds") @db.Decimal(15, 2)
+  totalTax       Decimal       @map("total_tax") @db.Decimal(15, 2)
+  totalDiscounts Decimal       @map("total_discounts") @db.Decimal(15, 2)
+  cashSales      Decimal       @map("cash_sales") @db.Decimal(15, 2)
+  cardSales      Decimal       @map("card_sales") @db.Decimal(15, 2)
+  mobileSales    Decimal       @map("mobile_sales") @db.Decimal(15, 2)
+  creditSales    Decimal       @map("credit_sales") @db.Decimal(15, 2)
+  expectedCash   Decimal       @map("expected_cash") @db.Decimal(15, 2)
+  actualCash     Decimal       @map("actual_cash") @db.Decimal(15, 2)
+  cashDifference Decimal       @map("cash_difference") @db.Decimal(15, 2)
+  notes          String?
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  branch         ErpBranch?    @relation(fields: [branchId], references: [id])
+  session        ErpPosSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([branchId], map: "erp_z_reports_branch_id_fkey")
   @@map("erp_z_reports")
@@ -787,9 +787,9 @@ model ErpPosTransaction {
   total             Decimal                 @db.Decimal(15, 2)
   paidAmount        Decimal                 @map("paid_amount") @db.Decimal(15, 2)
   changeAmount      Decimal                 @default(0.00) @map("change_amount") @db.Decimal(15, 2)
-  paymentMethod     String                  @default("cash") @map("payment_method")
-  status            String                  @default("completed")
-  currency          String                  @default("USD")
+  paymentMethod     String                  @default("'cash'") @map("payment_method")
+  status            String                  @default("'completed'")
+  currency          String                  @default("'USD'")
   exchangeRate      Decimal                 @default(1.000000) @map("exchange_rate") @db.Decimal(15, 6)
   fiscalisedDocId   String?                 @unique @map("fiscalised_doc_id")
   postedToJournal   Boolean                 @default(false) @map("posted_to_journal")
@@ -832,7 +832,7 @@ model ErpPosPayment {
   method        String
   amount        Decimal           @db.Decimal(15, 2)
   reference     String?
-  currency      String            @default("USD")
+  currency      String            @default("'USD'")
   exchangeRate  Decimal           @default(1.000000) @map("exchange_rate") @db.Decimal(15, 6)
   createdAt     DateTime          @default(now()) @map("created_at")
   transaction   ErpPosTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
@@ -849,12 +849,12 @@ model ErpQuotation {
   customerEmail String?            @map("customer_email")
   quoteDate     DateTime           @default(now()) @map("quote_date")
   validUntil    DateTime?          @map("valid_until")
-  status        String             @default("draft")
+  status        String             @default("'draft'")
   subtotal      Decimal            @db.Decimal(15, 2)
   taxAmount     Decimal            @default(0.00) @map("tax_amount") @db.Decimal(15, 2)
   discount      Decimal            @default(0.00) @db.Decimal(15, 2)
   total         Decimal            @db.Decimal(15, 2)
-  currency      String             @default("USD")
+  currency      String             @default("'USD'")
   exchangeRate  Decimal            @default(1.000000) @map("exchange_rate") @db.Decimal(15, 6)
   notes         String?
   terms         String?
@@ -889,10 +889,10 @@ model ErpReturn {
   returnNumber  String          @unique @map("return_number")
   returnDate    DateTime        @default(now()) @map("return_date")
   customerName  String?         @map("customer_name")
-  referenceType String          @default("direct") @map("reference_type")
+  referenceType String          @default("'direct'") @map("reference_type")
   referenceId   String?         @map("reference_id")
   reason        String?
-  status        String          @default("pending")
+  status        String          @default("'pending'")
   total         Decimal         @default(0.00) @db.Decimal(15, 2)
   notes         String?
   createdBy     String?         @map("created_by")
@@ -915,7 +915,7 @@ model ErpReturnLine {
   unitPrice   Decimal   @map("unit_price") @db.Decimal(15, 2)
   total       Decimal   @db.Decimal(15, 2)
   reason      String?
-  condition   String    @default("good")
+  condition   String    @default("'good'")
   return      ErpReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
 
   @@index([returnId], map: "erp_return_lines_return_id_fkey")
@@ -929,7 +929,7 @@ model ErpDispatchNote {
   customerId      String?               @map("customer_id")
   customerName    String?
   dispatchDate    DateTime              @default(now()) @map("dispatch_date")
-  status          String                @default("draft")
+  status          String                @default("'draft'")
   vehicleNo       String?               @map("vehicle_no")
   driverName      String?               @map("driver_name")
   deliveryAddress String?               @map("delivery_address")
@@ -966,7 +966,7 @@ model ErpProductHistory {
   field       String
   oldValue    String?  @map("old_value")
   newValue    String?  @map("new_value")
-  action      String   @default("update")
+  action      String   @default("'update'")
   userId      String   @map("user_id")
   userName    String?  @map("user_name")
   createdAt   DateTime @default(now()) @map("created_at")
@@ -997,25 +997,25 @@ model ErpStockAdjustment {
 }
 
 model ErpStockTransfer {
-  id           String                 @id @default(uuid())
-  transferNo   String                 @unique @map("transfer_no")
-  fromBranchId String?                @map("from_branch_id")
-  toBranchId   String?                @map("to_branch_id")
-  fromWarehouseId String?             @map("from_warehouse_id")
-  toWarehouseId   String?             @map("to_warehouse_id")
-  status       String                 @default("draft")
-  requestedBy  String                 @map("requested_by")
-  approvedBy   String?                @map("approved_by")
-  receivedBy   String?                @map("received_by")
-  receivedAt   DateTime?              @map("received_at")
-  notes        String?
-  createdAt    DateTime               @default(now()) @map("created_at")
-  updatedAt    DateTime               @updatedAt @map("updated_at")
-  lines        ErpStockTransferLine[]
-  fromBranch   ErpBranch?             @relation("FromBranch", fields: [fromBranchId], references: [id])
-  toBranch     ErpBranch?             @relation("ToBranch", fields: [toBranchId], references: [id])
-  fromWarehouse ErpWarehouse?         @relation("WarehouseFromTransfer", fields: [fromWarehouseId], references: [id])
-  toWarehouse   ErpWarehouse?         @relation("WarehouseToTransfer", fields: [toWarehouseId], references: [id])
+  id              String                 @id @default(uuid())
+  transferNo      String                 @unique @map("transfer_no")
+  fromBranchId    String?                @map("from_branch_id")
+  toBranchId      String?                @map("to_branch_id")
+  status          String                 @default("'draft'")
+  requestedBy     String                 @map("requested_by")
+  approvedBy      String?                @map("approved_by")
+  receivedBy      String?                @map("received_by")
+  receivedAt      DateTime?              @map("received_at")
+  notes           String?
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+  fromWarehouseId String?                @map("from_warehouse_id")
+  toWarehouseId   String?                @map("to_warehouse_id")
+  lines           ErpStockTransferLine[]
+  fromBranch      ErpBranch?             @relation("FromBranch", fields: [fromBranchId], references: [id])
+  fromWarehouse   ErpWarehouse?          @relation("WarehouseFromTransfer", fields: [fromWarehouseId], references: [id])
+  toBranch        ErpBranch?             @relation("ToBranch", fields: [toBranchId], references: [id])
+  toWarehouse     ErpWarehouse?          @relation("WarehouseToTransfer", fields: [toWarehouseId], references: [id])
 
   @@index([fromBranchId], map: "erp_stock_transfers_from_branch_id_fkey")
   @@index([toBranchId], map: "erp_stock_transfers_to_branch_id_fkey")
@@ -1041,7 +1041,7 @@ model ErpStockTransferLine {
 model ErpInventoryCount {
   id         String                  @id @default(uuid())
   countNo    String                  @unique @map("count_no")
-  status     String                  @default("draft")
+  status     String                  @default("'draft'")
   countedBy  String                  @map("counted_by")
   approvedBy String?                 @map("approved_by")
   approvedAt DateTime?               @map("approved_at")
@@ -1099,7 +1099,7 @@ model ErpSalesPrediction {
   predictedQuantity Decimal    @map("predicted_quantity") @db.Decimal(15, 2)
   predictedAmount   Decimal?   @map("predicted_amount") @db.Decimal(15, 2)
   confidenceLevel   Decimal    @default(0.8000) @map("confidence_level") @db.Decimal(5, 4)
-  trend             String?    @default("stable")
+  trend             String?    @default("'stable'")
   actualQuantity    Decimal?   @map("actual_quantity") @db.Decimal(15, 2)
   variance          Decimal?   @db.Decimal(15, 4)
   createdAt         DateTime   @default(now()) @map("created_at")
@@ -1119,7 +1119,7 @@ model ErpInventoryOptimization {
   suggestedAction    String     @map("suggested_action")
   suggestedQty       Decimal    @map("suggested_qty") @db.Decimal(15, 2)
   reason             String?
-  priority           String     @default("medium")
+  priority           String     @default("'medium'")
   isApplied          Boolean    @default(false) @map("is_applied")
   createdAt          DateTime   @default(now()) @map("created_at")
   branch             ErpBranch? @relation(fields: [branchId], references: [id])
@@ -1133,7 +1133,7 @@ model ErpAlert {
   type          String
   title         String
   message       String
-  severity      String     @default("info")
+  severity      String     @default("'info'")
   referenceType String?    @map("reference_type")
   referenceId   String?    @map("reference_id")
   isRead        Boolean    @default(false) @map("is_read")
@@ -1175,14 +1175,14 @@ model ErpEmployee {
   address        String?
   department     String?
   position       String?
-  employmentType String            @default("permanent") @map("employment_type")
+  employmentType String            @default("'permanent'") @map("employment_type")
   dateHired      DateTime          @map("date_hired")
   tinNumber      String?           @map("tin_number")
   nssaNumber     String?           @map("nssa_number")
   necNumber      String?           @map("nec_number")
   zimdefNumber   String?           @map("zimdef_number")
   basicSalary    Decimal           @map("basic_salary") @db.Decimal(15, 2)
-  currency       String            @default("USD")
+  currency       String            @default("'USD'")
   bankName       String?           @map("bank_name")
   bankAccount    String?           @map("bank_account")
   isActive       Boolean           @default(true) @map("is_active")
@@ -1211,8 +1211,8 @@ model ErpPayrollEntry {
   zimdefDeduction Decimal     @default(0.00) @map("zimdef_deduction") @db.Decimal(15, 2)
   otherDeductions Decimal     @default(0.00) @map("other_deductions") @db.Decimal(15, 2)
   netPay          Decimal     @map("net_pay") @db.Decimal(15, 2)
-  currency        String      @default("USD")
-  status          String      @default("draft")
+  currency        String      @default("'USD'")
+  status          String      @default("'draft'")
   paidAt          DateTime?   @map("paid_at")
   postedToZimra   Boolean     @default(false) @map("posted_to_zimra")
   createdAt       DateTime    @default(now()) @map("created_at")
@@ -1229,7 +1229,7 @@ model ErpAttendance {
   date       DateTime
   checkIn    DateTime?   @map("check_in")
   checkOut   DateTime?   @map("check_out")
-  status     String      @default("present")
+  status     String      @default("'present'")
   notes      String?
   createdAt  DateTime    @default(now()) @map("created_at")
   employee   ErpEmployee @relation(fields: [employeeId], references: [id])
@@ -1246,7 +1246,7 @@ model ErpLeaveRequest {
   endDate    DateTime    @map("end_date")
   days       Int
   reason     String?
-  status     String      @default("pending")
+  status     String      @default("'pending'")
   approvedBy String?     @map("approved_by")
   createdAt  DateTime    @default(now()) @map("created_at")
   updatedAt  DateTime    @updatedAt @map("updated_at")
@@ -1263,13 +1263,13 @@ model ErpVehicle {
   make             String
   year             Int?
   vin              String?              @map("vin")
-  type             String               @default("light_vehicle")
+  type             String               @default("'light_vehicle'")
   fuelType         String?              @map("fuel_type")
   capacity         Decimal?             @db.Decimal(15, 2)
   insurancePolicy  String?              @map("insurance_policy")
   insuranceExpiry  DateTime?            @map("insurance_expiry")
   licenceExpiry    DateTime?            @map("licence_expiry")
-  status           String               @default("active")
+  status           String               @default("'active'")
   assignedDriver   String?              @map("assigned_driver")
   isActive         Boolean              @default(true) @map("is_active")
   currentOdometer  Decimal              @default(0.00) @map("current_odometer") @db.Decimal(15, 2)
@@ -1338,7 +1338,7 @@ model ErpVehicleDispatch {
   startOdometer Int?       @map("start_odometer")
   endOdometer   Int?       @map("end_odometer")
   distanceKm    Decimal?   @map("distance_km") @db.Decimal(10, 2)
-  status        String     @default("in_transit")
+  status        String     @default("'in_transit'")
   notes         String?
   createdAt     DateTime   @default(now()) @map("created_at")
   updatedAt     DateTime   @updatedAt @map("updated_at")
@@ -1359,7 +1359,7 @@ model ErpEquipment {
   location     String?
   purchaseDate DateTime?      @map("purchase_date")
   purchaseCost Decimal?       @map("purchase_cost") @db.Decimal(15, 2)
-  status       String         @default("operational")
+  status       String         @default("'operational'")
   isActive     Boolean        @default(true) @map("is_active")
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")
@@ -1373,7 +1373,7 @@ model ErpWorkOrder {
   woNumber      String             @unique @map("wo_number")
   equipmentId   String             @map("equipment_id")
   type          String
-  priority      String             @default("medium")
+  priority      String             @default("'medium'")
   description   String
   assignedTo    String?            @map("assigned_to")
   scheduledDate DateTime?          @map("scheduled_date")
@@ -1382,7 +1382,7 @@ model ErpWorkOrder {
   labourCost    Decimal?           @map("labour_cost") @db.Decimal(15, 2)
   partsCost     Decimal?           @map("parts_cost") @db.Decimal(15, 2)
   totalCost     Decimal?           @map("total_cost") @db.Decimal(15, 2)
-  status        String             @default("open")
+  status        String             @default("'open'")
   failureMode   String?            @map("failure_mode")
   downtimeHours Decimal?           @map("downtime_hours") @db.Decimal(10, 2)
   notes         String?
@@ -1468,6 +1468,7 @@ model ErpBranch {
   assetAuditLogs         ErpAssetAuditLog[]
   assetMaintenances      ErpAssetMaintenance[]
   assets                 ErpAsset[]
+  backOrders             ErpBackOrder[]
   cashbookEntries        ErpCashbook[]
   customers              ErpCustomer[]
   dispatchNotes          ErpDispatchNote[]
@@ -1479,7 +1480,6 @@ model ErpBranch {
   journalEntries         ErpJournalEntry[]
   posSessions            ErpPosSession[]
   posTransactions        ErpPosTransaction[]
-  zReports               ErpZReport[]
   products               ErpProduct[]
   purchaseOrders         ErpPurchaseOrder[]
   requisitions           ErpPurchaseRequisition[]
@@ -1491,9 +1491,9 @@ model ErpBranch {
   stockMovements         ErpStockMovement[]
   fromTransfers          ErpStockTransfer[]         @relation("FromBranch")
   toTransfers            ErpStockTransfer[]         @relation("ToBranch")
-  backOrders             ErpBackOrder[]
   suppliers              ErpSupplier[]
   users                  ErpUser[]
+  zReports               ErpZReport[]
   fdmsDevices            FdmsDevice[]
   fiscalisedDocuments    FiscalisedDocument[]
   taxTransactions        TaxTransaction[]
@@ -1506,7 +1506,7 @@ model ErpUser {
   email            String               @unique
   password         String
   name             String
-  role             String               @default("user")
+  role             String               @default("'user'")
   department       String?
   branchId         String?              @map("branch_id")
   mfaEnabled       Boolean              @default(false) @map("mfa_enabled")
@@ -1527,7 +1527,7 @@ model SystemSetting {
   id          String   @id @default(uuid())
   key         String   @unique
   value       String   @db.LongText
-  category    String   @default("general")
+  category    String   @default("'general'")
   description String?
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -1566,7 +1566,7 @@ model ErpAssetCategory {
   code         String     @unique
   name         String
   description  String?
-  depreciation String     @default("straight_line")
+  depreciation String     @default("'straight_line'")
   usefulLife   Int?       @map("useful_life")
   salvageRate  Decimal?   @map("salvage_rate") @db.Decimal(5, 2)
   isActive     Boolean    @default(true) @map("is_active")
@@ -1591,8 +1591,8 @@ model ErpAsset {
   purchaseDate       DateTime               @map("purchase_date")
   purchaseCost       Decimal                @map("purchase_cost") @db.Decimal(15, 2)
   salvageValue       Decimal                @default(0.00) @map("salvage_value") @db.Decimal(15, 2)
-  status             String                 @default("operational")
-  assetCondition     String                 @default("good") @map("asset_condition")
+  status             String                 @default("'operational'")
+  assetCondition     String                 @default("'good'") @map("asset_condition")
   assignedTo         String?                @map("assigned_to")
   assignedToName     String?                @map("assigned_to_name")
   custodian          String?
@@ -1604,7 +1604,7 @@ model ErpAsset {
   nextInspection     DateTime?              @map("next_inspection")
   insuranceNo        String?                @map("insurance_no")
   insuranceExpiry    DateTime?              @map("insurance_expiry")
-  depreciationMethod String                 @default("straight_line") @map("depreciation_method")
+  depreciationMethod String                 @default("'straight_line'") @map("depreciation_method")
   usefulLifeYears    Int?                   @map("useful_life_years")
   isActive           Boolean                @default(true) @map("is_active")
   isAudited          Boolean                @default(false) @map("is_audited")
@@ -1632,7 +1632,7 @@ model ErpAssetDepreciation {
   depreciationExp Decimal  @map("depreciation_exp") @db.Decimal(15, 2)
   closingValue    Decimal  @map("closing_value") @db.Decimal(15, 2)
   journalEntryId  String?  @map("journal_entry_id")
-  status          String   @default("pending")
+  status          String   @default("'pending'")
   createdAt       DateTime @default(now()) @map("created_at")
   asset           ErpAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
 
@@ -1651,7 +1651,7 @@ model ErpAssetMaintenance {
   cost            Decimal    @db.Decimal(15, 2)
   vendor          String?
   nextDate        DateTime?  @map("next_date")
-  status          String     @default("completed")
+  status          String     @default("'completed'")
   notes           String?
   createdAt       DateTime   @default(now()) @map("created_at")
   updatedAt       DateTime   @updatedAt @map("updated_at")
@@ -1674,7 +1674,7 @@ model ErpAssetTransfer {
   transferReason String?  @map("transfer_reason")
   transferredBy  String   @map("transferred_by")
   receivedBy     String?  @map("received_by")
-  status         String   @default("pending")
+  status         String   @default("'pending'")
   notes          String?
   createdAt      DateTime @default(now()) @map("created_at")
   asset          ErpAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
@@ -1693,8 +1693,8 @@ model ErpAssetCheckout {
   checkedInBy    String?   @map("checked_in_by")
   expectedReturn DateTime? @map("expected_return")
   purpose        String?
-  status         String    @default("active")
-  condition      String    @default("good")
+  status         String    @default("'active'")
+  condition      String    @default("'good'")
   notes          String?
   createdAt      DateTime  @default(now()) @map("created_at")
   asset          ErpAsset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
@@ -1708,7 +1708,7 @@ model ErpAssetAuditLog {
   assetId   String     @map("asset_id")
   auditDate DateTime   @default(now()) @map("audit_date")
   auditedBy String     @map("audited_by")
-  status    String     @default("present")
+  status    String     @default("'present'")
   condition String?
   location  String?
   remarks   String?
@@ -1752,7 +1752,7 @@ model ErpFuelRequisition {
   vehicleId                String     @map("vehicle_id")
   userId                   String     @map("user_id")
   userName                 String     @map("user_name")
-  fuelType                 String     @default("Diesel") @map("fuel_type")
+  fuelType                 String     @default("'Diesel'") @map("fuel_type")
   litersRequested          Decimal    @map("liters_requested") @db.Decimal(15, 2)
   status                   String
   purpose                  String
@@ -1790,34 +1790,34 @@ model ErpHaulingTrip {
 }
 
 model ErpBackOrder {
-  id              String              @id @default(uuid())
-  orderNumber     String              @unique @map("order_number")
-  branchId        String              @map("branch_id")
-  status          String              @default("draft")
-  requestedBy     String              @map("requested_by")
-  approvedBy      String?             @map("approved_by")
-  approvedAt      DateTime?           @map("approved_at")
-  notes           String?
-  createdAt       DateTime            @default(now()) @map("created_at")
-  updatedAt       DateTime            @updatedAt @map("updated_at")
-  branch          ErpBranch           @relation(fields: [branchId], references: [id])
-  lines           ErpBackOrderLine[]
+  id          String             @id @default(uuid())
+  orderNumber String             @unique @map("order_number")
+  branchId    String             @map("branch_id")
+  status      String             @default("'draft'")
+  requestedBy String             @map("requested_by")
+  approvedBy  String?            @map("approved_by")
+  approvedAt  DateTime?          @map("approved_at")
+  notes       String?
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+  lines       ErpBackOrderLine[]
+  branch      ErpBranch          @relation(fields: [branchId], references: [id])
 
   @@index([branchId], map: "erp_back_orders_branch_id_fkey")
   @@map("erp_back_orders")
 }
 
 model ErpBackOrderLine {
-  id              String       @id @default(uuid())
-  backOrderId     String       @map("back_order_id")
-  productId       String       @map("product_id")
-  productName     String       @map("product_name")
-  requestedQty    Decimal      @map("requested_qty") @db.Decimal(15, 2)
-  allocatedQty    Decimal      @default(0.00) @map("allocated_qty") @db.Decimal(15, 2)
-  outstandingQty  Decimal      @map("outstanding_qty") @db.Decimal(15, 2)
-  status          String       @default("pending")
-  notes           String?
-  backOrder       ErpBackOrder @relation(fields: [backOrderId], references: [id], onDelete: Cascade)
+  id             String       @id @default(uuid())
+  backOrderId    String       @map("back_order_id")
+  productId      String       @map("product_id")
+  productName    String       @map("product_name")
+  requestedQty   Decimal      @map("requested_qty") @db.Decimal(15, 2)
+  allocatedQty   Decimal      @default(0.00) @map("allocated_qty") @db.Decimal(15, 2)
+  outstandingQty Decimal      @map("outstanding_qty") @db.Decimal(15, 2)
+  status         String       @default("'pending'")
+  notes          String?
+  backOrder      ErpBackOrder @relation(fields: [backOrderId], references: [id], onDelete: Cascade)
 
   @@index([backOrderId], map: "erp_back_order_lines_back_order_id_fkey")
   @@map("erp_back_order_lines")

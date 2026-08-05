@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, unauthorized, badRequest, created, ok, getBody, getNextSequence, getBranchFilter } from '@/lib/api';
-
+import { ensureDefaultAccounts } from '@/lib/financial';
 const SESSION_MAX_MS = 24 * 60 * 60 * 1000;
 
 export async function GET(request: NextRequest) {
@@ -239,6 +239,95 @@ export async function POST(request: NextRequest) {
       where: { id: sessionId },
       data: { totalSales: { increment: total }, ...pmUpdates },
     });
+
+    // ---- FINANCIAL INTEGRATION ----
+    try {
+      const defaultAccounts = await ensureDefaultAccounts(prisma);
+      let totalCogs = 0;
+      
+      for (const l of lineData) {
+        const product = await prisma.erpProduct.findUnique({ where: { id: l.productId } });
+        if (product) {
+          totalCogs += Number(product.costPrice || 0) * l.quantity;
+        }
+      }
+
+      // 1. Create Journal Entry (GL)
+      const entryNumber = await getNextSequence(prisma, 'erpJournalEntry', 'entryNumber', 'JNL');
+      const branchId = (session.user as any)?.branchId || null;
+      
+      const isCredit = (payments?.[0]?.method === 'credit');
+      const assetAccount = isCredit ? defaultAccounts['Accounts Receivable'] : defaultAccounts['Cash at Hand'];
+
+      const journalLines = [
+        // Debit Asset (Cash or AR)
+        { accountId: assetAccount, debit: total, credit: 0 },
+        // Credit Revenue
+        { accountId: defaultAccounts['Sales Revenue'], debit: 0, credit: subtotal - disc },
+      ];
+
+      // Credit Tax Payable if applicable
+      if (tx > 0) {
+        journalLines.push({ accountId: defaultAccounts['Sales Tax Payable'], debit: 0, credit: tx });
+      }
+
+      // COGS (Debit Expense, Credit Inventory)
+      if (totalCogs > 0) {
+        journalLines.push({ accountId: defaultAccounts['Cost of Goods Sold'], debit: totalCogs, credit: 0 });
+        journalLines.push({ accountId: defaultAccounts['Inventory Asset'], debit: 0, credit: totalCogs });
+      }
+
+      const journalEntry = await prisma.erpJournalEntry.create({
+        data: {
+          entryNumber,
+          description: `POS Sale ${transactionNumber}`,
+          entryDate: new Date(),
+          period: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`,
+          status: 'posted',
+          branchId,
+          lines: { create: journalLines },
+        }
+      });
+
+      // 2. Cashbook or AR
+      if (isCredit) {
+        const invoiceNumber = await getNextSequence(prisma, 'erpAccountReceivable', 'invoiceNumber', 'INV');
+        await prisma.erpAccountReceivable.create({
+          data: {
+            invoiceNumber,
+            customerId: customerId!,
+            customerName: customerName || 'Walk-in',
+            invoiceDate: new Date(),
+            dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // +30 days
+            amount: total,
+            paidAmount: 0,
+            balance: total,
+            status: 'pending',
+            description: `POS Credit Sale ${transactionNumber}`,
+            journalEntryId: journalEntry.id,
+            branchId,
+          }
+        });
+      } else {
+        const cbNumber = await getNextSequence(prisma, 'erpCashbook', 'entryNumber', 'CB');
+        await prisma.erpCashbook.create({
+          data: {
+            entryNumber: cbNumber,
+            entryDate: new Date(),
+            type: 'receipt',
+            accountId: defaultAccounts['Cash at Hand'],
+            description: `POS Cash Sale ${transactionNumber}`,
+            amount: total,
+            reference: transactionNumber,
+            status: 'posted',
+            branchId,
+          }
+        });
+      }
+    } catch (finErr) {
+      console.error('Financial Integration Error for POS:', finErr);
+      // We don't block the transaction return if financials fail, but we log it.
+    }
 
     return created(transaction);
   } catch (error: any) {
