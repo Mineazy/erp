@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
       capturedBy: capturedBy || session.user!.name,
       status: 'Pending Review',
       branchId: (session.user as any)?.branchId || null,
-      attachments: attachments.length > 0 ? attachments : undefined,
+      attachments: attachments.length > 0 ? JSON.stringify(attachments) : undefined,
       lines: {
         create: lines.map((line: any) => ({
           productId: line.productId,
