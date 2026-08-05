@@ -43,11 +43,19 @@ export default function CashbookPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
+  const [branchId, setBranchId] = useState('all');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
   useEffect(() => {
     fetch('/api/financial/coa')
       .then(r => r.json())
       .then(setAccounts)
+      .catch(() => {});
+    fetch('/api/admin/branches')
+      .then(r => r.json())
+      .then(setBranches)
       .catch(() => {});
   }, []);
 
@@ -66,6 +74,9 @@ export default function CashbookPage() {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
       if (typeFilter) params.set('type', typeFilter);
+      if (branchId !== 'all') params.set('branchId', branchId);
+      if (fromDate) params.set('from', fromDate);
+      if (toDate) params.set('to', toDate);
       const res = await fetch(`/api/financial/cashbook?${params}`);
       if (!res.ok) throw new Error('Failed to fetch');
       const json = await res.json();
@@ -77,7 +88,7 @@ export default function CashbookPage() {
     }
   };
 
-  useEffect(() => { fetchData(); }, [search, typeFilter]);
+  useEffect(() => { fetchData(); }, [search, typeFilter, branchId, fromDate, toDate]);
 
   const handleCreate = async () => {
     try {
@@ -154,11 +165,15 @@ export default function CashbookPage() {
               <Wallet className="h-5 w-5 text-mine-blue-800" />
               Cashbook Entries
             </CardTitle>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input type="text" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-mine-blue-500 w-64" />
+                <input type="text" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-mine-blue-500 w-48" />
               </div>
+              <Select options={[{ value: 'all', label: 'All Branches' }, ...branches.map(b => ({ value: b.id, label: b.name }))]} value={branchId} onChange={(e) => setBranchId(e.target.value)} className="w-36" />
+              <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="w-36 h-9" />
+              <span className="text-slate-400 text-sm">to</span>
+              <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="w-36 h-9" />
               <Select options={[{ value: '', label: 'All Types' }, { value: 'receipt', label: 'Receipts' }, { value: 'payment', label: 'Payments' }, { value: 'transfer', label: 'Transfers' }]} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="w-36" />
               <Button variant="outline" size="sm" onClick={() => window.print()}><Download className="h-4 w-4 mr-2" />Export</Button>
             </div>

@@ -12,13 +12,22 @@ export async function GET(request: NextRequest) {
   const to = searchParams.get('to');
 
   const branchFilter = getBranchFilter(session);
-  const where: any = {};
-  Object.assign(where, branchFilter);
+  const where: any = { ...branchFilter };
+  
+  const branchId = searchParams.get('branchId');
+  if (branchId && branchId !== 'all' && !where.branchId) {
+    where.branchId = branchId;
+  }
+
   if (type) where.type = type;
   if (from || to) {
     where.entryDate = {};
     if (from) where.entryDate.gte = new Date(from);
-    if (to) where.entryDate.lte = new Date(to);
+    if (to) {
+      const toDate = new Date(to);
+      toDate.setHours(23, 59, 59, 999);
+      where.entryDate.lte = toDate;
+    }
   }
 
   const items = await prisma.erpCashbook.findMany({
