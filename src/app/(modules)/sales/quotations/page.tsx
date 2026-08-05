@@ -72,7 +72,7 @@ export default function QuotationsPage() {
       if (search) params.set('search', search);
       if (statusFilter) params.set('status', statusFilter);
       params.set('limit', '200');
-      const res = await fetch(`/api/inventory/quotations?${params}`);
+      const res = await fetch(`/api/sales/quotations?${params}`);
       if (!res.ok) throw new Error('Failed to fetch');
       const d = await res.json();
       setData(Array.isArray(d) ? d : (d.items || []));
@@ -112,7 +112,7 @@ export default function QuotationsPage() {
   const openVoucher = async (item: Quotation) => {
     setVoucherLoading(true); setVoucherOpen(true);
     try {
-      const res = await fetch(`/api/inventory/quotations/${item.id}/generate`, { method: 'POST' });
+      const res = await fetch(`/api/sales/quotations/${item.id}/generate`, { method: 'POST' });
       if (res.ok) setVoucherData(await res.json());
       else toast('Failed to generate document', 'error');
     } catch { toast('Network error', 'error'); }
@@ -124,7 +124,7 @@ export default function QuotationsPage() {
     if (!ok) return;
     const tid = toast('Sending quotation...', 'info', 120000);
     try {
-      const res = await fetch(`/api/inventory/quotations/${id}/send`, { method: 'POST' });
+      const res = await fetch(`/api/sales/quotations/${id}/send`, { method: 'POST' });
       if (res.ok) { dismissToast(tid); toast('Quotation sent successfully', 'success'); fetchData(); }
       else { const e = await res.json().catch(() => ({ error: 'Failed' })); dismissToast(tid); toast(e.error || 'Failed to send', 'error'); }
     } catch { dismissToast(tid); toast('Network error', 'error'); }
@@ -135,7 +135,7 @@ export default function QuotationsPage() {
     if (!ok) return;
     const tid = toast('Converting...', 'info', 120000);
     try {
-      const res = await fetch(`/api/inventory/quotations/${id}/convert`, { method: 'POST' });
+      const res = await fetch(`/api/sales/quotations/${id}/convert`, { method: 'POST' });
       if (res.ok) { dismissToast(tid); toast('Converted to sales order successfully', 'success'); fetchData(); }
       else { const e = await res.json().catch(() => ({ error: 'Failed' })); dismissToast(tid); toast(e.error || 'Failed to convert', 'error'); }
     } catch { dismissToast(tid); toast('Network error', 'error'); }
@@ -160,11 +160,11 @@ export default function QuotationsPage() {
       };
       let res;
       if (editing) {
-        res = await fetch(`/api/inventory/quotations/${editing.id}`, {
+        res = await fetch(`/api/sales/quotations/${editing.id}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
         });
       } else {
-        res = await fetch('/api/inventory/quotations', {
+        res = await fetch('/api/sales/quotations', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
         });
       }
@@ -185,7 +185,7 @@ export default function QuotationsPage() {
     if (!ok) return;
     const tid = toast('Deleting...', 'info', 120000);
     try {
-      const res = await fetch(`/api/inventory/quotations/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/sales/quotations/${id}`, { method: 'DELETE' });
       if (res.ok) { dismissToast(tid); toast('Deleted', 'success'); fetchData(); }
       else { const e = await res.json().catch(() => ({ error: 'Failed' })); dismissToast(tid); toast(e.error || 'Failed', 'error'); }
     } catch { dismissToast(tid); toast('Network error', 'error'); }

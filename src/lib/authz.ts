@@ -89,6 +89,12 @@ const MODULE_PERMISSIONS: Record<string, PermissionSet> = {
     manager: true,
     user: 'readonly',
   },
+  sales: {
+    admin: true,
+    accountant: 'readonly',
+    manager: true,
+    user: 'readonly',
+  },
   admin: {
     admin: true,
     accountant: false,
@@ -155,7 +161,7 @@ export function canAccessModule(module: string, role: string | undefined, depart
 
   // Custom overrides for users registered under the Finance Department
   if (department && (department.toLowerCase() === 'finance' || department.toLowerCase() === 'financial')) {
-    const allowedModules = ['financial', 'crm', 'pos', 'fleet', 'fdms', 'reports', 'messaging'];
+    const allowedModules = ['financial', 'crm', 'pos', 'fleet', 'fdms', 'reports', 'messaging', 'sales'];
     if (allowedModules.includes(module.toLowerCase())) {
       return true;
     }
@@ -167,7 +173,7 @@ export function canAccessModule(module: string, role: string | undefined, depart
 
   // Custom overrides for users registered under the Business Development Department
   if (department && (department.toLowerCase() === 'business' || department.toLowerCase() === 'business development')) {
-    const allowedModules = ['crm', 'pos', 'workshop', 'messaging'];
+    const allowedModules = ['crm', 'pos', 'workshop', 'messaging', 'sales'];
     if (allowedModules.includes(module.toLowerCase())) {
       return true;
     }
@@ -204,14 +210,14 @@ export function canWriteModule(module: string, role: string | undefined, departm
   }
 
   if (department && (department.toLowerCase() === 'finance' || department.toLowerCase() === 'financial')) {
-    const allowedModules = ['financial', 'crm', 'pos', 'fleet', 'fdms', 'reports', 'messaging'];
+    const allowedModules = ['financial', 'crm', 'pos', 'fleet', 'fdms', 'reports', 'messaging', 'sales'];
     if (allowedModules.includes(module.toLowerCase())) {
       return true;
     }
   }
 
   if (department && (department.toLowerCase() === 'business' || department.toLowerCase() === 'business development')) {
-    const allowedModules = ['crm', 'pos', 'workshop', 'messaging'];
+    const allowedModules = ['crm', 'pos', 'workshop', 'messaging', 'sales'];
     if (allowedModules.includes(module.toLowerCase())) {
       return true;
     }

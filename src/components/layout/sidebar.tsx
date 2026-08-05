@@ -58,6 +58,14 @@ const navGroups = [
     ],
   },
   {
+    group: 'Sales & Marketing',
+    module: 'sales',
+    items: [
+      { label: 'Dashboard', href: '/sales/dashboard', icon: 'LayoutDashboard' },
+      { label: 'Quotations', href: '/sales/quotations', icon: 'FileText' },
+    ],
+  },
+  {
     group: 'CRM',
     module: 'crm',
     items: [
