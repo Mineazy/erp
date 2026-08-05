@@ -120,7 +120,7 @@ export default function DashboardPage() {
                     </div>
                     <p className="text-sm text-slate-500 mb-1">{stat.title}</p>
                     <p className="text-2xl font-bold text-slate-900">
-                      ${stat.value.toLocaleString()}
+                      ${Number(stat.value || 0).toLocaleString()}
                     </p>
                   </CardContent>
                 </Card>
@@ -135,7 +135,7 @@ export default function DashboardPage() {
                 <Card key={s.title} className="hover:shadow-sm transition-shadow">
                   <CardContent className="p-3 text-center">
                     <Icon className={`h-4 w-4 mx-auto mb-1 ${s.color}`} />
-                    <p className="text-lg font-bold text-slate-900">{s.value}</p>
+                    <p className="text-lg font-bold text-slate-900">{Number(s.value || 0).toLocaleString()}</p>
                     <p className="text-[10px] text-slate-500 truncate">{s.title}</p>
                   </CardContent>
                 </Card>
