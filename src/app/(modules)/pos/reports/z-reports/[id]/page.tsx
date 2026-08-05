@@ -33,7 +33,7 @@ export default function ZReportDetailPage() {
   }, [id]);
 
   const handlePrint = useReactToPrint({
-    content: () => printRef.current,
+    contentRef: printRef,
     documentTitle: `Z-Report-${report?.reportNumber || 'Doc'}`,
   });
 
