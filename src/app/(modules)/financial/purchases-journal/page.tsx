@@ -107,7 +107,7 @@ export default function PurchasesJournalPage() {
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500">Total Debits</p>
-              <p className="text-xl font-bold text-green-600">${t?.totalDebit.toLocaleString() || '0'}</p>
+              <p className="text-xl font-bold text-green-600">${Number(t?.totalDebit || 0).toLocaleString()}</p>
             </div>
             <div className="p-2 bg-green-50 rounded-lg"><TrendingUp className="h-5 w-5 text-green-600" /></div>
           </CardContent>
@@ -116,7 +116,7 @@ export default function PurchasesJournalPage() {
           <CardContent className="p-4 flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500">Total Credits</p>
-              <p className="text-xl font-bold text-red-600">${t?.totalCredit.toLocaleString() || '0'}</p>
+              <p className="text-xl font-bold text-red-600">${Number(t?.totalCredit || 0).toLocaleString()}</p>
             </div>
             <div className="p-2 bg-red-50 rounded-lg"><TrendingUp className="h-5 w-5 text-red-600" /></div>
           </CardContent>
@@ -209,7 +209,7 @@ export default function PurchasesJournalPage() {
                       <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 text-sm font-semibold text-slate-700 flex items-center justify-between">
                         <span>{groupLabel}</span>
                         <span className="text-xs font-normal text-slate-400">
-                          {groupLines.length / 2} transactions · ${groupDebit.toLocaleString()} Dr / ${groupCredit.toLocaleString()} Cr
+                          {groupLines.length / 2} transactions · ${Number(groupDebit || 0).toLocaleString()} Dr / ${Number(groupCredit || 0).toLocaleString()} Cr
                         </span>
                       </div>
                       <Table>
@@ -237,10 +237,10 @@ export default function PurchasesJournalPage() {
                                 <span className="text-xs text-slate-500 ml-1">{line.accountName}</span>
                               </TableCell>
                               <TableCell className="text-right font-mono text-green-600">
-                                {line.debit > 0 ? line.debit.toLocaleString() : '-'}
+                                {Number(line.debit) > 0 ? Number(line.debit).toLocaleString() : '-'}
                               </TableCell>
                               <TableCell className="text-right font-mono text-red-600">
-                                {line.credit > 0 ? line.credit.toLocaleString() : '-'}
+                                {Number(line.credit) > 0 ? Number(line.credit).toLocaleString() : '-'}
                               </TableCell>
                               <TableCell>
                                 <Badge variant={statusVariant[line.status]}>{line.status.charAt(0).toUpperCase() + line.status.slice(1)}</Badge>
@@ -251,8 +251,8 @@ export default function PurchasesJournalPage() {
                         <tfoot>
                           <TableRow className="font-semibold bg-slate-100 border-t-2 border-slate-300">
                             <TableCell colSpan={4} className="text-sm text-slate-700">Group Totals</TableCell>
-                            <TableCell className="text-right font-mono text-green-700">${groupDebit.toLocaleString()}</TableCell>
-                            <TableCell className="text-right font-mono text-red-700">${groupCredit.toLocaleString()}</TableCell>
+                            <TableCell className="text-right font-mono text-green-700">${Number(groupDebit || 0).toLocaleString()}</TableCell>
+                            <TableCell className="text-right font-mono text-red-700">${Number(groupCredit || 0).toLocaleString()}</TableCell>
                             <TableCell />
                           </TableRow>
                         </tfoot>
@@ -286,10 +286,10 @@ export default function PurchasesJournalPage() {
                           <span className="text-xs text-slate-500 ml-1">{line.accountName}</span>
                         </TableCell>
                         <TableCell className="text-right font-mono text-green-600">
-                          {line.debit > 0 ? line.debit.toLocaleString() : '-'}
+                          {Number(line.debit) > 0 ? Number(line.debit).toLocaleString() : '-'}
                         </TableCell>
                         <TableCell className="text-right font-mono text-red-600">
-                          {line.credit > 0 ? line.credit.toLocaleString() : '-'}
+                          {Number(line.credit) > 0 ? Number(line.credit).toLocaleString() : '-'}
                         </TableCell>
                         <TableCell>
                           <Badge variant={statusVariant[line.status]}>{line.status.charAt(0).toUpperCase() + line.status.slice(1)}</Badge>
@@ -300,8 +300,8 @@ export default function PurchasesJournalPage() {
                   <tfoot>
                     <TableRow className="font-bold bg-slate-50 border-t-2 border-slate-300">
                       <TableCell colSpan={4} className="text-sm text-slate-700">Totals ({data?.totals.entryCount} bills)</TableCell>
-                      <TableCell className="text-right font-mono text-green-700">${t?.totalDebit.toLocaleString()}</TableCell>
-                      <TableCell className="text-right font-mono text-red-700">${t?.totalCredit.toLocaleString()}</TableCell>
+                      <TableCell className="text-right font-mono text-green-700">${Number(t?.totalDebit || 0).toLocaleString()}</TableCell>
+                      <TableCell className="text-right font-mono text-red-700">${Number(t?.totalCredit || 0).toLocaleString()}</TableCell>
                       <TableCell />
                     </TableRow>
                   </tfoot>

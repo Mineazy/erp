@@ -12,7 +12,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     include: { lines: { include: { account: true } } },
   });
   if (!entry) return notFound('Journal entry not found');
-  return ok(entry);
+
+  let totalDebit = 0;
+  let totalCredit = 0;
+  for (const line of (entry.lines || [])) {
+    totalDebit += Number(line.debit || 0);
+    totalCredit += Number(line.credit || 0);
+  }
+
+  return ok({ ...entry, totalDebit, totalCredit });
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

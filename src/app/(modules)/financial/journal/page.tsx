@@ -219,8 +219,8 @@ export default function JournalPage() {
                   <TableCell>{entry.entryDate}</TableCell>
                   <TableCell className="max-w-xs truncate">{entry.description}</TableCell>
                   <TableCell>{entry.period}</TableCell>
-                  <TableCell className="text-right font-mono">{entry.totalDebit.toLocaleString()}</TableCell>
-                  <TableCell className="text-right font-mono">{entry.totalCredit.toLocaleString()}</TableCell>
+                  <TableCell className="text-right font-mono">{Number(entry.totalDebit || 0).toLocaleString()}</TableCell>
+                  <TableCell className="text-right font-mono">{Number(entry.totalCredit || 0).toLocaleString()}</TableCell>
                   <TableCell>
                     <Badge variant={statusVariant[entry.status] || 'default'}>
                       {entry.status.charAt(0).toUpperCase() + entry.status.slice(1)}
@@ -299,10 +299,10 @@ export default function JournalPage() {
                         <td className="p-2 font-mono text-xs">{line.account?.code} - {line.account?.name}</td>
                         <td className="p-2 text-xs">{line.description || '-'}</td>
                         <td className="text-right p-2 font-mono text-green-600">
-                          {line.debit > 0 ? line.debit.toLocaleString() : '-'}
+                          {Number(line.debit) > 0 ? Number(line.debit).toLocaleString() : '-'}
                         </td>
                         <td className="text-right p-2 font-mono text-red-600">
-                          {line.credit > 0 ? line.credit.toLocaleString() : '-'}
+                          {Number(line.credit) > 0 ? Number(line.credit).toLocaleString() : '-'}
                         </td>
                       </tr>
                     ))}
@@ -313,7 +313,7 @@ export default function JournalPage() {
             <div className="flex justify-between text-sm font-bold pt-2 border-t">
               <span>Total</span>
               <span className="font-mono">
-                Debit: ${viewEntry.totalDebit.toLocaleString()} | Credit: ${viewEntry.totalCredit.toLocaleString()}
+                Debit: ${Number(viewEntry.totalDebit || 0).toLocaleString()} | Credit: ${Number(viewEntry.totalCredit || 0).toLocaleString()}
               </span>
             </div>
           </div>
