@@ -20,7 +20,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         <p className="text-sm font-medium text-slate-900 mb-1">{label}</p>
         {payload.map((entry: any, idx: number) => (
           <p key={idx} className="text-sm" style={{ color: entry.color }}>
-            {entry.name}: ${entry.value.toLocaleString()}
+            {entry.name}: ${Number(entry.value || 0).toLocaleString()}
           </p>
         ))}
       </div>
