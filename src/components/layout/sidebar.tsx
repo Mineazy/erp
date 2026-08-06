@@ -106,7 +106,7 @@ const navGroups = [
     items: [
       { label: 'Dashboard', href: '/warehouse', icon: 'LayoutDashboard' },
       { label: 'Warehouses', href: '/warehouse/warehouses', icon: 'Warehouse' },
-      { label: 'Branches', href: '/warehouse/branches', icon: 'Building2' },
+      { label: 'Locations', href: '/warehouse/branches', icon: 'Building2' },
       { label: 'Back Order Management', href: '/warehouse/back-orders', icon: 'AlertTriangle' },
       { label: 'Goods Receiving', href: '/inventory/goods-receipts', icon: 'ClipboardCheck' },
       { label: 'Stock Transfers', href: '/warehouse/stock-transfers', icon: 'ArrowLeftRight' },
