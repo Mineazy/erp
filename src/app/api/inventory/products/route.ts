@@ -13,9 +13,16 @@ export async function GET(request: NextRequest) {
     const order = sp.order || 'desc';
     const page = sp.page || 1;
     const limit = sp.limit || 50;
+    const explicitBranchId = request.nextUrl.searchParams.get('branchId');
     const branchFilter = getBranchFilter(session);
+    
     const where: Record<string, unknown> = {};
-    Object.assign(where, branchFilter);
+    if (explicitBranchId) {
+      where.branchId = explicitBranchId;
+    } else if (branchFilter) {
+      Object.assign(where, branchFilter);
+    }
+
     if (search) {
       where.OR = [
         { name: { contains: search } },
@@ -24,8 +31,12 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const orderBy: Record<string, 'asc' | 'desc'> = {};
-    orderBy[sort] = order;
+    const orderBy: any = {};
+    if (sort === 'category') {
+      orderBy.category = { name: order };
+    } else {
+      orderBy[sort] = order;
+    }
 
     const [items, total] = await Promise.all([
       prisma.erpProduct.findMany({
