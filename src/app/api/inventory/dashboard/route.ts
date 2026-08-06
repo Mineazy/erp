@@ -25,9 +25,9 @@ export async function GET(_request: NextRequest) {
   const totalStockQty = stockAgg._sum.stock || 0;
   const totalInventoryValue = products.reduce((sum, p) => sum + Number(p.stock) * Number(p.costPrice), 0);
 
-  const branchMap = new Map<string, { name: string; productCount: number; stockQty: number; value: number }>();
+  const branchMap = new Map<string, { branch: string; productCount: number; stockQty: number; value: number }>();
   for (const b of branches) {
-    branchMap.set(b.id, { name: b.name, productCount: 0, stockQty: 0, value: 0 });
+    branchMap.set(b.id, { branch: b.name, productCount: 0, stockQty: 0, value: 0 });
   }
   for (const p of products) {
     if (p.branchId && branchMap.has(p.branchId)) {
