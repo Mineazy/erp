@@ -544,18 +544,18 @@ async function multicurrencyRevenue(dateFrom?: string, dateTo?: string): Promise
 }
 
 async function poLog(dateFrom?: string, dateTo?: string): Promise<string> {
-  const pos = await prisma.erpPurchaseOrder.findMany({ include: { supplier: true }, orderBy: { orderDate: 'desc' } });
+  const pos = await prisma.erpPurchaseOrder.findMany({ orderBy: { orderDate: 'desc' } });
   const rows = pos.map(p => [
-    p.poNumber, p.supplier.name, fmtDate(p.orderDate), fmtNum(p.totalAmount), p.status, p.paymentStatus
+    p.poNumber, p.supplierName, fmtDate(p.orderDate), fmtNum(p.total), p.status, '—'
   ]);
   return `<div class="sc">${sc('Total POs', String(pos.length))}</div>` 
     + tbl(['PO Number', 'Supplier', 'Order Date', 'Total Value', 'Status', 'Payment Status'], rows);
 }
 
 async function reqAudit(dateFrom?: string, dateTo?: string): Promise<string> {
-  const reqs = await prisma.erpPurchaseRequisition.findMany({ orderBy: { requestDate: 'desc' } });
+  const reqs = await prisma.erpPurchaseRequisition.findMany({ orderBy: { createdAt: 'desc' } });
   const rows = reqs.map(r => [
-    r.reqNumber, r.requestedBy, r.department, fmtDate(r.requestDate), fmtDate(r.requiredDate), r.status
+    r.requisitionNo, r.requestedBy, r.department, fmtDate(r.createdAt), fmtDate(r.requiredDate), r.status
   ]);
   return `<div class="sc">${sc('Total Requisitions', String(reqs.length))}</div>` 
     + tbl(['Req Number', 'Requested By', 'Department', 'Request Date', 'Required Date', 'Status'], rows);
@@ -574,9 +574,9 @@ async function fulfillmentRates(dateFrom?: string, dateTo?: string): Promise<str
 }
 
 async function movementsAudit(dateFrom?: string, dateTo?: string): Promise<string> {
-  const movs = await prisma.erpInventoryMovement.findMany({ include: { product: true }, orderBy: { date: 'desc' }, take: 1000 });
+  const movs = await prisma.erpStockMovement.findMany({ orderBy: { createdAt: 'desc' } });
   const rows = movs.map(m => [
-    m.id.substring(0, 8), m.product.name, m.type, String(m.quantity), fmtDate(m.date), m.reference || '—'
+    m.id.substring(0, 8), m.productName, m.type, String(m.quantity), fmtDate(m.createdAt), m.notes || '—'
   ]);
   return `<div class="sc">${sc('Movements Returned', String(movs.length))}</div>` 
     + tbl(['Ref ID', 'Product', 'Type', 'Quantity', 'Date', 'Reference'], rows);
@@ -592,14 +592,14 @@ async function cycleVariances(dateFrom?: string, dateTo?: string): Promise<strin
 }
 
 async function occupancyReport(dateFrom?: string, dateTo?: string): Promise<string> {
-  const bins = await prisma.erpBinLocation.findMany({ include: { branch: true } });
-  const rows = bins.map(b => [b.code, b.name, b.branch?.name || '—', b.status || 'Active']);
-  return `<div class="sc">${sc('Total Bins', String(bins.length))}</div>` 
+  const bins = await prisma.erpWarehouseZone.findMany({ include: { warehouse: true } });
+  const rows = bins.map(b => [b.code, b.name, b.warehouse?.name || '—', 'Active']);
+  return `<div class="sc">${sc('Total Zones', String(bins.length))}</div>` 
     + tbl(['Code', 'Name', 'Branch', 'Status'], rows);
 }
 
 async function reorderAlerts(dateFrom?: string, dateTo?: string): Promise<string> {
-  const items = await prisma.erpInventory.findMany({ orderBy: { stock: 'asc' } });
+  const items = await prisma.erpProduct.findMany({ orderBy: { stock: 'asc' } });
   const critical = items.filter(i => Number(i.stock) <= Number(i.minStock));
   const rows = critical.map(i => [i.code, i.name, String(i.stock), String(i.minStock)]);
   return `<div class="sc">${sc('Critical Items', String(critical.length))}</div>` 
@@ -607,36 +607,36 @@ async function reorderAlerts(dateFrom?: string, dateTo?: string): Promise<string
 }
 
 async function prepaidLedger(dateFrom?: string, dateTo?: string): Promise<string> {
-  const issues = await prisma.erpFuelIssue.findMany({ include: { vehicle: true }, orderBy: { issueDate: 'desc' }, take: 1000 });
+  const issues = await prisma.erpFuelRecord.findMany({ include: { vehicle: true }, orderBy: { refuelDate: 'desc' }, take: 1000 });
   const rows = issues.map(i => [
-    i.vehicle?.registration || '—', i.fuelType, String(i.quantity), fmtDate(i.issueDate), i.issuedBy, i.meterReading || '—'
+    i.vehicle?.plateNumber || '—', i.fuelType || '—', String(i.quantity), fmtDate(i.refuelDate), i.vendor || '—', String(i.odometer || '—')
   ]);
-  return `<div class="sc">${sc('Total Issues', String(issues.length))}</div>` 
-    + tbl(['Vehicle', 'Fuel Type', 'Quantity', 'Issue Date', 'Issued By', 'Meter Reading'], rows);
+  return `<div class="sc">${sc('Total Records', String(issues.length))}</div>` 
+    + tbl(['Vehicle', 'Fuel Type', 'Quantity', 'Refuel Date', 'Vendor', 'Odometer'], rows);
 }
 
 async function fleetMaintenance(dateFrom?: string, dateTo?: string): Promise<string> {
-  const service = await prisma.erpVehicleService.findMany({ include: { vehicle: true }, orderBy: { serviceDate: 'desc' } });
+  const service = await prisma.erpServiceRecord.findMany({ include: { vehicle: true }, orderBy: { serviceDate: 'desc' } });
   const rows = service.map(s => [
-    s.vehicle?.registration || '—', s.serviceType, fmtDate(s.serviceDate), fmtNum(s.cost), s.status, s.provider || '—'
+    s.vehicle?.plateNumber || '—', s.serviceType, fmtDate(s.serviceDate), fmtNum(s.cost), 'Completed', s.vendor || '—'
   ]);
   return `<div class="sc">${sc('Service Records', String(service.length))}</div>` 
     + tbl(['Vehicle', 'Service Type', 'Date', 'Cost', 'Status', 'Provider'], rows);
 }
 
 async function haulageHistory(dateFrom?: string, dateTo?: string): Promise<string> {
-  const trips = await prisma.erpTrip.findMany({ include: { vehicle: true, driver: true }, orderBy: { departureTime: 'desc' } });
+  const trips = await prisma.erpVehicleDispatch.findMany({ include: { vehicle: true }, orderBy: { dispatchedAt: 'desc' }, take: 1000 });
   const rows = trips.map(t => [
-    t.tripNumber, t.vehicle?.registration || '—', t.driver?.name || '—', t.origin, t.destination, t.status
+    t.id.substring(0, 8), t.vehicle?.plateNumber || '—', t.driverName || '—', t.origin, t.destination, String(t.distanceKm || '—'), t.status
   ]);
   return `<div class="sc">${sc('Total Trips', String(trips.length))}</div>` 
-    + tbl(['Trip Number', 'Vehicle', 'Driver', 'Origin', 'Destination', 'Status'], rows);
+    + tbl(['Trip No', 'Vehicle', 'Driver', 'Origin', 'Destination', 'Distance', 'Status'], rows);
 }
 
 async function maintenanceHistory(dateFrom?: string, dateTo?: string): Promise<string> {
-  const service = await prisma.erpEquipmentService.findMany({ include: { equipment: true }, orderBy: { serviceDate: 'desc' } });
+  const service = await prisma.erpWorkOrder.findMany({ include: { equipment: true }, orderBy: { createdAt: 'desc' }, take: 1000 });
   const rows = service.map(s => [
-    s.equipment?.name || '—', s.equipment?.serialNumber || '—', fmtDate(s.serviceDate), fmtNum(s.cost), s.serviceType, s.status
+    s.equipment?.name || '—', s.equipment?.serialNo || '—', fmtDate(s.createdAt), fmtNum(s.totalCost || 0), s.type, s.status
   ]);
   return `<div class="sc">${sc('Total Records', String(service.length))}</div>` 
     + tbl(['Equipment', 'Serial', 'Date', 'Cost', 'Type', 'Status'], rows);
@@ -645,10 +645,10 @@ async function maintenanceHistory(dateFrom?: string, dateTo?: string): Promise<s
 async function workOrdersPerformance(dateFrom?: string, dateTo?: string): Promise<string> {
   const eq = await prisma.erpEquipment.findMany({ orderBy: { name: 'asc' } });
   const rows = eq.map(e => [
-    e.name, e.serialNumber || '—', e.category, e.status, e.lastServiceDate ? fmtDate(e.lastServiceDate) : '—'
+    e.name, e.serialNo || '—', e.type, e.status, e.purchaseDate ? fmtDate(e.purchaseDate) : '—'
   ]);
   return `<div class="sc">${sc('Equipment Count', String(eq.length))}</div>` 
-    + tbl(['Equipment', 'Serial Number', 'Category', 'Status', 'Last Service'], rows);
+    + tbl(['Equipment', 'Serial Number', 'Type', 'Status', 'Purchase Date'], rows);
 }
 
 async function workshopEfficiency(dateFrom?: string, dateTo?: string): Promise<string> {
@@ -661,9 +661,9 @@ async function workshopEfficiency(dateFrom?: string, dateTo?: string): Promise<s
 }
 
 async function fiscalAudit(dateFrom?: string, dateTo?: string): Promise<string> {
-  const sales = await prisma.erpPosSale.findMany({ orderBy: { date: 'desc' }, take: 1000 });
+  const sales = await prisma.erpPosTransaction.findMany({ orderBy: { createdAt: 'desc' }, take: 1000 });
   const rows = sales.map(s => [
-    s.id.substring(0, 8), s.receiptNumber || '—', fmtNum(s.subtotal), fmtNum(s.taxAmount), 'SIG-' + s.id.substring(0, 6).toUpperCase(), 'Verified'
+    s.id.substring(0, 8), s.transactionNumber || '—', fmtNum(s.subtotal), fmtNum(s.taxAmount), 'SIG-' + s.id.substring(0, 6).toUpperCase(), 'Verified'
   ]);
   return `<div class="sc">${sc('Total Fiscal Docs', String(sales.length))}</div>` 
     + tbl(['Fiscal Doc ID', 'Receipt Number', 'Subtotal ($)', 'VAT Amount ($)', 'Signature Code', 'Status'], rows);
@@ -677,7 +677,7 @@ async function dailyTaxVerification(dateFrom?: string, dateTo?: string): Promise
 }
 
 async function vatReturnLog(dateFrom?: string, dateTo?: string): Promise<string> {
-  const sales = await prisma.erpPosSale.aggregate({ _sum: { taxAmount: true, total: true } });
+  const sales = await prisma.erpPosTransaction.aggregate({ _sum: { taxAmount: true, total: true } });
   return `<div class="sc">${sc('VAT Returns', 'Monthly')}</div>` 
     + tbl(['Metric', 'Amount ($)'], [
       ['Total Sales Revenue (Gross)', fmtNum(sales._sum.total)],

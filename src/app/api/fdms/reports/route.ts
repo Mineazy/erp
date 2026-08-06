@@ -14,16 +14,16 @@ export async function GET(request: NextRequest) {
   // We'll mock them based on POS sales since we don't have explicit FDMS models in Prisma.
   
   // Submitted Documents this month (number of POS sales this month)
-  const submittedDocs = await prisma.erpPosSale.count({
-    where: { date: { gte: currentMonthStart } }
+  const submittedDocs = await prisma.erpPosTransaction.count({
+    where: { createdAt: { gte: currentMonthStart } }
   });
 
   // Portal Success Rate (Mock)
   const successRate = 99.4;
 
   // VAT Liability YTD
-  const salesYTD = await prisma.erpPosSale.aggregate({
-    where: { date: { gte: currentYearStart } },
+  const salesYTD = await prisma.erpPosTransaction.aggregate({
+    where: { createdAt: { gte: currentYearStart } },
     _sum: { taxAmount: true }
   });
   const vatLiability = Number(salesYTD._sum.taxAmount || 0);

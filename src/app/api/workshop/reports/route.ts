@@ -16,11 +16,11 @@ export async function GET(request: NextRequest) {
   const mttr = 3.4;
 
   // Maintenance YTD
-  const maintenanceYTD = await prisma.erpEquipmentService.aggregate({
-    where: { serviceDate: { gte: currentYearStart } },
-    _sum: { cost: true }
+  const maintenanceYTD = await prisma.erpWorkOrder.aggregate({
+    where: { createdAt: { gte: currentYearStart } },
+    _sum: { totalCost: true }
   });
-  const totalMaintenance = Number(maintenanceYTD._sum.cost || 0);
+  const totalMaintenance = Number(maintenanceYTD._sum.totalCost || 0);
 
   // Active Work Orders (Equipment in service)
   const activeWorkOrders = await prisma.erpEquipment.count({

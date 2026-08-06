@@ -12,9 +12,9 @@ export async function GET(request: NextRequest) {
   // Total PO Volume
   const poTotal = await prisma.erpPurchaseOrder.aggregate({
     where: { status: { not: 'cancelled' }, createdAt: { gte: currentYearStart } },
-    _sum: { totalAmount: true }
+    _sum: { total: true }
   });
-  const totalVolumeYTD = Number(poTotal._sum.totalAmount || 0);
+  const totalVolumeYTD = Number(poTotal._sum.total || 0);
 
   // Active POs
   const activePOs = await prisma.erpPurchaseOrder.count({
