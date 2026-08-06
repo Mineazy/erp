@@ -80,6 +80,6 @@ export function parseListParams(searchParams: URLSearchParams): ApiListParams {
 export function getBranchFilter(session: any): { branchId?: string } | undefined {
   if (!session?.user) return undefined;
   const u = session.user as any;
-  if (u.role === 'admin') return undefined;
+  if (u.role === 'admin' && !u.branchId) return undefined;
   return u.branchId ? { branchId: u.branchId } : undefined;
 }

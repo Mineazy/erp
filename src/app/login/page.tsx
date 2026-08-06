@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
@@ -12,9 +13,24 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [branchId, setBranchId] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [branches, setBranches] = useState<{id: string, name: string}[]>([]);
+  const [branchesLoading, setBranchesLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/auth/branches')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setBranches(data);
+        }
+      })
+      .catch(err => console.error('Error fetching branches:', err))
+      .finally(() => setBranchesLoading(false));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +42,7 @@ export default function LoginPage() {
       const result = await signIn('credentials', {
         email,
         password,
+        branchId,
         redirect: false,
       });
 
@@ -33,7 +50,7 @@ export default function LoginPage() {
 
       if (result?.error) {
         console.warn('Sign-in failed with error:', result.error);
-        setError('Invalid email or password');
+        setError(result.error);
         setLoading(false);
         return;
       }
@@ -97,6 +114,15 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              
+              <Select
+                label="Branch (Optional for Admins)"
+                value={branchId}
+                onChange={(e) => setBranchId(e.target.value)}
+                options={branches.map(b => ({ value: b.id, label: b.name }))}
+                placeholder={branchesLoading ? "Loading branches..." : "All Branches / Select a Branch"}
+                disabled={branchesLoading}
+              />
 
               <Button type="submit" className="w-full h-11" loading={loading}>
                 {loading ? 'Signing in...' : 'Sign In'}

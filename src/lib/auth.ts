@@ -10,6 +10,7 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
+        branchId: { label: 'Branch ID', type: 'text' },
       },
       async authorize(credentials) {
         console.log('[Auth] Authorize function called for email:', credentials?.email);
@@ -41,6 +42,33 @@ export const authOptions: NextAuthOptions = {
             throw new Error('Invalid credentials');
           }
 
+          const selectedBranchId = credentials.branchId || null;
+          let finalBranchId = user.branchId;
+          let branchName = user.branch?.name || null;
+
+          if (user.role === 'admin') {
+            finalBranchId = selectedBranchId;
+            if (selectedBranchId) {
+              const branch = await prisma.erpBranch.findUnique({ where: { id: selectedBranchId } });
+              branchName = branch?.name || null;
+            } else {
+              branchName = 'All Branches';
+            }
+          } else {
+            // Non-admin must have selected their assigned branch (or maybe the frontend didn't pass it properly)
+            // If they passed a branch and it doesn't match, reject.
+            if (selectedBranchId && selectedBranchId !== user.branchId) {
+              console.log('[Auth] Authorize warning: Non-admin trying to access unauthorized branch');
+              throw new Error('You do not have access to this branch');
+            }
+            // Ensure they actually have a branch
+            if (!user.branchId) {
+               console.log('[Auth] Authorize warning: Non-admin has no branch assigned');
+               throw new Error('You are not assigned to any branch');
+            }
+            finalBranchId = user.branchId;
+          }
+
           console.log('[Auth] Authorize success for user:', user.email);
           return {
             id: user.id,
@@ -48,8 +76,8 @@ export const authOptions: NextAuthOptions = {
             name: user.name,
             role: user.role,
             department: user.department || null,
-            branchId: user.branchId,
-            branchName: user.branch?.name || null,
+            branchId: finalBranchId,
+            branchName: branchName,
           };
         } catch (error) {
           console.error('[Auth] Unexpected error during authorize callback:', error);
