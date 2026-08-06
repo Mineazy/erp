@@ -38,6 +38,7 @@ interface Session {
   closedAt: string | null;
   status: 'open' | 'closed';
   totalSales: number;
+  branchId?: string | null;
 }
 
 interface Transaction {
@@ -297,8 +298,11 @@ export default function POSTerminalPage() {
         }
       }
 
-      const params = new URLSearchParams();
-      if (search) params.set('search', search);
+      const params = new URLSearchParams({ limit: '100' });
+      if (search) params.append('search', search);
+      if (category) params.append('category', category);
+      if (session?.branchId) params.append('branchId', session.branchId);
+      
       const res = await fetch(`/api/inventory/products?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
