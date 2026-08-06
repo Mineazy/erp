@@ -27,6 +27,7 @@ interface Product {
   name: string;
   code: string;
   sellingPrice: number;
+  stock?: number;
 }
 
 const emptyLine = (): LineItem => ({ productId: '', productName: '', quantity: '1', unitPrice: '0' });
@@ -39,6 +40,81 @@ const statusBadge: Record<string, { variant: 'default' | 'secondary' | 'success'
   converted: { variant: 'success', label: 'Converted' },
   expired: { variant: 'warning', label: 'Expired' },
 };
+
+function ProductSearch({ 
+  selectedName, 
+  onSelect 
+}: { 
+  selectedName: string, 
+  onSelect: (product: Product | null) => void 
+}) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<Product[]>([]);
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (!query) {
+      setResults([]);
+      setOpen(false);
+      return;
+    }
+    const delay = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/inventory/products?search=${encodeURIComponent(query)}&limit=15`);
+        if (res.ok) {
+          const d = await res.json();
+          setResults(Array.isArray(d) ? d : (d.items || []));
+          setOpen(true);
+        }
+      } catch (e) {}
+    }, 300);
+    return () => clearTimeout(delay);
+  }, [query]);
+
+  if (selectedName) {
+    return (
+      <div className="flex items-center gap-2">
+        <Input value={selectedName} readOnly className="bg-slate-50 flex-1 truncate" />
+        <Button variant="outline" size="sm" onClick={() => onSelect(null)} className="flex-shrink-0">Clear</Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative" ref={wrapperRef}>
+      <Input 
+        value={query} 
+        onChange={e => setQuery(e.target.value)} 
+        onFocus={() => { if (results.length > 0) setOpen(true); }}
+        placeholder="Search code or name..." 
+      />
+      {open && results.length > 0 && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-auto">
+          {results.map(p => (
+            <div 
+              key={p.id} 
+              className="px-3 py-2 hover:bg-slate-50 cursor-pointer text-sm border-b last:border-b-0 border-slate-100" 
+              onClick={() => { onSelect(p); setQuery(''); setOpen(false); }}
+            >
+              <div className="font-semibold">{p.code}</div>
+              <div className="text-slate-600 truncate">{p.name}</div>
+              <div className="text-slate-400 text-xs mt-0.5">Stock: {p.stock} | Price: ${p.sellingPrice}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function QuotationsPage() {
   const [data, setData] = useState<Quotation[]>([]);
@@ -62,7 +138,6 @@ export default function QuotationsPage() {
   const [voucherData, setVoucherData] = useState<any>(null);
   const [voucherLoading, setVoucherLoading] = useState(false);
 
-  const [products, setProducts] = useState<Product[]>([]);
   const voucherRef = useRef<HTMLDivElement>(null);
 
   const fetchData = async () => {
@@ -81,12 +156,6 @@ export default function QuotationsPage() {
   };
 
   useEffect(() => { fetchData(); }, [search, statusFilter]);
-
-  useEffect(() => {
-    fetch('/api/inventory/products?limit=200').then(async r => {
-      if (r.ok) { const d = await r.json(); setProducts(Array.isArray(d) ? d : (d.items || [])); }
-    }).catch(() => {});
-  }, []);
 
   const openCreate = () => {
     setEditing(null);
@@ -193,17 +262,12 @@ export default function QuotationsPage() {
 
   const addLine = () => setLines([...lines, emptyLine()]);
   const removeLine = (idx: number) => setLines(lines.filter((_, i) => i !== idx));
-  const updateLine = (idx: number, field: keyof LineItem, value: string) => {
-    const updated = [...lines];
-    updated[idx] = { ...updated[idx], [field]: value };
-    if (field === 'productId') {
-      const prod = products.find(p => p.id === value);
-      if (prod) {
-        updated[idx].productName = prod.name;
-        if (updated[idx].unitPrice === '0') updated[idx].unitPrice = String(prod.sellingPrice || 0);
-      }
-    }
-    setLines(updated);
+  const updateLine = (idx: number, updates: Partial<LineItem>) => {
+    setLines(prev => {
+      const arr = [...prev];
+      arr[idx] = { ...arr[idx], ...updates };
+      return arr;
+    });
   };
 
   const printVoucher = () => window.print();
@@ -335,11 +399,24 @@ export default function QuotationsPage() {
           {lines.map((line, idx) => (
             <div key={idx} className="grid grid-cols-5 gap-2 items-end">
               <div className="col-span-2">
-                <Select label={idx === 0 ? 'Product' : ''} options={products.map(p => ({ value: p.id, label: `${p.code} - ${p.name}` }))}
-                  value={line.productId} onChange={e => updateLine(idx, 'productId', e.target.value)} placeholder="Select..." />
+                {idx === 0 && <Label className="block text-sm font-medium text-slate-700 mb-1">Product</Label>}
+                <ProductSearch 
+                  selectedName={line.productName} 
+                  onSelect={p => {
+                    if (p) {
+                      updateLine(idx, { 
+                        productId: p.id, 
+                        productName: p.name,
+                        ...(line.unitPrice === '0' ? { unitPrice: String(p.sellingPrice || 0) } : {})
+                      });
+                    } else {
+                      updateLine(idx, { productId: '', productName: '' });
+                    }
+                  }} 
+                />
               </div>
-              <Input label={idx === 0 ? 'Qty' : ''} type="number" value={line.quantity} onChange={e => updateLine(idx, 'quantity', e.target.value)} />
-              <Input label={idx === 0 ? 'Unit Price' : ''} type="number" value={line.unitPrice} onChange={e => updateLine(idx, 'unitPrice', e.target.value)} />
+              <Input label={idx === 0 ? 'Qty' : ''} type="number" value={line.quantity} onChange={e => updateLine(idx, { quantity: e.target.value })} />
+              <Input label={idx === 0 ? 'Unit Price' : ''} type="number" value={line.unitPrice} onChange={e => updateLine(idx, { unitPrice: e.target.value })} />
               <div className="flex items-end gap-1">
                 <div className="flex-1 text-sm font-mono text-slate-600 pt-2">
                   {idx === 0 && <span className="block text-xs font-medium text-slate-500 mb-1">Total</span>}

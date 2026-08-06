@@ -71,6 +71,8 @@ export async function POST(request: NextRequest) {
       openingBalance: parseFloat(openingBalance as string),
       notes: notes as string | undefined,
       branchId: (session.user as any)?.branchId || null,
+      status: 'open',
+      currency: 'USD',
     },
   });
 

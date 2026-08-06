@@ -721,7 +721,7 @@ model ErpPosSession {
   sessionNumber  String              @unique @map("session_number")
   openedAt       DateTime            @default(now()) @map("opened_at")
   closedAt       DateTime?           @map("closed_at")
-  status         String              @default("'open'")
+  status         String              @default("open")
   openedBy       String              @map("opened_by")
   closedBy       String?             @map("closed_by")
   openingBalance Decimal             @default(0.00) @map("opening_balance") @db.Decimal(15, 2)
@@ -732,7 +732,7 @@ model ErpPosSession {
   cardSales      Decimal             @default(0.00) @map("card_sales") @db.Decimal(15, 2)
   mobileSales    Decimal             @default(0.00) @map("mobile_sales") @db.Decimal(15, 2)
   creditSales    Decimal             @default(0.00) @map("credit_sales") @db.Decimal(15, 2)
-  currency       String              @default("'USD'")
+  currency       String              @default("USD")
   notes          String?
   createdAt      DateTime            @default(now()) @map("created_at")
   updatedAt      DateTime            @updatedAt @map("updated_at")
