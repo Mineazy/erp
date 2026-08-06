@@ -32,100 +32,39 @@ export default function FDMSReportsPage() {
     r.desc.toLowerCase().includes(search.toLowerCase())
   );
 
-  const downloadReport = (reportName: string, format: 'csv' | 'pdf') => {
-    const timestamp = new Date().toISOString().split('T')[0];
-    const fileName = `${reportName.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${timestamp}`;
+  const [metrics, setMetrics] = useState<any>(null);
 
-    if (format === 'csv') {
-      const headers = ['FDMS Fiscal Report', reportName, 'Period', `${dateFrom} to ${dateTo}`];
-      const rows = [
-        [],
-        ['Fiscal Doc ID', 'Transaction Number', 'Subtotal ($)', 'VAT Amount ($)', 'Signature Code', 'Status'],
-        ['FDMS-998877', 'TXN-001', '100.00', '10.00', 'SIG-ABC-123', 'Verified'],
-        ['FDMS-998878', 'TXN-002', '250.00', '25.00', 'SIG-DEF-456', 'Verified'],
-        ['FDMS-998879', 'TXN-003', '50.00', '5.00', 'SIG-GHI-789', 'Pending Signoff'],
-      ];
-
-      const csvContent = [headers, ...rows].map(e => e.map(val => `"${val}"`).join(',')).join('\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `${fileName}.csv`);
-      link.click();
-    } else {
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) return;
-      
-      const reportRows = [
-        ['Fiscal Doc ID', 'Transaction Number', 'Subtotal ($)', 'VAT Amount ($)', 'Signature Code', 'Status'],
-        ['FDMS-998877', 'TXN-001', '100.00', '10.00', 'SIG-ABC-123', 'Verified'],
-        ['FDMS-998878', 'TXN-002', '250.00', '25.00', 'SIG-DEF-456', 'Verified'],
-        ['FDMS-998879', 'TXN-003', '50.00', '5.00', 'SIG-GHI-789', 'Pending Signoff'],
-      ];
-      
-      let tableHtml = '<table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px;">';
-      reportRows.forEach((row, rIdx) => {
-        tableHtml += '<tr>';
-        row.forEach((cell) => {
-          const style = rIdx === 0 
-            ? 'background: #f1f5f9; color: #0f172a; font-weight: 700; border-bottom: 2px solid #cbd5e1; padding: 12px 10px; border-top: 1px solid #e2e8f0;' 
-            : 'border-bottom: 1px solid #e2e8f0; padding: 10px; color: #334155;';
-          tableHtml += `<td style="${style}">${cell}</td>`;
-        });
-        tableHtml += '</tr>';
-      });
-      tableHtml += '</table>';
-
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>${reportName}</title>
-            <style>
-              body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #1e293b; background-color: #ffffff; }
-              .header { border-bottom: 3px solid #4f46e5; padding-bottom: 20px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: flex-end; }
-              .logo { font-size: 26px; font-weight: 800; color: #4f46e5; letter-spacing: 0.5px; }
-              .meta-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; font-size: 13px; color: #64748b; line-height: 1.6; margin-bottom: 25px; }
-              .meta-title { font-weight: bold; color: #0f172a; font-size: 16px; margin-bottom: 5px; }
-              .footer { text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 15px; margin-top: 40px; }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <div>
-                <img src="${window.location.origin}/logo.png" style="height: 45px; width: auto; margin-bottom: 5px; display: block;" alt="Logo" />
-                <div style="font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-top: 4px;">Official Audit Document</div>
-              </div>
-              <div style="text-align: right;">
-                <div style="font-size: 18px; font-weight: bold; color: #0f172a;">${reportName}</div>
-                <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Generated: ${new Date().toLocaleString()}</div>
-              </div>
-            </div>
-            
-            <div class="meta-box">
-              <div class="meta-title">Report Metadata & Scope</div>
-              <div><strong>Scope Period:</strong> ${dateFrom} to ${dateTo}</div>
-              <div><strong>Document Status:</strong> verified & signed</div>
-              <div><strong>Confidentiality:</strong> Internal Corporate Audiences Only</div>
-            </div>
-
-            ${tableHtml}
-
-            <div class="footer">
-              Mineazy ERP Reports & Analytics System. Confidential Audit Document. &copy; 2026
-            </div>
-            <script>
-              window.onload = function() {
-                window.print();
-                setTimeout(function() { window.close(); }, 500);
-              }
-            </script>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
+  const fetchMetrics = async () => {
+    try {
+      const res = await fetch('/api/fdms/reports');
+      if (res.ok) {
+        const json = await res.json();
+        setMetrics(json.metrics);
+      }
+    } catch (e) {
+      console.error('Failed to fetch FDMS metrics', e);
     }
-    toast(`FDMS fiscal report "${reportName}" downloaded in ${format.toUpperCase()} format!`, 'success');
+  };
+
+  useEffect(() => {
+    fetchMetrics();
+  }, []);
+
+  const downloadReport = (reportType: string, reportName: string) => {
+    const url = new URL(`/api/reports/${reportType}/generate`, window.location.origin);
+    if (dateFrom) url.searchParams.set('dateFrom', dateFrom);
+    if (dateTo) url.searchParams.set('dateTo', dateTo);
+    
+    window.open(url.toString(), '_blank');
+    toast(`Generating "${reportName}"...`, 'success');
+  };
+
+  const formatCurrency = (val: number | undefined) => {
+    return `$${Number(val || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatNumber = (val: number | undefined) => {
+    return Number(val || 0).toLocaleString();
   };
 
   return (
@@ -146,28 +85,36 @@ export default function FDMSReportsPage() {
         <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md">
           <CardContent className="p-5 space-y-2">
             <p className="text-xs uppercase tracking-wider opacity-75 font-semibold">Submitted Documents</p>
-            <h3 className="text-2xl font-bold font-mono">198 docs</h3>
+            <h3 className="text-2xl font-bold font-mono">
+              {metrics ? `${formatNumber(metrics.submittedDocs)} docs` : '...'}
+            </h3>
             <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded font-medium">Reconciled this month</span>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md">
           <CardContent className="p-5 space-y-2">
             <p className="text-xs uppercase tracking-wider opacity-75 font-semibold">Portal Success Rate</p>
-            <h3 className="text-2xl font-bold font-mono">99.4%</h3>
+            <h3 className="text-2xl font-bold font-mono">
+              {metrics ? `${metrics.successRate}%` : '...'}
+            </h3>
             <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded font-medium">Within target range (YTD)</span>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-md">
           <CardContent className="p-5 space-y-2">
             <p className="text-xs uppercase tracking-wider opacity-75 font-semibold">VAT Liability YTD</p>
-            <h3 className="text-2xl font-bold font-mono">$212.05</h3>
+            <h3 className="text-2xl font-bold font-mono">
+              {metrics ? formatCurrency(metrics.vatLiability) : '...'}
+            </h3>
             <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded font-medium">Accumulated from POS Sales</span>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-md">
           <CardContent className="p-5 space-y-2">
             <p className="text-xs uppercase tracking-wider opacity-75 font-semibold">Active Fiscal Device</p>
-            <h3 className="text-2xl font-bold font-mono text-emerald-100">ONLINE</h3>
+            <h3 className="text-2xl font-bold font-mono text-emerald-100">
+              {metrics ? metrics.activeDeviceStatus : '...'}
+            </h3>
             <span className="text-[10px] bg-white/25 px-2 py-0.5 rounded font-medium">Last ping: 2 mins ago</span>
           </CardContent>
         </Card>
@@ -235,13 +182,9 @@ export default function FDMSReportsPage() {
                     <TableCell className="text-xs text-slate-500">{report.desc}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1.5">
-                        <Button size="sm" variant="outline" onClick={() => downloadReport(report.name, 'csv')} className="text-xs gap-1">
+                        <Button size="sm" variant="default" onClick={() => downloadReport(report.type, report.name)} className="text-xs gap-1">
                           <Download className="h-3 w-3" />
-                          CSV
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => downloadReport(report.name, 'pdf')} className="text-xs gap-1">
-                          <Download className="h-3 w-3" />
-                          PDF
+                          Generate
                         </Button>
                       </div>
                     </TableCell>

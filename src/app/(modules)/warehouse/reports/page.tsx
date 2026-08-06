@@ -1,7 +1,7 @@
 'use client';
 
 import { toast } from '@/components/ui/toast';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
@@ -18,8 +18,29 @@ interface ReportOption {
 
 export default function WarehouseReportsPage() {
   const [search, setSearch] = useState('');
-  const [dateFrom, setDateFrom] = useState('2026-01-01');
-  const [dateTo, setDateTo] = useState('2026-12-31');
+  
+  // Default to current year
+  const currentYear = new Date().getFullYear();
+  const [dateFrom, setDateFrom] = useState(`${currentYear}-01-01`);
+  const [dateTo, setDateTo] = useState(`${currentYear}-12-31`);
+
+  const [metrics, setMetrics] = useState<any>(null);
+
+  const fetchMetrics = async () => {
+    try {
+      const res = await fetch('/api/warehouse/reports');
+      if (res.ok) {
+        const json = await res.json();
+        setMetrics(json.metrics);
+      }
+    } catch (e) {
+      console.error('Failed to fetch Warehouse metrics', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchMetrics();
+  }, []);
 
   const reportsList: ReportOption[] = [
     { name: 'Stock Movement Audit Log', type: 'movements_audit', icon: ArrowLeftRight, desc: 'Complete history of all item ins/outs, bins, and transfers', category: 'Movements' },
@@ -33,105 +54,21 @@ export default function WarehouseReportsPage() {
     r.desc.toLowerCase().includes(search.toLowerCase())
   );
 
-  const downloadReport = (reportName: string, format: 'csv' | 'pdf') => {
-    const timestamp = new Date().toISOString().split('T')[0];
-    const fileName = `${reportName.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${timestamp}`;
+  const downloadReport = (reportType: string, reportName: string) => {
+    const url = new URL(`/api/reports/${reportType}/generate`, window.location.origin);
+    if (dateFrom) url.searchParams.set('dateFrom', dateFrom);
+    if (dateTo) url.searchParams.set('dateTo', dateTo);
+    
+    window.open(url.toString(), '_blank');
+    toast(`Generating "${reportName}"...`, 'success');
+  };
 
-    if (format === 'csv') {
-      const headers = ['Warehouse Report', reportName, 'Period', `${dateFrom} to ${dateTo}`];
-      const rows = [
-        [],
-        ['Warehouse Code', 'Bin Location', 'Product Code', 'Product Name', 'Physical Count', 'Book Count', 'Variance', 'Value Difference ($)'],
-        ['WH-EAST', 'BIN-A-12', 'PROD-001', 'Copper Ore Fine', '1,200', '1,200', '0', '0.00'],
-        ['WH-EAST', 'BIN-B-04', 'PROD-002', 'Cyanide Pellets', '250', '255', '-5', '-120.50'],
-        ['WH-WEST', 'BIN-F-09', 'PROD-003', 'Steel Drill Bits', '48', '47', '+1', '+45.00'],
-      ];
-
-      const csvContent = [headers, ...rows].map(e => e.map(val => `"${val}"`).join(',')).join('\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `${fileName}.csv`);
-      link.click();
-    } else {
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) return;
-      
-      const reportRows = [
-        ['Warehouse Code', 'Bin Location', 'Product Code', 'Product Name', 'Physical Count', 'Book Count', 'Variance', 'Value Difference ($)'],
-        ['WH-EAST', 'BIN-A-12', 'PROD-001', 'Copper Ore Fine', '1,200', '1,200', '0', '0.00'],
-        ['WH-EAST', 'BIN-B-04', 'PROD-002', 'Cyanide Pellets', '250', '255', '-5', '-120.50'],
-        ['WH-WEST', 'BIN-F-09', 'PROD-003', 'Steel Drill Bits', '48', '47', '+1', '+45.00'],
-      ];
-      
-      let tableHtml = '<table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px;">';
-      reportRows.forEach((row, rIdx) => {
-        tableHtml += '<tr>';
-        row.forEach((cell) => {
-          const style = rIdx === 0 
-            ? 'background: #f1f5f9; color: #0f172a; font-weight: 700; border-bottom: 2px solid #cbd5e1; padding: 12px 10px; border-top: 1px solid #e2e8f0;' 
-            : 'border-bottom: 1px solid #e2e8f0; padding: 10px; color: #334155;';
-          tableHtml += `<td style="${style}">${cell}</td>`;
-        });
-        tableHtml += '</tr>';
-      });
-      tableHtml += '</table>';
-
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>${reportName}</title>
-            <style>
-              body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #1e293b; background-color: #ffffff; }
-              .header { border-bottom: 3px solid #4f46e5; padding-bottom: 20px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: flex-end; }
-              .logo { font-size: 26px; font-weight: 800; color: #4f46e5; letter-spacing: 0.5px; }
-              .meta-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; font-size: 13px; color: #64748b; line-height: 1.6; margin-bottom: 25px; }
-              .meta-title { font-weight: bold; color: #0f172a; font-size: 16px; margin-bottom: 5px; }
-              .footer { text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 15px; margin-top: 40px; }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <div>
-                <img src="${window.location.origin}/logo.png" style="height: 45px; width: auto; margin-bottom: 5px; display: block;" alt="Logo" />
-                <div style="font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-top: 4px;">Official Audit Document</div>
-              </div>
-              <div style="text-align: right;">
-                <div style="font-size: 18px; font-weight: bold; color: #0f172a;">${reportName}</div>
-                <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Generated: ${new Date().toLocaleString()}</div>
-              </div>
-            </div>
-            
-            <div class="meta-box">
-              <div class="meta-title">Report Metadata & Scope</div>
-              <div><strong>Scope Period:</strong> ${dateFrom} to ${dateTo}</div>
-              <div><strong>Document Status:</strong> verified & signed</div>
-              <div><strong>Confidentiality:</strong> Internal Corporate Audiences Only</div>
-            </div>
-
-            ${tableHtml}
-
-            <div class="footer">
-              Mineazy ERP Reports & Analytics System. Confidential Audit Document. &copy; 2026
-            </div>
-            <script>
-              window.onload = function() {
-                window.print();
-                setTimeout(function() { window.close(); }, 500);
-              }
-            </script>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-    }
-    toast(`Warehouse report "${reportName}" downloaded in ${format.toUpperCase()} format!`, 'success');
+  const formatNumber = (val: number | undefined) => {
+    return Number(val || 0).toLocaleString();
   };
 
   return (
     <div className="space-y-6">
-      {/* Title */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -142,39 +79,45 @@ export default function WarehouseReportsPage() {
         </div>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md">
           <CardContent className="p-5 space-y-2">
             <p className="text-xs uppercase tracking-wider opacity-75 font-semibold">Configured Bins</p>
-            <h3 className="text-2xl font-bold font-mono">240 Bins</h3>
+            <h3 className="text-2xl font-bold font-mono">
+              {metrics ? `${formatNumber(metrics.totalBins)} Bins` : '...'}
+            </h3>
             <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded font-medium">Across all branches</span>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md">
           <CardContent className="p-5 space-y-2">
             <p className="text-xs uppercase tracking-wider opacity-75 font-semibold">Bin Utilization Rate</p>
-            <h3 className="text-2xl font-bold font-mono">78.4%</h3>
-            <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded font-medium">Optimal storage volume</span>
+            <h3 className="text-2xl font-bold font-mono">
+              {metrics ? `${metrics.utilRate}%` : '...'}
+            </h3>
+            <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded font-medium">Bins with recent activity</span>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-md">
           <CardContent className="p-5 space-y-2">
             <p className="text-xs uppercase tracking-wider opacity-75 font-semibold">Total Stock Movements</p>
-            <h3 className="text-2xl font-bold font-mono">1,420 YTD</h3>
+            <h3 className="text-2xl font-bold font-mono">
+              {metrics ? `${formatNumber(metrics.totalMovements)} YTD` : '...'}
+            </h3>
             <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded font-medium">Inward, outward, transfers</span>
           </CardContent>
         </Card>
         <Card className="bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-md">
           <CardContent className="p-5 space-y-2">
             <p className="text-xs uppercase tracking-wider opacity-75 font-semibold">Reorder Critical Items</p>
-            <h3 className="text-2xl font-bold font-mono text-red-100">15 Items</h3>
+            <h3 className="text-2xl font-bold font-mono text-red-100">
+              {metrics ? `${formatNumber(metrics.criticalItems)} Items` : '...'}
+            </h3>
             <span className="text-[10px] bg-white/25 px-2 py-0.5 rounded font-medium">Action required</span>
           </CardContent>
         </Card>
       </div>
 
-      {/* Date Controls & Filters */}
       <Card>
         <CardHeader className="pb-3 border-b border-slate-100">
           <CardTitle className="text-sm font-semibold text-slate-700 flex items-center gap-2">
@@ -201,7 +144,6 @@ export default function WarehouseReportsPage() {
         </CardContent>
       </Card>
 
-      {/* Reports Table */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
@@ -236,13 +178,9 @@ export default function WarehouseReportsPage() {
                     <TableCell className="text-xs text-slate-500">{report.desc}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1.5">
-                        <Button size="sm" variant="outline" onClick={() => downloadReport(report.name, 'csv')} className="text-xs gap-1">
+                        <Button size="sm" variant="default" onClick={() => downloadReport(report.type, report.name)} className="text-xs gap-1">
                           <Download className="h-3 w-3" />
-                          CSV
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => downloadReport(report.name, 'pdf')} className="text-xs gap-1">
-                          <Download className="h-3 w-3" />
-                          PDF
+                          Generate
                         </Button>
                       </div>
                     </TableCell>

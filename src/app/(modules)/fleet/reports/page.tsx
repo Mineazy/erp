@@ -51,104 +51,13 @@ export default function FleetReportsPage() {
     { name: 'Logistics Haulage Deliveries Log', type: 'haulage_history', desc: 'Departure times, arrival times, and cargo details of hauling trips' },
   ];
 
-  const downloadReport = (reportName: string, format: 'csv' | 'pdf') => {
-    const timestamp = new Date().toISOString().split('T')[0];
-    const fileName = `${reportName.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_${timestamp}`;
-
-    if (format === 'csv') {
-      const headers = ['Fleet & Fuel Report', reportName, 'Period', `${dateFrom} to ${dateTo}`];
-      const rows = [
-        [],
-        ['Metric Category', 'Metric Name', 'Aggregated Value', 'Audit Status'],
-        ['Prepaid Diesel', 'Diesel Reserves Left', `${metrics?.totalPrepaidDiesel || 10000} Liters`, 'Audited'],
-        ['Prepaid Petrol', 'Petrol Reserves Left', `${metrics?.totalPrepaidPetrol || 8000} Liters`, 'Audited'],
-        ['Total Fleet', 'Registered Vehicles Size', `${metrics?.totalVehicles || 2} Trucks`, 'Match'],
-        ['Maintenance', 'Total Servicing Expenses', `$${(metrics?.totalServiceCosts || 4500).toLocaleString()}`, 'Approved'],
-        ['Fuel Issued', 'Cumulative Fuel Requisitions', `${metrics?.totalFuelIssued || 1200} Liters`, 'Approved'],
-      ];
-
-      const csvContent = [headers, ...rows].map(e => e.map(val => `"${val}"`).join(',')).join('\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `${fileName}.csv`);
-      link.click();
-    } else {
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) return;
-      
-      const reportRows = [
-        ['Metric Category', 'Metric Name', 'Aggregated Value', 'Audit Status'],
-        ['Prepaid Diesel', 'Diesel Reserves Left', `${metrics?.totalPrepaidDiesel || 10000} Liters`, 'Audited'],
-        ['Prepaid Petrol', 'Petrol Reserves Left', `${metrics?.totalPrepaidPetrol || 8000} Liters`, 'Audited'],
-        ['Total Fleet', 'Registered Vehicles Size', `${metrics?.totalVehicles || 2} Trucks`, 'Match'],
-        ['Maintenance', 'Total Servicing Expenses', `$${(metrics?.totalServiceCosts || 4500).toLocaleString()}`, 'Approved'],
-        ['Fuel Issued', 'Cumulative Fuel Requisitions', `${metrics?.totalFuelIssued || 1200} Liters`, 'Approved'],
-      ];
-      
-      let tableHtml = '<table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px;">';
-      reportRows.forEach((row, rIdx) => {
-        tableHtml += '<tr>';
-        row.forEach((cell) => {
-          const style = rIdx === 0 
-            ? 'background: #f1f5f9; color: #0f172a; font-weight: 700; border-bottom: 2px solid #cbd5e1; padding: 12px 10px; border-top: 1px solid #e2e8f0;' 
-            : 'border-bottom: 1px solid #e2e8f0; padding: 10px; color: #334155;';
-          tableHtml += `<td style="${style}">${cell}</td>`;
-        });
-        tableHtml += '</tr>';
-      });
-      tableHtml += '</table>';
-
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>${reportName}</title>
-            <style>
-              body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #1e293b; background-color: #ffffff; }
-              .header { border-bottom: 3px solid #4f46e5; padding-bottom: 20px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: flex-end; }
-              .logo { font-size: 26px; font-weight: 800; color: #4f46e5; letter-spacing: 0.5px; }
-              .meta-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; font-size: 13px; color: #64748b; line-height: 1.6; margin-bottom: 25px; }
-              .meta-title { font-weight: bold; color: #0f172a; font-size: 16px; margin-bottom: 5px; }
-              .footer { text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 15px; margin-top: 40px; }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <div>
-                <img src="${window.location.origin}/logo.png" style="height: 45px; width: auto; margin-bottom: 5px; display: block;" alt="Logo" />
-                <div style="font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; margin-top: 4px;">Official Audit Document</div>
-              </div>
-              <div style="text-align: right;">
-                <div style="font-size: 18px; font-weight: bold; color: #0f172a;">${reportName}</div>
-                <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Generated: ${new Date().toLocaleString()}</div>
-              </div>
-            </div>
-            
-            <div class="meta-box">
-              <div class="meta-title">Report Metadata & Scope</div>
-              <div><strong>Scope Period:</strong> ${dateFrom} to ${dateTo}</div>
-              <div><strong>Document Status:</strong> verified & signed</div>
-              <div><strong>Confidentiality:</strong> Internal Corporate Audiences Only</div>
-            </div>
-
-            ${tableHtml}
-
-            <div class="footer">
-              Mineazy ERP Reports & Analytics System. Confidential Audit Document. &copy; 2026
-            </div>
-            <script>
-              window.onload = function() {
-                window.print();
-                setTimeout(function() { window.close(); }, 500);
-              }
-            </script>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-    }
-    toast(`Fleet report "${reportName}" downloaded in ${format.toUpperCase()} format!`, 'success');
+  const downloadReport = (reportType: string, reportName: string) => {
+    const url = new URL(`/api/reports/${reportType}/generate`, window.location.origin);
+    if (dateFrom) url.searchParams.set('dateFrom', dateFrom);
+    if (dateTo) url.searchParams.set('dateTo', dateTo);
+    
+    window.open(url.toString(), '_blank');
+    toast(`Generating "${reportName}"...`, 'success');
   };
 
   if (loading) return <div className="p-6 text-slate-500">Loading metrics...</div>;
@@ -239,16 +148,12 @@ export default function FleetReportsPage() {
                   <TableCell className="font-semibold text-slate-800">{report.name}</TableCell>
                   <TableCell className="text-xs text-slate-500">{report.desc}</TableCell>
                   <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <Button size="sm" variant="outline" onClick={() => downloadReport(report.name, 'csv')} className="text-xs gap-1">
-                        <Download className="h-3 w-3" />
-                        CSV
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => downloadReport(report.name, 'pdf')} className="text-xs gap-1">
-                        <Download className="h-3 w-3" />
-                        PDF
-                      </Button>
-                    </div>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button size="sm" variant="default" onClick={() => downloadReport(report.type, report.name)} className="text-xs gap-1">
+                          <Download className="h-3 w-3" />
+                          Generate
+                        </Button>
+                      </div>
                   </TableCell>
                 </TableRow>
               ))}
