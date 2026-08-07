@@ -44,11 +44,14 @@ export async function POST(
       for (const line of receipt.lines) {
         const acceptedQty = Number(line.acceptedQty);
         if (acceptedQty > 0) {
-          // Update global product stock
-          await tx.erpProduct.update({
-            where: { id: line.productId },
-            data: { stock: { increment: acceptedQty } }
-          });
+          // Update branch stock
+          if (receipt.branchId) {
+            await tx.erpBranchStock.upsert({
+              where: { branchId_productId: { branchId: receipt.branchId, productId: line.productId } },
+              create: { branchId: receipt.branchId, productId: line.productId, quantity: acceptedQty },
+              update: { quantity: { increment: acceptedQty } }
+            });
+          }
 
           // Create stock movement
           const movementNo = await getNextSequence(tx as any, 'erpStockMovement', 'movementNo', 'SMV');

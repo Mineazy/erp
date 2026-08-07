@@ -52,7 +52,6 @@ export async function POST(request: NextRequest) {
       itf263Status: (itf263Status as string) || 'pending',
       performanceScore: performanceScore !== undefined ? parseInt(performanceScore as string) : 0,
       blacklisted: blacklisted === true,
-      branchId: (session.user as any)?.branchId || null,
     },
   });
   return created(item);

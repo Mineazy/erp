@@ -7,7 +7,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const product = await prisma.erpProduct.findUnique({ where: { id: id }, include: { category: true, branch: true } });
+  const product = await prisma.erpProduct.findUnique({ where: { id: id }, include: { category: true } });
   if (!product) return notFound('Product not found');
 
   return ok(product);
@@ -22,7 +22,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   if (!existing) return notFound('Product not found');
 
   const body = await getBody(request);
-  const { name, description, categoryId, unit, costPrice, sellingPrice, stock, minStock, location, barcode, isActive, branchId } = body;
+  const { name, description, categoryId, unit, costPrice, sellingPrice, location, barcode, isActive } = body;
 
   const product = await prisma.erpProduct.update({
     where: { id: id },
@@ -33,14 +33,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       ...(unit !== undefined && { unit: unit as string }),
       ...(costPrice !== undefined && { costPrice: parseFloat(costPrice as string) }),
       ...(sellingPrice !== undefined && { sellingPrice: parseFloat(sellingPrice as string) }),
-      ...(stock !== undefined && { stock: parseFloat(stock as string) }),
-      ...(minStock !== undefined && { minStock: parseFloat(minStock as string) }),
       ...(location !== undefined && { location: location as string | null }),
       ...(barcode !== undefined && { barcode: barcode as string | null }),
-      ...(branchId !== undefined && { branchId: branchId as string | null }),
       ...(isActive !== undefined && { isActive: isActive as boolean }),
     },
-    include: { category: true, branch: true },
+    include: { category: true },
   });
 
   return ok(product);

@@ -50,10 +50,17 @@ export async function POST(request: NextRequest) {
   const productIds = (body.productIds || []) as string[];
   if (!productIds.length) return badRequest('At least one productId is required');
 
+  const branchId = (session.user as any)?.branchId || null;
+
   const products = await prisma.erpProduct.findMany({
     where: { id: { in: productIds } },
   });
   if (!products.length) return badRequest('No valid products found');
+
+  const branchStocks = branchId ? await prisma.erpBranchStock.findMany({
+    where: { branchId, productId: { in: productIds } }
+  }) : [];
+  const stockMap = new Map(branchStocks.map(bs => [bs.productId, bs.quantity]));
 
   const countNo = await getNextSequence(prisma, 'erpInventoryCount', 'countNo', 'ICT');
   const userEmail = (session.user as any).email || 'unknown';
@@ -64,12 +71,12 @@ export async function POST(request: NextRequest) {
       status: 'draft',
       countedBy: userEmail,
       notes: notes as string | undefined,
-      branchId: (session.user as any)?.branchId || null,
+      branchId,
       lines: {
         create: products.map((p) => ({
           productId: p.id,
           productName: p.name,
-          systemQty: Number(p.stock),
+          systemQty: Number(stockMap.get(p.id) || 0),
           countedQty: 0,
           variance: 0,
         })),

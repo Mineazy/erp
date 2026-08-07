@@ -203,10 +203,13 @@ export async function POST(request: NextRequest) {
     }
 
     for (const l of lineData) {
-      await prisma.erpProduct.update({
-        where: { id: l.productId },
-        data: { stock: { decrement: l.quantity } },
-      });
+      if (transaction.branchId) {
+        await prisma.erpBranchStock.upsert({
+          where: { branchId_productId: { branchId: transaction.branchId, productId: l.productId } },
+          create: { branchId: transaction.branchId, productId: l.productId, quantity: -l.quantity },
+          update: { quantity: { decrement: l.quantity } },
+        });
+      }
       const movementNo = await getNextSequence(prisma, 'erpStockMovement', 'movementNo', 'MOV');
       await prisma.erpStockMovement.create({
         data: {

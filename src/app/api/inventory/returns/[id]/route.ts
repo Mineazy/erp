@@ -38,10 +38,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
   if (status === 'completed' && existing.status !== 'completed') {
     for (const line of existing.lines) {
-      await prisma.erpProduct.update({
-        where: { id: line.productId },
-        data: { stock: { increment: line.quantity } },
-      });
+      if (existing.branchId) {
+        await prisma.erpBranchStock.upsert({
+          where: { branchId_productId: { branchId: existing.branchId, productId: line.productId } },
+          create: { branchId: existing.branchId, productId: line.productId, quantity: line.quantity },
+          update: { quantity: { increment: line.quantity } },
+        });
+      }
       const movementNo = await getNextSequence(prisma, 'erpStockMovement', 'movementNo', 'MOV');
       await prisma.erpStockMovement.create({
         data: {
@@ -53,6 +56,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           referenceType: 'return',
           referenceId: id,
           userId: userEmail,
+          branchId: existing.branchId,
         },
       });
     }
@@ -60,10 +64,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
   if (existing.status === 'completed' && status && status !== 'completed') {
     for (const line of existing.lines) {
-      await prisma.erpProduct.update({
-        where: { id: line.productId },
-        data: { stock: { decrement: line.quantity } },
-      });
+      if (existing.branchId) {
+        await prisma.erpBranchStock.upsert({
+          where: { branchId_productId: { branchId: existing.branchId, productId: line.productId } },
+          create: { branchId: existing.branchId, productId: line.productId, quantity: 0 },
+          update: { quantity: { decrement: line.quantity } },
+        });
+      }
       const movementNo = await getNextSequence(prisma, 'erpStockMovement', 'movementNo', 'MOV');
       await prisma.erpStockMovement.create({
         data: {
@@ -75,6 +82,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           referenceType: 'return_reversal',
           referenceId: id,
           userId: userEmail,
+          branchId: existing.branchId,
         },
       });
     }
@@ -101,10 +109,13 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
     const lines = await prisma.erpReturnLine.findMany({ where: { returnId: id } });
     const userEmail = (session.user as any)?.email || 'unknown';
     for (const line of lines) {
-      await prisma.erpProduct.update({
-        where: { id: line.productId },
-        data: { stock: { decrement: line.quantity } },
-      });
+      if (existing.branchId) {
+        await prisma.erpBranchStock.upsert({
+          where: { branchId_productId: { branchId: existing.branchId, productId: line.productId } },
+          create: { branchId: existing.branchId, productId: line.productId, quantity: 0 },
+          update: { quantity: { decrement: line.quantity } },
+        });
+      }
       const movementNo = await getNextSequence(prisma, 'erpStockMovement', 'movementNo', 'MOV');
       await prisma.erpStockMovement.create({
         data: {
@@ -116,6 +127,7 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
           referenceType: 'return_delete',
           referenceId: id,
           userId: userEmail,
+          branchId: existing.branchId,
         },
       });
     }

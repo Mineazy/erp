@@ -96,6 +96,10 @@ export async function POST(request: NextRequest) {
         if (cat) categoryId = cat.id;
       }
 
+      const stockQty = parseFloat((r['Stock'] || '0').toString()) || 0;
+      const minStockQty = parseFloat((r['Min Stock'] || '0').toString()) || 0;
+      const branchId = (session.user as any)?.branchId || null;
+
       const product = await prisma.erpProduct.create({
         data: {
           code,
@@ -104,11 +108,18 @@ export async function POST(request: NextRequest) {
           categoryId,
           costPrice: parseFloat((r['Cost Price'] || '0').toString()) || 0,
           sellingPrice,
-          stock: parseFloat((r['Stock'] || '0').toString()) || 0,
-          minStock: parseFloat((r['Min Stock'] || '0').toString()) || 0,
           location: (r['Location'] || '').toString().trim() || null,
           barcode: (r['Barcode'] || '').toString().trim() || null,
           description: (r['Description'] || '').toString().trim() || null,
+          ...(branchId ? {
+            branchStocks: {
+              create: {
+                branchId,
+                quantity: stockQty,
+                minQuantity: minStockQty,
+              }
+            }
+          } : {})
         },
       });
 

@@ -64,7 +64,6 @@ export async function POST(request: NextRequest) {
       creditLimit: parseFloat((creditLimit as string) || '0'),
       notes: notes as string,
       loyaltyCardBarcode: loyaltyCardBarcode as string | undefined,
-      branchId: (session.user as any)?.branchId || null,
     },
   });
 

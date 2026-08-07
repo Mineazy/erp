@@ -57,11 +57,17 @@ export async function POST(request: NextRequest) {
   const qty = parseFloat(quantity as string);
   if (isNaN(qty) || qty <= 0) return badRequest('Quantity must be a positive number');
 
+  const userBranchId = (session.user as any)?.branchId;
+  if (!userBranchId) return badRequest('User must be assigned to a branch to adjust stock');
+
   const reductionTypes = ['loss', 'damaged', 'expired', 'write_off'];
   const isReduction = reductionTypes.includes(adjustmentType as string);
   const isAddition = adjustmentType === 'addition' || adjustmentType === 'adjustment' || adjustmentType === 'return';
 
-  const currentStock = Number(product.stock);
+  const branchStock = await prisma.erpBranchStock.findUnique({
+    where: { branchId_productId: { branchId: userBranchId, productId: productId as string } }
+  });
+  const currentStock = branchStock ? Number(branchStock.quantity) : 0;
   let newStock: number;
   if (isReduction) {
     newStock = Math.max(0, currentStock - qty);
@@ -85,13 +91,14 @@ export async function POST(request: NextRequest) {
       reason: reason as string | undefined,
       notes: notes as string | undefined,
       userId: (session.user as any).email || 'unknown',
-      branchId: (session.user as any)?.branchId || null,
+      branchId: userBranchId,
     },
   });
 
-  await prisma.erpProduct.update({
-    where: { id: productId as string },
-    data: { stock: newStock },
+  await prisma.erpBranchStock.upsert({
+    where: { branchId_productId: { branchId: userBranchId, productId: productId as string } },
+    create: { branchId: userBranchId, productId: productId as string, quantity: newStock },
+    update: { quantity: newStock },
   });
 
   const movementNo = await getNextSequence(prisma, 'erpStockMovement', 'movementNo', 'MOV');

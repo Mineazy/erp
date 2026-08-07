@@ -81,11 +81,14 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  for (const line of (lines as any[])) {
-    await prisma.erpProduct.update({
-      where: { id: line.productId },
-      data: { stock: { decrement: parseFloat(line.quantity) || 0 } },
-    });
+  if (dispatch.branchId) {
+    for (const line of (lines as any[])) {
+      await prisma.erpBranchStock.upsert({
+        where: { branchId_productId: { branchId: dispatch.branchId, productId: line.productId } },
+        create: { branchId: dispatch.branchId, productId: line.productId, quantity: -(parseFloat(line.quantity) || 0) },
+        update: { quantity: { decrement: parseFloat(line.quantity) || 0 } },
+      });
+    }
   }
 
   return created(dispatch);

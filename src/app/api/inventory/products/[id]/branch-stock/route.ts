@@ -26,11 +26,17 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   }));
 
   if (items.length === 0) {
+    const branchStocks = await prisma.erpBranchStock.aggregate({
+      where: { productId: id },
+      _sum: { quantity: true }
+    });
+    const totalBranchStock = Number(branchStocks._sum.quantity || 0);
+
     items.push({
       warehouseId: '',
-      warehouseName: 'Default (Product)',
+      warehouseName: 'Default (Branch Stock)',
       warehouseCode: '',
-      quantity: Number(product.stock),
+      quantity: totalBranchStock,
       location: product.location,
       batchNo: null,
     });

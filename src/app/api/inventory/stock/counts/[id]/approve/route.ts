@@ -42,10 +42,13 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       },
     });
 
-    await prisma.erpProduct.update({
-      where: { id: line.productId },
-      data: { stock: { increment: variance } },
-    });
+    if (count.branchId) {
+      await prisma.erpBranchStock.upsert({
+        where: { branchId_productId: { branchId: count.branchId, productId: line.productId } },
+        create: { branchId: count.branchId, productId: line.productId, quantity: variance },
+        update: { quantity: { increment: variance } },
+      });
+    }
 
     const movementNo = await getNextSequence(prisma, 'erpStockMovement', 'movementNo', 'MOV');
     await prisma.erpStockMovement.create({

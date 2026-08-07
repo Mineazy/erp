@@ -42,12 +42,12 @@ export async function GET(_request: NextRequest) {
     prisma.erpPosTransaction.findMany({ where: { createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } }, select: { total: true } }),
   ]);
 
-  const lowStockProducts = await prisma.erpProduct.findMany({
-    where: { isActive: true, stock: { gt: 0 } },
-    select: { stock: true, minStock: true },
+  const lowStockProducts = await prisma.erpBranchStock.findMany({
+    where: { product: { isActive: true }, quantity: { gt: 0 } },
+    select: { quantity: true, minQuantity: true },
   });
-  const lowStockItems = lowStockProducts.filter(p => Number(p.stock) <= Number(p.minStock)).length;
-  const outOfStockItems = await prisma.erpProduct.count({ where: { stock: 0 } });
+  const lowStockItems = lowStockProducts.filter(p => Number(p.quantity) <= Number(p.minQuantity)).length;
+  const outOfStockItems = await prisma.erpBranchStock.count({ where: { quantity: 0, product: { isActive: true } } });
 
   let posSalesToday = 0;
   for (const t of posToday) { posSalesToday += Number(t.total); }

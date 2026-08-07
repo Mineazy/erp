@@ -40,24 +40,28 @@ export async function POST(request: NextRequest) {
   if (!session) return unauthorized();
 
   const branchFilter = getBranchFilter(session);
-  const productWhere: Record<string, unknown> = { isActive: true };
-  if (branchFilter?.branchId) productWhere.branchId = branchFilter.branchId;
+  const stockWhere: Record<string, unknown> = { product: { isActive: true } };
+  if (branchFilter?.branchId) stockWhere.branchId = branchFilter.branchId;
 
-  const products = await prisma.erpProduct.findMany({ where: productWhere });
+  const branchStocks = await prisma.erpBranchStock.findMany({ 
+    where: stockWhere,
+    include: { product: true }
+  });
   const recommendations: Array<Record<string, unknown>> = [];
 
   const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
 
-  for (const product of products) {
-    const stock = Number(product.stock);
-    const maxStock = Number(product.maxStock || 0);
+  for (const branchStock of branchStocks) {
+    const product = branchStock.product;
+    const stock = Number(branchStock.quantity);
+    const maxStock = Number(branchStock.maxQuantity || 0);
 
     if (maxStock > 0 && stock > maxStock * 1.5) {
       const excessQty = stock - maxStock;
       recommendations.push({
         productId: product.id,
         productName: product.name,
-        branchId: product.branchId,
+        branchId: branchStock.branchId,
         recommendationType: 'excess_stock',
         currentStock: stock,
         suggestedAction: 'Reduce stock',
@@ -68,14 +72,14 @@ export async function POST(request: NextRequest) {
     }
 
     const recentMovements = await prisma.erpStockMovement.count({
-      where: { productId: product.id, createdAt: { gte: ninetyDaysAgo } },
+      where: { productId: product.id, branchId: branchStock.branchId, createdAt: { gte: ninetyDaysAgo } },
     });
 
     if (recentMovements === 0 && stock > 0) {
       recommendations.push({
         productId: product.id,
         productName: product.name,
-        branchId: product.branchId,
+        branchId: branchStock.branchId,
         recommendationType: 'dead_stock',
         currentStock: stock,
         suggestedAction: 'Dispose or donate',
@@ -85,7 +89,7 @@ export async function POST(request: NextRequest) {
       });
     } else if (stock > 0) {
       const salesQty = await prisma.erpSalesOrderLine.aggregate({
-        where: { productId: product.id, order: { createdAt: { gte: ninetyDaysAgo } } },
+        where: { productId: product.id, order: { branchId: branchStock.branchId, createdAt: { gte: ninetyDaysAgo } } },
         _sum: { quantity: true },
       });
       const totalSold = Number(salesQty._sum.quantity || 0);
@@ -93,7 +97,7 @@ export async function POST(request: NextRequest) {
         recommendations.push({
           productId: product.id,
           productName: product.name,
-          branchId: product.branchId,
+          branchId: branchStock.branchId,
           recommendationType: 'slow_moving',
           currentStock: stock,
           suggestedAction: 'Reduce reorder or promote',

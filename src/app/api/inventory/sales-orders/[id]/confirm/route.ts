@@ -13,17 +13,21 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
   });
   if (!order) return notFound('Sales order not found');
 
+  if (!order.branchId) return badRequest('Sales order has no branch assigned');
+
   for (const line of order.lines) {
-    const product = await prisma.erpProduct.findUnique({ where: { id: line.productId } });
-    if (!product || Number(product.stock) < Number(line.quantity)) {
+    const branchStock = await prisma.erpBranchStock.findUnique({
+      where: { branchId_productId: { branchId: order.branchId, productId: line.productId } }
+    });
+    if (!branchStock || Number(branchStock.quantity) < Number(line.quantity)) {
       return badRequest(`Insufficient stock for ${line.productName}`);
     }
   }
 
   for (const line of order.lines) {
-    await prisma.erpProduct.update({
-      where: { id: line.productId },
-      data: { stock: { decrement: line.quantity } },
+    await prisma.erpBranchStock.update({
+      where: { branchId_productId: { branchId: order.branchId, productId: line.productId } },
+      data: { quantity: { decrement: line.quantity } },
     });
     const movementNo = await getNextSequence(prisma, 'erpStockMovement', 'movementNo', 'MOV');
     await prisma.erpStockMovement.create({
@@ -36,6 +40,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
         referenceType: 'sales_order',
         referenceId: id,
         userId: (session.user as any).email || 'unknown',
+        branchId: order.branchId,
       },
     });
   }

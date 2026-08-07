@@ -58,10 +58,13 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
   const userEmail = (session.user as any)?.email || 'unknown';
 
   for (const line of existing.lines) {
-    await prisma.erpProduct.update({
-      where: { id: line.productId },
-      data: { stock: { increment: line.quantity } },
-    });
+    if (existing.session.branchId) {
+      await prisma.erpBranchStock.upsert({
+        where: { branchId_productId: { branchId: existing.session.branchId, productId: line.productId } },
+        create: { branchId: existing.session.branchId, productId: line.productId, quantity: line.quantity },
+        update: { quantity: { increment: line.quantity } },
+      });
+    }
     const movementNo = await getNextSequence(prisma, 'erpStockMovement', 'movementNo', 'MOV');
     await prisma.erpStockMovement.create({
       data: {
@@ -73,6 +76,7 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
         referenceType: 'pos_void',
         referenceId: id,
         userId: userEmail,
+        branchId: existing.session.branchId,
       },
     });
   }

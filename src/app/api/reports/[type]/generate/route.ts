@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSession, unauthorized } from '@/lib/api';
+import { getSession, unauthorized, getBranchFilter } from '@/lib/api';
 
 function fmtDate(d: Date): string {
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
@@ -286,26 +286,39 @@ async function apAging(dateFrom?: string, dateTo?: string): Promise<string> {
 }
 
 async function stockStatus(): Promise<string> {
+  const session = await getSession();
+  const branchFilter = session ? (getBranchFilter(session) || {}) : {};
   const products = await prisma.erpProduct.findMany({
     where: { isActive: true },
     orderBy: { name: 'asc' },
   });
 
+  const branchStocks = await prisma.erpBranchStock.findMany({
+    where: branchFilter.branchId ? { branchId: branchFilter.branchId } : undefined
+  });
+  const stockMap = new Map();
+  const minStockMap = new Map();
+  for (const bs of branchStocks) {
+    stockMap.set(bs.productId, (stockMap.get(bs.productId) || 0) + Number(bs.quantity));
+    minStockMap.set(bs.productId, (minStockMap.get(bs.productId) || 0) + Number(bs.minQuantity));
+  }
+
   const rows: string[][] = [];
   let totalValue = 0, totalStock = 0;
   const lowStock: string[] = [];
   for (const p of products) {
-    const stock = Number(p.stock);
+    const stock = stockMap.get(p.id) || 0;
+    const minStock = minStockMap.get(p.id) || 0;
     const cost = Number(p.costPrice);
     const value = stock * cost;
     rows.push([
       p.code, p.name, p.unit,
-      fmtNum(stock), fmtNum(Number(p.minStock || 0)), fmtNum(cost), fmtNum(value),
-      stock < Number(p.minStock) ? '⚠ Low' : 'OK',
+      fmtNum(stock), fmtNum(minStock), fmtNum(cost), fmtNum(value),
+      stock < minStock ? '⚠ Low' : 'OK',
     ]);
     totalValue += value;
     totalStock += stock;
-    if (stock < Number(p.minStock)) lowStock.push(p.name);
+    if (stock < minStock) lowStock.push(p.name);
   }
 
   const headers = ['Code', 'Product', 'Unit', 'Stock', 'Min Stock', 'Cost', 'Value', 'Status'];
@@ -599,9 +612,22 @@ async function occupancyReport(dateFrom?: string, dateTo?: string): Promise<stri
 }
 
 async function reorderAlerts(dateFrom?: string, dateTo?: string): Promise<string> {
-  const items = await prisma.erpProduct.findMany({ orderBy: { stock: 'asc' } });
-  const critical = items.filter(i => Number(i.stock) <= Number(i.minStock));
-  const rows = critical.map(i => [i.code, i.name, String(i.stock), String(i.minStock)]);
+  const session = await getSession();
+  const branchFilter = session ? (getBranchFilter(session) || {}) : {};
+  const items = await prisma.erpProduct.findMany({ orderBy: { name: 'asc' } });
+  
+  const branchStocks = await prisma.erpBranchStock.findMany({
+    where: branchFilter.branchId ? { branchId: branchFilter.branchId } : undefined
+  });
+  const stockMap = new Map();
+  const minStockMap = new Map();
+  for (const bs of branchStocks) {
+    stockMap.set(bs.productId, (stockMap.get(bs.productId) || 0) + Number(bs.quantity));
+    minStockMap.set(bs.productId, (minStockMap.get(bs.productId) || 0) + Number(bs.minQuantity));
+  }
+  
+  const critical = items.filter(i => (stockMap.get(i.id) || 0) <= (minStockMap.get(i.id) || 0));
+  const rows = critical.map(i => [i.code, i.name, String(stockMap.get(i.id) || 0), String(minStockMap.get(i.id) || 0)]);
   return `<div class="sc">${sc('Critical Items', String(critical.length))}</div>` 
     + tbl(['Code', 'Product', 'Current Stock', 'Min Stock'], rows);
 }

@@ -272,9 +272,6 @@ model ErpProduct {
   unit            String              @default("'each'")
   costPrice       Decimal             @default(0.00) @map("cost_price") @db.Decimal(15, 2)
   sellingPrice    Decimal             @default(0.00) @map("selling_price") @db.Decimal(15, 2)
-  stock           Decimal             @default(0.00) @db.Decimal(15, 2)
-  minStock        Decimal             @default(0.00) @map("min_stock") @db.Decimal(15, 2)
-  maxStock        Decimal?            @default(0.00) @map("max_stock") @db.Decimal(15, 2)
   location        String?
   barcode         String?
   costingMethod   String              @default("'weighted_average'") @map("costing_method")
@@ -283,15 +280,31 @@ model ErpProduct {
   purity          Decimal?            @db.Decimal(5, 2)
   createdAt       DateTime            @default(now()) @map("created_at")
   updatedAt       DateTime            @updatedAt @map("updated_at")
-  branchId        String?             @map("branch_id")
   batches         ErpProductBatch[]
-  branch          ErpBranch?          @relation(fields: [branchId], references: [id])
   category        ErpProductCategory? @relation(fields: [categoryId], references: [id])
   warehouseStocks ErpWarehouseStock[]
+  branchStocks    ErpBranchStock[]
 
-  @@index([branchId], map: "erp_products_branch_id_fkey")
   @@index([categoryId], map: "erp_products_category_id_fkey")
   @@map("erp_products")
+}
+
+model ErpBranchStock {
+  id             String      @id @default(uuid())
+  branchId       String      @map("branch_id")
+  productId      String      @map("product_id")
+  quantity       Decimal     @default(0.00) @db.Decimal(15, 2)
+  minQuantity    Decimal     @default(0.00) @map("min_quantity") @db.Decimal(15, 2)
+  maxQuantity    Decimal?    @default(0.00) @map("max_quantity") @db.Decimal(15, 2)
+  branch         ErpBranch   @relation(fields: [branchId], references: [id])
+  product        ErpProduct  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  @@unique([branchId, productId], map: "erp_branch_stocks_branch_product_unique")
+  @@index([branchId], map: "erp_branch_stocks_branch_id_fkey")
+  @@index([productId], map: "erp_branch_stocks_product_id_fkey")
+  @@map("erp_branch_stocks")
 }
 
 model ErpProductCategory {
@@ -509,13 +522,10 @@ model ErpCustomer {
   cardBalance        Decimal    @default(0.00) @map("card_balance") @db.Decimal(15, 2)
   createdAt          DateTime   @default(now()) @map("created_at")
   updatedAt          DateTime   @updatedAt @map("updated_at")
-  branchId           String?    @map("branch_id")
   resellerDiscount   Decimal    @default(0.00) @map("reseller_discount") @db.Decimal(5, 2)
   walletBalance      Decimal    @default(0.00) @map("wallet_balance") @db.Decimal(15, 2)
-  branch             ErpBranch? @relation(fields: [branchId], references: [id])
   leads              ErpLead[]
 
-  @@index([branchId], map: "erp_customers_branch_id_fkey")
   @@map("erp_customers")
 }
 
@@ -580,11 +590,8 @@ model ErpSupplier {
   isActive         Boolean               @default(true) @map("is_active")
   createdAt        DateTime              @default(now()) @map("created_at")
   updatedAt        DateTime              @updatedAt @map("updated_at")
-  branchId         String?               @map("branch_id")
   contracts        ErpSupplierContract[]
-  branch           ErpBranch?            @relation(fields: [branchId], references: [id])
 
-  @@index([branchId], map: "erp_suppliers_branch_id_fkey")
   @@map("erp_suppliers")
 }
 
@@ -1470,7 +1477,6 @@ model ErpBranch {
   assets                 ErpAsset[]
   backOrders             ErpBackOrder[]
   cashbookEntries        ErpCashbook[]
-  customers              ErpCustomer[]
   dispatchNotes          ErpDispatchNote[]
   goodsReceipts          ErpGoodsReceipt[]
   inventoryAuditLogs     ErpInventoryAuditLog[]
@@ -1480,7 +1486,6 @@ model ErpBranch {
   journalEntries         ErpJournalEntry[]
   posSessions            ErpPosSession[]
   posTransactions        ErpPosTransaction[]
-  products               ErpProduct[]
   purchaseOrders         ErpPurchaseOrder[]
   requisitions           ErpPurchaseRequisition[]
   quotations             ErpQuotation[]
@@ -1491,12 +1496,12 @@ model ErpBranch {
   stockMovements         ErpStockMovement[]
   fromTransfers          ErpStockTransfer[]         @relation("FromBranch")
   toTransfers            ErpStockTransfer[]         @relation("ToBranch")
-  suppliers              ErpSupplier[]
   users                  ErpUser[]
   zReports               ErpZReport[]
   fdmsDevices            FdmsDevice[]
   fiscalisedDocuments    FiscalisedDocument[]
   taxTransactions        TaxTransaction[]
+  branchStocks           ErpBranchStock[]
 
   @@map("erp_branches")
 }

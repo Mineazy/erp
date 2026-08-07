@@ -60,19 +60,20 @@ export async function POST(request: NextRequest) {
 
   if (type === 'low_stock') {
     const alertBranchId = alert.branchId;
-    const where: Record<string, unknown> = { isActive: true, stock: { lte: prisma.erpProduct.fields.minStock as any } };
+    const where: Record<string, unknown> = { product: { isActive: true }, quantity: { lte: prisma.erpBranchStock.fields.minQuantity as any } };
     if (alertBranchId) where.branchId = alertBranchId;
-    const lowStockProducts = await prisma.erpProduct.findMany({ where });
+    const lowStockProducts = await prisma.erpBranchStock.findMany({ where, include: { product: true } });
 
     for (const p of lowStockProducts) {
       await prisma.erpAlert.create({
         data: {
           type: 'low_stock',
-          title: `Low Stock: ${p.name}`,
-          message: `Product ${p.name} has stock ${Number(p.stock)} which is below min stock ${Number(p.minStock)}`,
+          title: `Low Stock: ${p.product.name}`,
+          message: `${p.product.name} is running low. Current stock: ${p.quantity}, Min required: ${p.minQuantity}`,
           severity: 'warning',
           referenceType: 'product',
-          referenceId: p.id,
+          referenceId: p.productId,
+          userId: alert.userId,
           branchId: alertBranchId,
         },
       });

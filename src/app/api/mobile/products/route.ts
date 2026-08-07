@@ -10,7 +10,6 @@ export async function GET(request: NextRequest) {
 
   const products = await prisma.erpProduct.findMany({
     where: {
-      ...branchFilter,
       isActive: true
     },
     include: {
@@ -20,6 +19,14 @@ export async function GET(request: NextRequest) {
       name: 'asc'
     }
   });
+
+  const branchStocks = await prisma.erpBranchStock.findMany({
+    where: branchFilter?.branchId ? { branchId: branchFilter.branchId } : undefined
+  });
+  const stockMap = new Map();
+  for (const bs of branchStocks) {
+    stockMap.set(bs.productId, (stockMap.get(bs.productId) || 0) + Number(bs.quantity));
+  }
 
   const formatted = products.map(p => {
     const price = Number(p.sellingPrice);
@@ -31,7 +38,7 @@ export async function GET(request: NextRequest) {
       category: p.category?.name || 'Uncategorized',
       price: price,
       priceExcl: price / 1.15,
-      stockQuantity: Number(p.stock),
+      stockQuantity: stockMap.get(p.id) || 0,
       unitOfMeasure: p.unit || 'EA',
       shelfLocation: p.location || '',
       binNumber: '',

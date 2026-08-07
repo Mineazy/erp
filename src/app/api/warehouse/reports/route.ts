@@ -25,8 +25,17 @@ export async function GET(request: NextRequest) {
   });
 
   // Reorder critical items (stock <= minStock)
-  const items = await prisma.erpProduct.findMany({ select: { stock: true, minStock: true } });
-  const criticalItems = items.filter(i => Number(i.stock) <= Number(i.minStock || 0)).length;
+  const branchStocks = await prisma.erpBranchStock.findMany({ select: { productId: true, quantity: true, minQuantity: true } });
+  const stockMap = new Map();
+  const minStockMap = new Map();
+  for (const bs of branchStocks) {
+    stockMap.set(bs.productId, (stockMap.get(bs.productId) || 0) + Number(bs.quantity));
+    minStockMap.set(bs.productId, (minStockMap.get(bs.productId) || 0) + Number(bs.minQuantity));
+  }
+  let criticalItems = 0;
+  for (const [pId, stock] of Array.from(stockMap.entries())) {
+    if (stock <= (minStockMap.get(pId) || 0)) criticalItems++;
+  }
 
   return ok({
     metrics: {

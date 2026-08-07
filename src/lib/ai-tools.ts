@@ -80,11 +80,22 @@ export function getAiTools(userRole: string) {
       execute: async () => {
         const products = await prisma.erpProduct.findMany({
           where: { isActive: true },
-          select: { name: true, stock: true, minStock: true, sellingPrice: true }
+          select: { id: true, name: true, sellingPrice: true }
         });
         
-        const lowStock = products.filter(p => p.stock <= (p.minStock || 0));
-        const totalValue = products.reduce((sum, p) => sum + (Number(p.stock) * Number(p.sellingPrice)), 0);
+        const branchStocks = await prisma.erpBranchStock.findMany({
+          select: { productId: true, quantity: true, minQuantity: true }
+        });
+        
+        const stockMap = new Map();
+        const minStockMap = new Map();
+        for (const bs of branchStocks) {
+          stockMap.set(bs.productId, (stockMap.get(bs.productId) || 0) + Number(bs.quantity));
+          minStockMap.set(bs.productId, (minStockMap.get(bs.productId) || 0) + Number(bs.minQuantity));
+        }
+
+        const lowStock = products.filter(p => (stockMap.get(p.id) || 0) <= (minStockMap.get(p.id) || 0));
+        const totalValue = products.reduce((sum, p) => sum + ((stockMap.get(p.id) || 0) * Number(p.sellingPrice)), 0);
         
         return {
           totalActiveProducts: products.length,
@@ -103,7 +114,7 @@ export function getAiTools(userRole: string) {
         const products = await prisma.erpProduct.findMany({
           where: { name: { contains: query } },
           take: 5,
-          select: { id: true, name: true, code: true, stock: true, sellingPrice: true }
+          select: { id: true, name: true, code: true, sellingPrice: true }
         });
         return products;
       }

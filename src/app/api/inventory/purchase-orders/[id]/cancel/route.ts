@@ -15,10 +15,13 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
 
   if (order.status === 'received') {
     for (const line of order.lines) {
-      await prisma.erpProduct.update({
-        where: { id: line.productId },
-        data: { stock: { decrement: line.quantity } },
-      });
+      if (order.branchId) {
+        await prisma.erpBranchStock.upsert({
+          where: { branchId_productId: { branchId: order.branchId, productId: line.productId } },
+          create: { branchId: order.branchId, productId: line.productId, quantity: 0 },
+          update: { quantity: { decrement: line.quantity } },
+        });
+      }
       const movementNo = await getNextSequence(prisma, 'erpStockMovement', 'movementNo', 'MOV');
       await prisma.erpStockMovement.create({
         data: {
@@ -30,6 +33,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
           referenceType: 'purchase_order_cancel',
           referenceId: id,
           userId: (session.user as any).email || 'unknown',
+          branchId: order.branchId,
         },
       });
     }

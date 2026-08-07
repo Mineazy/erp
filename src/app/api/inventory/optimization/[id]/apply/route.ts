@@ -16,8 +16,13 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
   const product = await prisma.erpProduct.findUnique({ where: { id: opt.productId } });
   if (!product) return notFound('Product not found');
 
+  let currentStock = 0;
+  if (opt.branchId) {
+    const bs = await prisma.erpBranchStock.findUnique({ where: { branchId_productId: { branchId: opt.branchId, productId: opt.productId } } });
+    if (bs) currentStock = Number(bs.quantity);
+  }
+
   const qty = Number(opt.suggestedQty);
-  const currentStock = Number(product.stock);
   const isReduction = opt.suggestedAction.toLowerCase().includes('reduce') || opt.suggestedAction.toLowerCase().includes('dispose');
   const adjustmentType = isReduction ? 'reduction' : 'addition';
   const newStock = isReduction ? Math.max(0, currentStock - qty) : currentStock + qty;
@@ -40,10 +45,13 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
     },
   });
 
-  await prisma.erpProduct.update({
-    where: { id: opt.productId },
-    data: { stock: newStock },
-  });
+  if (opt.branchId) {
+    await prisma.erpBranchStock.upsert({
+      where: { branchId_productId: { branchId: opt.branchId, productId: opt.productId } },
+      create: { branchId: opt.branchId, productId: opt.productId, quantity: newStock },
+      update: { quantity: newStock },
+    });
+  }
 
   const movementNo = await getNextSequence(prisma, 'erpStockMovement', 'movementNo', 'MOV');
   await prisma.erpStockMovement.create({

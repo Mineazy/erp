@@ -13,15 +13,7 @@ export async function GET(request: NextRequest) {
     const order = sp.order || 'desc';
     const page = sp.page || 1;
     const limit = sp.limit || 50;
-    const explicitBranchId = request.nextUrl.searchParams.get('branchId');
-    const branchFilter = getBranchFilter(session);
-    
     const where: Record<string, unknown> = {};
-    if (explicitBranchId) {
-      where.branchId = explicitBranchId;
-    } else if (branchFilter) {
-      Object.assign(where, branchFilter);
-    }
 
     if (search) {
       where.OR = [
@@ -41,13 +33,28 @@ export async function GET(request: NextRequest) {
     const [items, total] = await Promise.all([
       prisma.erpProduct.findMany({
         where,
-        include: { category: true, branch: true },
+        include: { category: true },
         orderBy: orderBy as any,
         skip: (page - 1) * limit,
         take: limit,
       }),
       prisma.erpProduct.count({ where }),
     ]);
+
+    const branchFilter = getBranchFilter(session, '');
+    if (items.length > 0) {
+      const pIds = items.map(i => i.id);
+      const bStocks = await prisma.erpBranchStock.findMany({
+        where: { productId: { in: pIds }, ...(branchFilter.branchId ? { branchId: branchFilter.branchId } : {}) }
+      });
+      const stockMap = new Map();
+      for (const bs of bStocks) {
+        stockMap.set(bs.productId, (stockMap.get(bs.productId) || 0) + Number(bs.quantity));
+      }
+      for (const item of items) {
+        (item as any).stock = stockMap.get(item.id) || 0;
+      }
+    }
 
     return ok({ items, total, page, limit });
   } catch (error: any) {
@@ -62,7 +69,7 @@ export async function POST(request: NextRequest) {
     if (!session) return unauthorized();
 
     const body = await getBody(request);
-    const { name, description, categoryId, unit, costPrice, sellingPrice, stock, minStock, location, barcode } = body;
+    const { name, description, categoryId, unit, costPrice, sellingPrice, location, barcode } = body;
     if (!name) return badRequest('Product name is required');
 
     const code = await getNextSequence(prisma, 'erpProduct', 'code', 'PRD');
@@ -76,11 +83,8 @@ export async function POST(request: NextRequest) {
         unit: (unit as string) || 'each',
         costPrice: parseFloat(costPrice as string) || 0,
         sellingPrice: parseFloat(sellingPrice as string) || 0,
-        stock: parseFloat(stock as string) || 0,
-        minStock: parseFloat(minStock as string) || 0,
         location: location as string | undefined,
         barcode: barcode as string | undefined,
-        branchId: (session.user as any)?.branchId || null,
       },
     });
 

@@ -24,31 +24,38 @@ export async function GET(request: NextRequest) {
   if (branchId) branchFilter.branchId = branchId;
 
   switch (reportType) {
-    case 'stock-on-hand': {
-      const items = await prisma.erpProduct.findMany({
-        where: { isActive: true, ...branchFilter },
-        orderBy: { name: 'asc' },
-        skip: (page - 1) * limit,
-        take: limit,
-      });
-      const total = await prisma.erpProduct.count({ where: { isActive: true, ...branchFilter } });
-      return ok({ items, total, page, limit, reportType });
-    }
-
+    case 'stock-on-hand':
     case 'valuation': {
-      const products = await prisma.erpProduct.findMany({
-        where: { isActive: true, ...branchFilter },
-        orderBy: { name: 'asc' },
+      const branchStocks = await prisma.erpBranchStock.findMany({
+        where: { product: { isActive: true }, ...branchFilter },
+        include: { product: true, branch: true },
+        orderBy: { product: { name: 'asc' } },
         skip: (page - 1) * limit,
         take: limit,
       });
-      const total = await prisma.erpProduct.count({ where: { isActive: true, ...branchFilter } });
-      const items = products.map((p) => ({
-        ...p,
-        valuation: Number(p.stock) * Number(p.costPrice),
-      }));
-      const grandTotal = items.reduce((sum, i) => sum + i.valuation, 0);
-      return ok({ items, total, grandTotal, page, limit, reportType });
+      const total = await prisma.erpBranchStock.count({ where: { product: { isActive: true }, ...branchFilter } });
+
+      if (reportType === 'stock-on-hand') {
+        const items = branchStocks.map(bs => ({
+          ...bs.product,
+          stock: Number(bs.quantity),
+          branchName: bs.branch.name
+        }));
+        return ok({ items, total, page, limit, reportType });
+      } else {
+        const items = branchStocks.map(bs => {
+          const qty = Number(bs.quantity);
+          const cost = Number(bs.product.costPrice);
+          return {
+            ...bs.product,
+            stock: qty,
+            branchName: bs.branch.name,
+            valuation: qty * cost,
+          };
+        });
+        const grandTotal = items.reduce((sum, i) => sum + i.valuation, 0);
+        return ok({ items, total, grandTotal, page, limit, reportType });
+      }
     }
 
     case 'movements': {
@@ -68,51 +75,39 @@ export async function GET(request: NextRequest) {
       return ok({ items, total, page, limit, reportType });
     }
 
-    case 'fast-moving': {
-      const products = await prisma.erpProduct.findMany({
-        where: { isActive: true, ...branchFilter },
-        select: { id: true, name: true, code: true, stock: true, costPrice: true, sellingPrice: true },
-      });
-
-      const itemsWithSales = await Promise.all(
-        products.map(async (p) => {
-          const salesAgg = await prisma.erpSalesOrderLine.aggregate({
-            where: {
-              productId: p.id,
-              ...(Object.keys(dateFilter).length ? { order: { createdAt: dateFilter } } : {}),
-            },
-            _sum: { quantity: true },
-          });
-          return { ...p, salesVolume: Number(salesAgg._sum.quantity || 0) };
-        })
-      );
-
-      itemsWithSales.sort((a, b) => b.salesVolume - a.salesVolume);
-      const offset = (page - 1) * limit;
-      const items = itemsWithSales.slice(offset, offset + limit);
-      return ok({ items, total: itemsWithSales.length, page, limit, reportType });
-    }
-
+    case 'fast-moving':
     case 'slow-moving': {
-      const products = await prisma.erpProduct.findMany({
-        where: { isActive: true, ...branchFilter },
-        select: { id: true, name: true, code: true, stock: true, costPrice: true, sellingPrice: true },
+      const branchStocks = await prisma.erpBranchStock.findMany({
+        where: { product: { isActive: true }, ...branchFilter },
+        include: { product: { select: { id: true, name: true, code: true, costPrice: true, sellingPrice: true } } },
       });
 
       const itemsWithSales = await Promise.all(
-        products.map(async (p) => {
+        branchStocks.map(async (bs) => {
           const salesAgg = await prisma.erpSalesOrderLine.aggregate({
             where: {
-              productId: p.id,
-              ...(Object.keys(dateFilter).length ? { order: { createdAt: dateFilter } } : {}),
+              productId: bs.productId,
+              order: { branchId: bs.branchId, ...(Object.keys(dateFilter).length ? { createdAt: dateFilter } : {}) },
             },
             _sum: { quantity: true },
           });
-          return { ...p, salesVolume: Number(salesAgg._sum.quantity || 0) };
+          return {
+            id: bs.productId,
+            name: bs.product.name,
+            code: bs.product.code,
+            stock: Number(bs.quantity),
+            costPrice: Number(bs.product.costPrice),
+            sellingPrice: Number(bs.product.sellingPrice),
+            salesVolume: Number(salesAgg._sum.quantity || 0)
+          };
         })
       );
 
-      itemsWithSales.sort((a, b) => a.salesVolume - b.salesVolume);
+      if (reportType === 'fast-moving') {
+        itemsWithSales.sort((a, b) => b.salesVolume - a.salesVolume);
+      } else {
+        itemsWithSales.sort((a, b) => a.salesVolume - b.salesVolume);
+      }
       const offset = (page - 1) * limit;
       const items = itemsWithSales.slice(offset, offset + limit);
       return ok({ items, total: itemsWithSales.length, page, limit, reportType });
@@ -120,18 +115,25 @@ export async function GET(request: NextRequest) {
 
     case 'dead-stock': {
       const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-      const allProducts = await prisma.erpProduct.findMany({
-        where: { isActive: true, stock: { gt: 0 }, ...branchFilter },
-        select: { id: true, name: true, code: true, stock: true, costPrice: true },
+      const branchStocks = await prisma.erpBranchStock.findMany({
+        where: { product: { isActive: true }, quantity: { gt: 0 }, ...branchFilter },
+        include: { product: { select: { id: true, name: true, code: true, costPrice: true } } },
       });
 
       const deadStockItems = [];
-      for (const p of allProducts) {
+      for (const bs of branchStocks) {
         const movementCount = await prisma.erpStockMovement.count({
-          where: { productId: p.id, createdAt: { gte: ninetyDaysAgo } },
+          where: { productId: bs.productId, branchId: bs.branchId, createdAt: { gte: ninetyDaysAgo } },
         });
         if (movementCount === 0) {
-          deadStockItems.push({ ...p, daysWithoutMovement: 90 });
+          deadStockItems.push({
+            id: bs.productId,
+            name: bs.product.name,
+            code: bs.product.code,
+            stock: Number(bs.quantity),
+            costPrice: Number(bs.product.costPrice),
+            daysWithoutMovement: 90
+          });
         }
       }
 
@@ -141,21 +143,30 @@ export async function GET(request: NextRequest) {
     }
 
     case 'turnover': {
-      const products = await prisma.erpProduct.findMany({
-        where: { isActive: true, ...branchFilter },
-        select: { id: true, name: true, code: true, stock: true, costPrice: true },
+      const branchStocks = await prisma.erpBranchStock.findMany({
+        where: { product: { isActive: true }, ...branchFilter },
+        include: { product: { select: { id: true, name: true, code: true, costPrice: true } } },
       });
 
       const turnoverItems = await Promise.all(
-        products.map(async (p) => {
+        branchStocks.map(async (bs) => {
           const outMovements = await prisma.erpStockMovement.aggregate({
-            where: { productId: p.id, type: 'out' },
+            where: { productId: bs.productId, branchId: bs.branchId, type: 'out' },
             _sum: { quantity: true },
           });
           const totalOut = Number(outMovements._sum.quantity || 0);
-          const avgStock = Number(p.stock) || 1;
+          const avgStock = Number(bs.quantity) || 1;
           const turnoverRatio = totalOut / avgStock;
-          return { ...p, totalOut, avgStock, turnoverRatio: Math.round(turnoverRatio * 100) / 100 };
+          return {
+            id: bs.productId,
+            name: bs.product.name,
+            code: bs.product.code,
+            stock: Number(bs.quantity),
+            costPrice: Number(bs.product.costPrice),
+            totalOut,
+            avgStock,
+            turnoverRatio: Math.round(turnoverRatio * 100) / 100
+          };
         })
       );
 
@@ -199,26 +210,26 @@ export async function GET(request: NextRequest) {
 
     case 'restock-prediction': {
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      const products = await prisma.erpProduct.findMany({
-        where: { isActive: true, ...branchFilter },
-        select: { id: true, name: true, code: true, stock: true, minStock: true, costPrice: true },
-        orderBy: { name: 'asc' },
+      const branchStocks = await prisma.erpBranchStock.findMany({
+        where: { product: { isActive: true }, ...branchFilter },
+        include: { product: { select: { id: true, name: true, code: true, costPrice: true } } },
+        orderBy: { product: { name: 'asc' } },
       });
 
       const items = await Promise.all(
-        products.map(async (p) => {
+        branchStocks.map(async (bs) => {
           const salesAgg = await prisma.erpSalesOrderLine.aggregate({
             where: {
-              productId: p.id,
-              order: { createdAt: { gte: thirtyDaysAgo } },
+              productId: bs.productId,
+              order: { branchId: bs.branchId, createdAt: { gte: thirtyDaysAgo } },
             },
             _sum: { quantity: true },
           });
 
           const totalSales = Number(salesAgg._sum.quantity || 0);
           const dailyVelocity = totalSales / 30;
-          const currentStock = Number(p.stock);
-          const minStock = Number(p.minStock);
+          const currentStock = Number(bs.quantity);
+          const minStock = Number(bs.minQuantity);
 
           const daysRemaining = dailyVelocity > 0 ? (currentStock / dailyVelocity) : null;
           const predictedRestockDate = daysRemaining !== null
@@ -236,9 +247,9 @@ export async function GET(request: NextRequest) {
           else if (daysRemaining !== null && daysRemaining <= 15) status = 'Reorder Soon';
 
           return {
-            id: p.id,
-            product: p.name,
-            code: p.code,
+            id: bs.productId,
+            product: bs.product.name,
+            code: bs.product.code,
             current_stock: currentStock,
             daily_velocity: Math.round(dailyVelocity * 100) / 100,
             days_remaining: daysRemaining !== null ? Math.round(daysRemaining) : '∞',
