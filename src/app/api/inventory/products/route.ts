@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
       prisma.erpProduct.count({ where }),
     ]);
 
-    const branchFilter = getBranchFilter(session, '');
+    const branchFilter = getBranchFilter(session) || {};
     if (items.length > 0) {
       const pIds = items.map(i => i.id);
       const bStocks = await prisma.erpBranchStock.findMany({
