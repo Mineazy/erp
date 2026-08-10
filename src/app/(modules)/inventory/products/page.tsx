@@ -63,7 +63,8 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeSearch, setActiveSearch] = useState('');
-  const [dashboardStats, setDashboardStats] = useState({ totalProducts: 0, lowStockCount: 0, outOfStockCount: 0 });
+  const [filterCategory, setFilterCategory] = useState('');
+  const [dashboardStats, setDashboardStats] = useState({ totalProducts: 0, lowStockCount: 0, outOfStockCount: 0, categorySummary: [] as { id: string, name: string, productCount: number }[] });
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -81,6 +82,7 @@ export default function ProductsPage() {
       setLoading(true);
       const params = new URLSearchParams();
       if (activeSearch) params.set('search', activeSearch);
+      if (filterCategory) params.set('categoryId', filterCategory);
       params.set('page', String(page));
       params.set('limit', '50');
       const res = await fetch(`/api/inventory/products?${params}`);
@@ -117,7 +119,7 @@ export default function ProductsPage() {
     } catch (e) { console.error('Failed to fetch dashboard stats', e); }
   };
 
-  useEffect(() => { fetchData(); }, [activeSearch, page]);
+  useEffect(() => { fetchData(); }, [activeSearch, filterCategory, page]);
   useEffect(() => { fetchCategories(); fetchDashboardStats(); }, []);
 
   const fetchBranches = async () => {
@@ -296,11 +298,34 @@ export default function ProductsPage() {
         </CardContent></Card>
       </div>
 
+      {dashboardStats.categorySummary && dashboardStats.categorySummary.length > 0 && (
+        <div>
+          <h3 className="text-lg font-bold text-slate-900 mb-3">Products by Category</h3>
+          <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-slate-200">
+            {dashboardStats.categorySummary.map(cat => (
+              <Card key={cat.id} className="min-w-[200px] shrink-0 border-slate-200">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-500 truncate max-w-[130px]" title={cat.name}>{cat.name}</p>
+                    <p className="text-xl font-bold text-slate-900">{cat.productCount}</p>
+                  </div>
+                  <div className="p-2 bg-slate-50 rounded-lg border border-slate-100"><Package className="h-4 w-4 text-slate-400" /></div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg flex items-center gap-2"><Package className="h-5 w-5 text-mine-blue-800" />Product List</CardTitle>
             <div className="flex items-center gap-2">
+              <select value={filterCategory} onChange={(e) => { setFilterCategory(e.target.value); setPage(1); }} className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-mine-blue-500 bg-white min-w-[150px]">
+                <option value="">All Categories</option>
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <input type="text" placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { setActiveSearch(search); setPage(1); } }} className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-mine-blue-500 w-64" />

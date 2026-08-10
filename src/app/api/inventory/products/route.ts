@@ -13,7 +13,12 @@ export async function GET(request: NextRequest) {
     const order = sp.order || 'desc';
     const page = sp.page || 1;
     const limit = sp.limit || 50;
+    const categoryId = request.nextUrl.searchParams.get('categoryId');
     const where: Record<string, unknown> = {};
+
+    if (categoryId) {
+      where.categoryId = categoryId;
+    }
 
     if (search) {
       where.OR = [

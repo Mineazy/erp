@@ -27,7 +27,13 @@ export async function GET(_request: NextRequest) {
 
   const stocks = await prisma.erpBranchStock.findMany({
     where: { product: { isActive: true }, ...branchFilter },
-    select: { quantity: true, minQuantity: true, branchId: true, productId: true, product: { select: { costPrice: true } } },
+    select: { 
+      quantity: true, 
+      minQuantity: true, 
+      branchId: true, 
+      productId: true, 
+      product: { select: { costPrice: true, categoryId: true, category: { select: { name: true } } } } 
+    },
   });
 
   const totalProducts = new Set(stocks.map(s => s.productId)).size;
@@ -40,6 +46,13 @@ export async function GET(_request: NextRequest) {
     if (branchFilter.branchId && b.id !== branchFilter.branchId) continue;
     branchMap.set(b.id, { id: b.id, branch: b.name, productCount: 0, stockQty: 0, value: 0 });
   }
+
+  const categoryMap = new Map<string, { id: string; name: string; productCount: number }>();
+
+  // A given branch/HQ could have multiple ErpBranchStock records for the SAME product (if it's an error), 
+  // but usually it's 1-to-1 per branch. We want to count distinct products per category.
+  const seenProductByCategory = new Set<string>();
+
   for (const s of stocks) {
     if (s.branchId && branchMap.has(s.branchId)) {
       const b = branchMap.get(s.branchId)!;
@@ -47,8 +60,22 @@ export async function GET(_request: NextRequest) {
       b.stockQty += Number(s.quantity);
       b.value += Number(s.quantity) * Number(s.product.costPrice);
     }
+
+    if (s.product.categoryId) {
+      const uniqueKey = `${s.product.categoryId}_${s.productId}`;
+      if (!seenProductByCategory.has(uniqueKey)) {
+        seenProductByCategory.add(uniqueKey);
+        const catId = s.product.categoryId;
+        const catName = s.product.category?.name || 'Uncategorized';
+        if (!categoryMap.has(catId)) {
+          categoryMap.set(catId, { id: catId, name: catName, productCount: 0 });
+        }
+        categoryMap.get(catId)!.productCount++;
+      }
+    }
   }
   const branchSummary = Array.from(branchMap.values());
+  const categorySummary = Array.from(categoryMap.values()).sort((a, b) => b.productCount - a.productCount);
 
   const forecastCount = await prisma.erpInventoryForecast.count();
 
@@ -60,6 +87,7 @@ export async function GET(_request: NextRequest) {
     outOfStockCount,
     recentMovements,
     branchSummary,
+    categorySummary,
     forecastsAvailable: forecastCount > 0,
   });
 }
