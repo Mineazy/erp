@@ -44,15 +44,28 @@ export async function GET(request: NextRequest) {
     const branchFilter = getBranchFilter(session) || {};
     if (items.length > 0) {
       const pIds = items.map(i => i.id);
-      const bStocks = await prisma.erpBranchStock.findMany({
-        where: { productId: { in: pIds }, ...(branchFilter.branchId ? { branchId: branchFilter.branchId } : {}) }
+      const allStocks = await prisma.erpBranchStock.findMany({
+        where: { productId: { in: pIds } },
+        include: { branch: { select: { name: true } } }
       });
+      
       const stockMap = new Map();
-      for (const bs of bStocks) {
-        stockMap.set(bs.productId, (stockMap.get(bs.productId) || 0) + Number(bs.quantity));
+      const locationsMap = new Map();
+
+      for (const bs of allStocks) {
+        if (!branchFilter.branchId || branchFilter.branchId === bs.branchId) {
+          stockMap.set(bs.productId, (stockMap.get(bs.productId) || 0) + Number(bs.quantity));
+        }
+        if (Number(bs.quantity) > 0 && bs.branch) {
+          const locs = locationsMap.get(bs.productId) || new Set();
+          locs.add(bs.branch.name);
+          locationsMap.set(bs.productId, locs);
+        }
       }
+      
       for (const item of items) {
         (item as any).stock = stockMap.get(item.id) || 0;
+        (item as any).availableLocations = Array.from(locationsMap.get(item.id) || []);
       }
     }
 
@@ -74,6 +87,11 @@ export async function POST(request: NextRequest) {
 
     const code = await getNextSequence(prisma, 'erpProduct', 'code', 'PRD');
 
+    const branchFilter = getBranchFilter(session);
+    const branchStockData = branchFilter?.branchId ? {
+      create: { branchId: branchFilter.branchId, quantity: 0, minQuantity: 0 }
+    } : undefined;
+
     const product = await prisma.erpProduct.create({
       data: {
         code,
@@ -85,6 +103,7 @@ export async function POST(request: NextRequest) {
         sellingPrice: parseFloat(sellingPrice as string) || 0,
         location: location as string | undefined,
         barcode: barcode as string | undefined,
+        ...(branchStockData && { branchStocks: branchStockData })
       },
     });
 

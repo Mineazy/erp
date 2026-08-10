@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSession, unauthorized, ok } from '@/lib/api';
+import { getSession, unauthorized, ok, getBranchFilter } from '@/lib/api';
 
 export async function GET(request: NextRequest) {
   const session = await getSession();
@@ -21,7 +21,13 @@ export async function GET(request: NextRequest) {
   }
 
   const branchFilter: Record<string, unknown> = {};
-  if (branchId) branchFilter.branchId = branchId;
+  const userBranchFilter = getBranchFilter(session);
+  
+  if (userBranchFilter?.branchId) {
+    branchFilter.branchId = userBranchFilter.branchId;
+  } else if (branchId) {
+    branchFilter.branchId = branchId;
+  }
 
   switch (reportType) {
     case 'stock-on-hand':

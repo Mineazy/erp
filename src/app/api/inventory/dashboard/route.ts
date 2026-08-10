@@ -1,32 +1,43 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSession, unauthorized, ok } from '@/lib/api';
+import { getSession, unauthorized, ok, getBranchFilter } from '@/lib/api';
 
 export async function GET(_request: NextRequest) {
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const [totalProducts, stockAgg, outOfStockCount, recentMovements, branches] = await Promise.all([
-    prisma.erpProduct.count(),
-    prisma.erpBranchStock.aggregate({ _sum: { quantity: true } }),
-    prisma.erpBranchStock.count({ where: { quantity: 0, product: { isActive: true } } }),
+  const branchFilter = getBranchFilter(session) || {};
+
+  const [stockAgg, outOfStockCount, recentMovements, branches] = await Promise.all([
+    prisma.erpBranchStock.aggregate({ 
+      where: { ...branchFilter },
+      _sum: { quantity: true } 
+    }),
+    prisma.erpBranchStock.count({ 
+      where: { quantity: 0, product: { isActive: true }, ...branchFilter } 
+    }),
     prisma.erpStockMovement.count({
-      where: { createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } },
+      where: { 
+        createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+        ...branchFilter
+      },
     }),
     prisma.erpBranch.findMany({ select: { id: true, name: true } }),
   ]);
 
   const stocks = await prisma.erpBranchStock.findMany({
-    where: { product: { isActive: true } },
+    where: { product: { isActive: true }, ...branchFilter },
     select: { quantity: true, minQuantity: true, branchId: true, productId: true, product: { select: { costPrice: true } } },
   });
 
+  const totalProducts = new Set(stocks.map(s => s.productId)).size;
   const lowStockCount = stocks.filter((s) => Number(s.quantity) > 0 && Number(s.quantity) <= Number(s.minQuantity)).length;
   const totalStockQty = stockAgg._sum.quantity || 0;
   const totalInventoryValue = stocks.reduce((sum, s) => sum + Number(s.quantity) * Number(s.product.costPrice), 0);
 
   const branchMap = new Map<string, { id: string; branch: string; productCount: number; stockQty: number; value: number }>();
   for (const b of branches) {
+    if (branchFilter.branchId && b.id !== branchFilter.branchId) continue;
     branchMap.set(b.id, { id: b.id, branch: b.name, productCount: 0, stockQty: 0, value: 0 });
   }
   for (const s of stocks) {

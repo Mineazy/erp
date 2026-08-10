@@ -28,6 +28,7 @@ interface Product {
   location: string;
   barcode: string;
   createdAt: string;
+  availableLocations?: string[];
 }
 
 interface ProductCategory {
@@ -314,6 +315,11 @@ export default function ProductsPage() {
                   <TableCell className="text-right">
                     <span className={`font-mono font-medium ${product.stock <= product.minStock && product.stock > 0 && product.isActive ? 'text-amber-600' : product.stock === 0 ? 'text-red-600' : 'text-slate-900'}`}>{product.stock}</span>
                     {product.stock <= product.minStock && product.stock > 0 && <span className="ml-1 text-xs text-amber-500">(Low)</span>}
+                    {product.availableLocations && product.availableLocations.length > 0 && (
+                      <div className="flex justify-end gap-1 mt-1 flex-wrap">
+                        {product.availableLocations.map(loc => <Badge key={loc} variant="outline" className="text-[10px] px-1 py-0">{loc}</Badge>)}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell><Badge variant={product.isActive ? 'success' : 'secondary'}>{product.isActive ? 'Active' : 'Archived'}</Badge></TableCell>
                   <TableCell className="text-right">
