@@ -62,7 +62,8 @@ export default function ProductsPage() {
   const [branches, setBranches] = useState<{ id: string; code: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [activeSearch, setActiveSearch] = useState('');
+  const [dashboardStats, setDashboardStats] = useState({ totalProducts: 0, lowStockCount: 0, outOfStockCount: 0 });
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -79,7 +80,7 @@ export default function ProductsPage() {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      if (debouncedSearch) params.set('search', debouncedSearch);
+      if (activeSearch) params.set('search', activeSearch);
       params.set('page', String(page));
       params.set('limit', '50');
       const res = await fetch(`/api/inventory/products?${params}`);
@@ -106,16 +107,18 @@ export default function ProductsPage() {
     } catch (e) { console.error('Failed to fetch categories', e); }
   };
 
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(search);
-      setPage(1);
-    }, 300);
-    return () => clearTimeout(handler);
-  }, [search]);
+  const fetchDashboardStats = async () => {
+    try {
+      const res = await fetch('/api/inventory/dashboard');
+      if (res.ok) {
+        const json = await res.json();
+        setDashboardStats(json.data || json);
+      }
+    } catch (e) { console.error('Failed to fetch dashboard stats', e); }
+  };
 
-  useEffect(() => { fetchData(); }, [debouncedSearch, page]);
-  useEffect(() => { fetchCategories(); }, []);
+  useEffect(() => { fetchData(); }, [activeSearch, page]);
+  useEffect(() => { fetchCategories(); fetchDashboardStats(); }, []);
 
   const fetchBranches = async () => {
     try {
@@ -129,8 +132,6 @@ export default function ProductsPage() {
 
   useEffect(() => { fetchBranches(); }, []);
 
-  const lowStock = data.filter((p) => p.isActive && p.stock > 0 && p.stock <= p.minStock);
-  const outOfStock = data.filter((p) => p.isActive && p.stock === 0);
 
   const openCreate = () => {
     setEditingProduct(null);
@@ -186,6 +187,7 @@ export default function ProductsPage() {
       dismissToast(tid);
       toast('Product deleted successfully', 'success');
       fetchData();
+      fetchDashboardStats();
     } catch (e) { toast('Network error. Please try again.', 'error'); }
   };
 
@@ -199,6 +201,7 @@ export default function ProductsPage() {
       dismissToast(tid);
       toast(`Product ${action}d successfully`, 'success');
       fetchData();
+      fetchDashboardStats();
     } catch (e) { toast('Network error', 'error'); }
   };
 
@@ -254,7 +257,10 @@ export default function ProductsPage() {
       const d = json.data || json;
       setImportResults(d.results || []);
       toast(`${d.successCount || 0} products imported, ${d.errorCount || 0} errors`, d.errorCount > 0 ? 'warning' : 'success');
-      if (d.successCount > 0) fetchData();
+      if (d.successCount > 0) {
+        fetchData();
+        fetchDashboardStats();
+      }
     } catch { toast('Import failed. Please try again.', 'error'); }
     finally { setImporting(false); }
   };
@@ -277,15 +283,15 @@ export default function ProductsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card><CardContent className="p-4 flex items-center justify-between">
-          <div><p className="text-sm text-slate-500">Total Products</p><p className="text-xl font-bold text-slate-900">{data.length}</p></div>
+          <div><p className="text-sm text-slate-500">Total Products</p><p className="text-xl font-bold text-slate-900">{dashboardStats.totalProducts || 0}</p></div>
           <div className="p-2 bg-blue-50 rounded-lg"><Package className="h-5 w-5 text-mine-blue-800" /></div>
         </CardContent></Card>
         <Card><CardContent className="p-4 flex items-center justify-between">
-          <div><p className="text-sm text-slate-500">Low Stock Items</p><p className="text-xl font-bold text-amber-600">{lowStock.length}</p></div>
+          <div><p className="text-sm text-slate-500">Low Stock Items</p><p className="text-xl font-bold text-amber-600">{dashboardStats.lowStockCount || 0}</p></div>
           <div className="p-2 bg-amber-50 rounded-lg"><AlertTriangle className="h-5 w-5 text-amber-600" /></div>
         </CardContent></Card>
         <Card><CardContent className="p-4 flex items-center justify-between">
-          <div><p className="text-sm text-slate-500">Out of Stock</p><p className="text-xl font-bold text-red-600">{outOfStock.length}</p></div>
+          <div><p className="text-sm text-slate-500">Out of Stock</p><p className="text-xl font-bold text-red-600">{dashboardStats.outOfStockCount || 0}</p></div>
           <div className="p-2 bg-red-50 rounded-lg"><AlertTriangle className="h-5 w-5 text-red-600" /></div>
         </CardContent></Card>
       </div>
@@ -294,9 +300,12 @@ export default function ProductsPage() {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg flex items-center gap-2"><Package className="h-5 w-5 text-mine-blue-800" />Product List</CardTitle>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <input type="text" placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-mine-blue-500 w-64" />
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input type="text" placeholder="Search products..." value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { setActiveSearch(search); setPage(1); } }} className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-mine-blue-500 w-64" />
+              </div>
+              <Button variant="default" size="sm" onClick={() => { setActiveSearch(search); setPage(1); }}>Search</Button>
             </div>
           </div>
         </CardHeader>
