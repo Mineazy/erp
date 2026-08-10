@@ -20,6 +20,8 @@ export async function GET(request: NextRequest) {
         { name: { contains: search } },
         { code: { contains: search } },
         { description: { contains: search } },
+        { barcode: { contains: search } },
+        { category: { name: { contains: search } } }
       ];
     }
 

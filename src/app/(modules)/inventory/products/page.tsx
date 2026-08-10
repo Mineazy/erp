@@ -62,6 +62,9 @@ export default function ProductsPage() {
   const [branches, setBranches] = useState<{ id: string; code: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -76,7 +79,9 @@ export default function ProductsPage() {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      if (search) params.set('search', search);
+      if (debouncedSearch) params.set('search', debouncedSearch);
+      params.set('page', String(page));
+      params.set('limit', '50');
       const res = await fetch(`/api/inventory/products?${params}`);
       if (!res.ok) {
         let errText = '';
@@ -86,6 +91,7 @@ export default function ProductsPage() {
       }
       const json = await res.json();
       setData(json.items ?? json);
+      setTotal(json.total ?? 0);
     } catch (e) {
       console.error('Failed to fetch products', e);
     } finally {
@@ -100,7 +106,15 @@ export default function ProductsPage() {
     } catch (e) { console.error('Failed to fetch categories', e); }
   };
 
-  useEffect(() => { fetchData(); }, [search]);
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  useEffect(() => { fetchData(); }, [debouncedSearch, page]);
   useEffect(() => { fetchCategories(); }, []);
 
   const fetchBranches = async () => {
@@ -334,6 +348,20 @@ export default function ProductsPage() {
               ))}
             </TableBody>
           </Table>
+          <div className="flex items-center justify-between mt-4 text-sm text-slate-500">
+            <div>
+              Showing {data.length > 0 ? (page - 1) * 50 + 1 : 0} to {Math.min(page * 50, total)} of {total} products
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1 || loading}>
+                Previous
+              </Button>
+              <div className="px-2 font-medium">Page {page} of {Math.max(1, Math.ceil(total / 50))}</div>
+              <Button variant="outline" size="sm" onClick={() => setPage(p => p + 1)} disabled={page >= Math.ceil(total / 50) || loading}>
+                Next
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
