@@ -77,6 +77,15 @@ export default function ProductsPage() {
   const [branchStockData, setBranchStockData] = useState<BranchStock[]>([]);
   const [branchStockProductName, setBranchStockProductName] = useState('');
 
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [selectedCategoryForModal, setSelectedCategoryForModal] = useState<{id: string, name: string} | null>(null);
+  const [categoryModalProducts, setCategoryModalProducts] = useState<Product[]>([]);
+  const [categoryModalTotal, setCategoryModalTotal] = useState(0);
+  const [categoryModalSearch, setCategoryModalSearch] = useState('');
+  const [categoryModalActiveSearch, setCategoryModalActiveSearch] = useState('');
+  const [categoryModalPage, setCategoryModalPage] = useState(1);
+  const [categoryModalLoading, setCategoryModalLoading] = useState(false);
+
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -121,6 +130,34 @@ export default function ProductsPage() {
 
   useEffect(() => { fetchData(); }, [activeSearch, filterCategory, page]);
   useEffect(() => { fetchCategories(); fetchDashboardStats(); }, []);
+
+  const fetchCategoryModalData = async () => {
+    if (!selectedCategoryForModal) return;
+    try {
+      setCategoryModalLoading(true);
+      const params = new URLSearchParams();
+      if (categoryModalActiveSearch) params.set('search', categoryModalActiveSearch);
+      params.set('categoryId', selectedCategoryForModal.id);
+      params.set('page', String(categoryModalPage));
+      params.set('limit', '10');
+      const res = await fetch(`/api/inventory/products?${params}`);
+      if (res.ok) {
+        const json = await res.json();
+        setCategoryModalProducts(json.items ?? json);
+        setCategoryModalTotal(json.total ?? 0);
+      }
+    } catch (e) {
+      console.error('Failed to fetch category products', e);
+    } finally {
+      setCategoryModalLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (categoryModalOpen && selectedCategoryForModal) {
+      fetchCategoryModalData();
+    }
+  }, [categoryModalOpen, selectedCategoryForModal, categoryModalActiveSearch, categoryModalPage]);
 
   const fetchBranches = async () => {
     try {
@@ -303,7 +340,13 @@ export default function ProductsPage() {
           <h3 className="text-lg font-bold text-slate-900 mb-3">Products by Category</h3>
           <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-slate-200">
             {dashboardStats.categorySummary.map(cat => (
-              <Card key={cat.id} className="min-w-[200px] shrink-0 border-slate-200">
+              <Card key={cat.id} className="min-w-[200px] shrink-0 border-slate-200 cursor-pointer hover:bg-slate-50 transition-colors" onClick={() => {
+                setSelectedCategoryForModal({ id: cat.id, name: cat.name });
+                setCategoryModalSearch('');
+                setCategoryModalActiveSearch('');
+                setCategoryModalPage(1);
+                setCategoryModalOpen(true);
+              }}>
                 <CardContent className="p-4 flex items-center justify-between">
                   <div>
                     <p className="text-sm text-slate-500 truncate max-w-[130px]" title={cat.name}>{cat.name}</p>
@@ -527,6 +570,60 @@ export default function ProductsPage() {
           <Button variant="outline" onClick={() => { setImportDialogOpen(false); setImportResults(null); setSelectedFile(null); }}>Close</Button>
           <Button onClick={handleImport} loading={importing} disabled={!selectedFile}><Upload className="h-4 w-4 mr-2" />Import</Button>
         </DialogFooter>
+      </Dialog>
+
+      <Dialog open={categoryModalOpen} onClose={() => setCategoryModalOpen(false)} title={`Products in ${selectedCategoryForModal?.name}`} size="xl">
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input type="text" placeholder="Search category products..." value={categoryModalSearch} onChange={(e) => setCategoryModalSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { setCategoryModalActiveSearch(categoryModalSearch); setCategoryModalPage(1); } }} className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-mine-blue-500 w-full" />
+            </div>
+            <Button variant="default" size="sm" onClick={() => { setCategoryModalActiveSearch(categoryModalSearch); setCategoryModalPage(1); }}>Search</Button>
+          </div>
+          {categoryModalLoading ? (
+            <div className="text-center text-slate-500 py-4">Loading...</div>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Product Name</TableHead>
+                    <TableHead className="text-right">Price</TableHead>
+                    <TableHead className="text-right">Stock</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {categoryModalProducts.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} className="text-center py-4 text-slate-500">No products found.</TableCell></TableRow>
+                  ) : (
+                    categoryModalProducts.map(p => (
+                      <TableRow key={p.id}>
+                        <TableCell className="font-mono text-xs">{p.code}</TableCell>
+                        <TableCell className="font-medium">{p.name}</TableCell>
+                        <TableCell className="text-right">${Number(p.sellingPrice).toFixed(2)}</TableCell>
+                        <TableCell className="text-right">{p.stock}</TableCell>
+                        <TableCell><Badge variant={p.isActive ? 'success' : 'secondary'}>{p.isActive ? 'Active' : 'Archived'}</Badge></TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+              <div className="flex items-center justify-between mt-4 text-sm text-slate-500">
+                <div>
+                  Showing {categoryModalProducts.length > 0 ? (categoryModalPage - 1) * 10 + 1 : 0} to {Math.min(categoryModalPage * 10, categoryModalTotal)} of {categoryModalTotal}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setCategoryModalPage(p => Math.max(1, p - 1))} disabled={categoryModalPage === 1}>Previous</Button>
+                  <Button variant="outline" size="sm" onClick={() => setCategoryModalPage(p => p + 1)} disabled={categoryModalPage >= Math.ceil(categoryModalTotal / 10)}>Next</Button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+        <DialogFooter><Button variant="outline" onClick={() => setCategoryModalOpen(false)}>Close</Button></DialogFooter>
       </Dialog>
     </div>
   );
