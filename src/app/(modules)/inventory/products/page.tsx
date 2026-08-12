@@ -206,6 +206,8 @@ export default function ProductsPage() {
       setDialogOpen(false);
       setEditingProduct(null);
       fetchData();
+      fetchDashboardStats();
+      if (categoryModalOpen) fetchCategoryModalData();
     } catch (e) {
       toast('Network error. Please try again.', 'error');
     }
@@ -227,6 +229,7 @@ export default function ProductsPage() {
       toast('Product deleted successfully', 'success');
       fetchData();
       fetchDashboardStats();
+      if (categoryModalOpen) fetchCategoryModalData();
     } catch (e) { toast('Network error. Please try again.', 'error'); }
   };
 
@@ -241,6 +244,7 @@ export default function ProductsPage() {
       toast(`Product ${action}d successfully`, 'success');
       fetchData();
       fetchDashboardStats();
+      if (categoryModalOpen) fetchCategoryModalData();
     } catch (e) { toast('Network error', 'error'); }
   };
 
@@ -593,6 +597,7 @@ export default function ProductsPage() {
                     <TableHead className="text-right">Price</TableHead>
                     <TableHead className="text-right">Stock</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -606,6 +611,9 @@ export default function ProductsPage() {
                         <TableCell className="text-right">${Number(p.sellingPrice).toFixed(2)}</TableCell>
                         <TableCell className="text-right">{p.stock}</TableCell>
                         <TableCell><Badge variant={p.isActive ? 'success' : 'secondary'}>{p.isActive ? 'Active' : 'Archived'}</Badge></TableCell>
+                        <TableCell className="text-right">
+                          <button onClick={() => openEdit(p)} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-mine-blue-600 transition-colors" title="Edit Product"><Edit2 className="h-4 w-4" /></button>
+                        </TableCell>
                       </TableRow>
                     ))
                   )}

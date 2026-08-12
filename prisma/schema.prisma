@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -14,7 +14,7 @@ model AuditLog {
   action     String
   userId     String   @map("user_id")
   userName   String   @map("user_name")
-  changes    String   @db.LongText
+  changes    String   
   ipAddress  String?  @map("ip_address")
   userAgent  String?  @map("user_agent")
   createdAt  DateTime @default(now()) @map("created_at")
@@ -41,7 +41,7 @@ model TaxType {
   category     String
   rate         Decimal          @db.Decimal(5, 2)
   isActive     Boolean          @default(true) @map("is_active")
-  rules        String?          @db.LongText
+  rules        String?          
   createdAt    DateTime         @default(now()) @map("created_at")
   updatedAt    DateTime         @updatedAt @map("updated_at")
   transactions TaxTransaction[]
@@ -92,8 +92,8 @@ model FdmsDevice {
   deviceId            String               @unique @map("device_id")
   serialNo            String               @unique @map("serial_no")
   activationKey       String?              @map("activation_key")
-  certificate         String?              @db.Text
-  privateKey          String?              @map("private_key") @db.Text
+  certificate         String?              
+  privateKey          String?              @map("private_key") 
   status              String               @default("'registered'")
   fiscalDayNo         Int                  @default(0) @map("fiscal_day_no")
   receiptCounter      Int                  @default(0) @map("receipt_counter")
@@ -426,13 +426,13 @@ model ErpGoodsReceipt {
   updatedAt          DateTime              @updatedAt @map("updated_at")
   branchId           String?               @map("branch_id")
   approvedAt         DateTime?             @map("approved_at")
-  attachments        String?               @db.LongText
+  attachments        String?               
   capturedBy         String?               @map("captured_by")
   deliveryNoteNumber String?               @map("delivery_note_number")
   insightPoNumber    String?               @map("insight_po_number")
   invoiceNumber      String?               @map("invoice_number")
   reviewedBy         String?               @map("reviewed_by")
-  reviewerSignature  String?               @map("reviewer_signature") @db.LongText
+  reviewerSignature  String?               @map("reviewer_signature") 
   lines              ErpGoodsReceiptLine[]
   branch             ErpBranch?            @relation(fields: [branchId], references: [id])
 
@@ -1160,7 +1160,7 @@ model ErpInventoryAuditLog {
   entityType  String     @map("entity_type")
   entityId    String     @map("entity_id")
   description String?
-  changes     String?    @db.LongText
+  changes     String?    
   userId      String     @map("user_id")
   userName    String?    @map("user_name")
   ipAddress   String?    @map("ip_address")
@@ -1447,7 +1447,7 @@ model ErpChatMessage {
   chatId      String   @map("chat_id")
   senderId    String   @map("sender_id")
   content     String
-  attachments String?  @db.LongText
+  attachments String?  
   createdAt   DateTime @default(now()) @map("created_at")
   chat        ErpChat  @relation(fields: [chatId], references: [id], onDelete: Cascade)
   sender      ErpUser  @relation(fields: [senderId], references: [id])
@@ -1531,7 +1531,7 @@ model ErpUser {
 model SystemSetting {
   id          String   @id @default(uuid())
   key         String   @unique
-  value       String   @db.LongText
+  value       String   
   category    String   @default("'general'")
   description String?
   createdAt   DateTime @default(now()) @map("created_at")
@@ -1557,7 +1557,7 @@ model SavedReport {
   id        String   @id @default(uuid())
   name      String
   type      String
-  config    String   @db.LongText
+  config    String   
   createdBy String   @map("created_by")
   isPublic  Boolean  @default(false) @map("is_public")
   createdAt DateTime @default(now()) @map("created_at")
@@ -1784,7 +1784,7 @@ model ErpHaulingTrip {
   destinationBranchId   String?    @map("destination_branch_id")
   destinationBranchName String?    @map("destination_branch_name")
   status                String
-  productDetails        String     @map("product_details") @db.Text
+  productDetails        String     @map("product_details") 
   departureTime         DateTime?  @map("departure_time")
   arrivalTime           DateTime?  @map("arrival_time")
   createdAt             DateTime   @default(now()) @map("created_at")
