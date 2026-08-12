@@ -8,13 +8,10 @@ export async function GET(_request: NextRequest) {
 
   const branchFilter = getBranchFilter(session) || {};
 
-  const [stockAgg, outOfStockCount, recentMovements, branches] = await Promise.all([
+  const [stockAgg, recentMovements, branches, totalProducts] = await Promise.all([
     prisma.erpBranchStock.aggregate({ 
       where: { ...branchFilter },
       _sum: { quantity: true } 
-    }),
-    prisma.erpBranchStock.count({ 
-      where: { quantity: 0, product: { isActive: true }, ...branchFilter } 
     }),
     prisma.erpStockMovement.count({
       where: { 
@@ -23,6 +20,7 @@ export async function GET(_request: NextRequest) {
       },
     }),
     prisma.erpBranch.findMany({ select: { id: true, name: true } }),
+    prisma.erpProduct.count({ where: { isActive: true } }),
   ]);
 
   const stocks = await prisma.erpBranchStock.findMany({
@@ -36,8 +34,27 @@ export async function GET(_request: NextRequest) {
     },
   });
 
-  const totalProducts = new Set(stocks.map(s => s.productId)).size;
-  const lowStockCount = stocks.filter((s) => Number(s.quantity) > 0 && Number(s.quantity) <= Number(s.minQuantity)).length;
+  const productStockMap = new Map<string, { qty: number, minQty: number }>();
+  for (const s of stocks) {
+    if (!productStockMap.has(s.productId)) {
+      productStockMap.set(s.productId, { qty: 0, minQty: Number(s.minQuantity) });
+    }
+    productStockMap.get(s.productId)!.qty += Number(s.quantity);
+  }
+
+  let inStockCount = 0;
+  let lowStockCount = 0;
+
+  for (const data of Array.from(productStockMap.values())) {
+    if (data.qty > 0) {
+      inStockCount++;
+      if (data.qty <= data.minQty) {
+        lowStockCount++;
+      }
+    }
+  }
+
+  const outOfStockCount = totalProducts - inStockCount;
   const totalStockQty = stockAgg._sum.quantity || 0;
   const totalInventoryValue = stocks.reduce((sum, s) => sum + Number(s.quantity) * Number(s.product.costPrice), 0);
 
