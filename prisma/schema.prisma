@@ -65,8 +65,8 @@ model TaxTransaction {
   branch        ErpBranch? @relation(fields: [branchId], references: [id])
   taxType       TaxType    @relation(fields: [taxTypeId], references: [id])
 
-  @@index([branchId], map: "tax_transactions_branch_id_fkey")
-  @@index([taxTypeId], map: "tax_transactions_tax_type_id_fkey")
+  @@index([branchId])
+  @@index([taxTypeId])
   @@map("tax_transactions")
 }
 
@@ -105,7 +105,7 @@ model FdmsDevice {
   branch              ErpBranch?           @relation(fields: [branchId], references: [id])
   fiscalisedDocuments FiscalisedDocument[]
 
-  @@index([branchId], map: "fdms_devices_branch_id_fkey")
+  @@index([branchId])
   @@map("fdms_devices")
 }
 
@@ -131,8 +131,8 @@ model FiscalisedDocument {
   branch          ErpBranch?         @relation(fields: [branchId], references: [id])
   device          FdmsDevice         @relation(fields: [deviceId], references: [id])
 
-  @@index([branchId], map: "fiscalised_documents_branch_id_fkey")
-  @@index([deviceId], map: "fiscalised_documents_device_id_fkey")
+  @@index([branchId])
+  @@index([deviceId])
   @@map("fiscalised_documents")
 }
 
@@ -153,7 +153,7 @@ model ErpChartOfAccounts {
   children     ErpChartOfAccounts[] @relation("ChartOfAccountsTree")
   journalLines ErpJournalLine[]
 
-  @@index([parentId], map: "erp_chart_of_accounts_parent_id_fkey")
+  @@index([parentId])
   @@map("erp_chart_of_accounts")
 }
 
@@ -174,7 +174,7 @@ model ErpJournalEntry {
   branch       ErpBranch?       @relation(fields: [branchId], references: [id])
   lines        ErpJournalLine[]
 
-  @@index([branchId], map: "erp_journal_entries_branch_id_fkey")
+  @@index([branchId])
   @@map("erp_journal_entries")
 }
 
@@ -190,8 +190,8 @@ model ErpJournalLine {
   account     ErpChartOfAccounts @relation(fields: [accountId], references: [id])
   entry       ErpJournalEntry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
 
-  @@index([accountId], map: "erp_journal_lines_account_id_fkey")
-  @@index([entryId], map: "erp_journal_lines_entry_id_fkey")
+  @@index([accountId])
+  @@index([entryId])
   @@map("erp_journal_lines")
 }
 
@@ -215,7 +215,7 @@ model ErpAccountReceivable {
   branchId        String?    @map("branch_id")
   branch          ErpBranch? @relation(fields: [branchId], references: [id])
 
-  @@index([branchId], map: "erp_accounts_receivable_branch_id_fkey")
+  @@index([branchId])
   @@map("erp_accounts_receivable")
 }
 
@@ -238,7 +238,7 @@ model ErpAccountPayable {
   branchId       String?    @map("branch_id")
   branch         ErpBranch? @relation(fields: [branchId], references: [id])
 
-  @@index([branchId], map: "erp_accounts_payable_branch_id_fkey")
+  @@index([branchId])
   @@map("erp_accounts_payable")
 }
 
@@ -259,7 +259,7 @@ model ErpCashbook {
   branchId     String?    @map("branch_id")
   branch       ErpBranch? @relation(fields: [branchId], references: [id])
 
-  @@index([branchId], map: "erp_cashbook_branch_id_fkey")
+  @@index([branchId])
   @@map("erp_cashbook")
 }
 
@@ -285,7 +285,7 @@ model ErpProduct {
   warehouseStocks ErpWarehouseStock[]
   branchStocks    ErpBranchStock[]
 
-  @@index([categoryId], map: "erp_products_category_id_fkey")
+  @@index([categoryId])
   @@map("erp_products")
 }
 
@@ -302,8 +302,8 @@ model ErpBranchStock {
   updatedAt      DateTime    @updatedAt @map("updated_at")
 
   @@unique([branchId, productId], map: "erp_branch_stocks_branch_product_unique")
-  @@index([branchId], map: "erp_branch_stocks_branch_id_fkey")
-  @@index([productId], map: "erp_branch_stocks_product_id_fkey")
+  @@index([branchId])
+  @@index([productId])
   @@map("erp_branch_stocks")
 }
 
@@ -330,7 +330,7 @@ model ErpProductBatch {
   createdAt  DateTime   @default(now()) @map("created_at")
   product    ErpProduct @relation(fields: [productId], references: [id])
 
-  @@index([productId], map: "erp_product_batches_product_id_fkey")
+  @@index([productId])
   @@map("erp_product_batches")
 }
 
@@ -354,7 +354,7 @@ model ErpSalesOrder {
   lines        ErpSalesOrderLine[]
   branch       ErpBranch?          @relation(fields: [branchId], references: [id])
 
-  @@index([branchId], map: "erp_sales_orders_branch_id_fkey")
+  @@index([branchId])
   @@map("erp_sales_orders")
 }
 
@@ -368,7 +368,7 @@ model ErpSalesOrderLine {
   total       Decimal       @db.Decimal(15, 2)
   order       ErpSalesOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  @@index([orderId], map: "erp_sales_order_lines_order_id_fkey")
+  @@index([orderId])
   @@map("erp_sales_order_lines")
 }
 
@@ -394,8 +394,8 @@ model ErpPurchaseOrder {
   branch        ErpBranch?              @relation(fields: [branchId], references: [id])
   requisition   ErpPurchaseRequisition? @relation(fields: [requisitionId], references: [id])
 
-  @@index([branchId], map: "erp_purchase_orders_branch_id_fkey")
-  @@index([requisitionId], map: "erp_purchase_orders_requisition_id_fkey")
+  @@index([branchId])
+  @@index([requisitionId])
   @@map("erp_purchase_orders")
 }
 
@@ -410,7 +410,7 @@ model ErpPurchaseOrderLine {
   total       Decimal          @db.Decimal(15, 2)
   po          ErpPurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
 
-  @@index([poId], map: "erp_purchase_order_lines_po_id_fkey")
+  @@index([poId])
   @@map("erp_purchase_order_lines")
 }
 
@@ -436,7 +436,7 @@ model ErpGoodsReceipt {
   lines              ErpGoodsReceiptLine[]
   branch             ErpBranch?            @relation(fields: [branchId], references: [id])
 
-  @@index([branchId], map: "erp_goods_receipts_branch_id_fkey")
+  @@index([branchId])
   @@map("erp_goods_receipts")
 }
 
@@ -456,7 +456,7 @@ model ErpGoodsReceiptLine {
   remarks     String?
   receipt     ErpGoodsReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
 
-  @@index([receiptId], map: "erp_goods_receipt_lines_receipt_id_fkey")
+  @@index([receiptId])
   @@map("erp_goods_receipt_lines")
 }
 
@@ -477,7 +477,7 @@ model ErpPurchaseRequisition {
   items         ErpPurchaseRequisitionItem[]
   branch        ErpBranch?                   @relation(fields: [branchId], references: [id])
 
-  @@index([branchId], map: "erp_purchase_requisitions_branch_id_fkey")
+  @@index([branchId])
   @@map("erp_purchase_requisitions")
 }
 
@@ -492,7 +492,7 @@ model ErpPurchaseRequisitionItem {
   createdAt     DateTime               @default(now()) @map("created_at")
   requisition   ErpPurchaseRequisition @relation(fields: [requisitionId], references: [id], onDelete: Cascade)
 
-  @@index([requisitionId], map: "erp_purchase_requisition_items_requisition_id_fkey")
+  @@index([requisitionId])
   @@map("erp_purchase_requisition_items")
 }
 
@@ -548,7 +548,7 @@ model ErpLead {
   interactions      ErpLeadInteraction[]
   customer          ErpCustomer?         @relation(fields: [customerId], references: [id])
 
-  @@index([customerId], map: "erp_leads_customer_id_fkey")
+  @@index([customerId])
   @@map("erp_leads")
 }
 
@@ -561,7 +561,7 @@ model ErpLeadInteraction {
   createdAt DateTime @default(now()) @map("created_at")
   lead      ErpLead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
-  @@index([leadId], map: "erp_lead_interactions_lead_id_fkey")
+  @@index([leadId])
   @@map("erp_lead_interactions")
 }
 
@@ -611,7 +611,7 @@ model ErpSupplierContract {
   updatedAt  DateTime    @updatedAt @map("updated_at")
   supplier   ErpSupplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
 
-  @@index([supplierId], map: "erp_supplier_contracts_supplier_id_fkey")
+  @@index([supplierId])
   @@map("erp_supplier_contracts")
 }
 
@@ -646,7 +646,7 @@ model ErpWarehouseZone {
   shelf       String?
   warehouse   ErpWarehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
 
-  @@index([warehouseId], map: "erp_warehouse_zones_warehouse_id_fkey")
+  @@index([warehouseId])
   @@map("erp_warehouse_zones")
 }
 
@@ -665,7 +665,7 @@ model ErpWarehouseStock {
   warehouse   ErpWarehouse @relation(fields: [warehouseId], references: [id])
 
   @@unique([warehouseId, productId, batchNo])
-  @@index([productId], map: "erp_warehouse_stocks_product_id_fkey")
+  @@index([productId])
   @@map("erp_warehouse_stocks")
 }
 
@@ -686,7 +686,7 @@ model ErpStockMovement {
   branchId        String?    @map("branch_id")
   branch          ErpBranch? @relation(fields: [branchId], references: [id])
 
-  @@index([branchId], map: "erp_stock_movements_branch_id_fkey")
+  @@index([branchId])
   @@map("erp_stock_movements")
 }
 
@@ -704,7 +704,7 @@ model ErpCycleCount {
   lines       ErpCycleCountLine[]
   warehouse   ErpWarehouse        @relation(fields: [warehouseId], references: [id])
 
-  @@index([warehouseId], map: "erp_cycle_counts_warehouse_id_fkey")
+  @@index([warehouseId])
   @@map("erp_cycle_counts")
 }
 
@@ -719,7 +719,7 @@ model ErpCycleCountLine {
   notes       String?
   count       ErpCycleCount @relation(fields: [countId], references: [id], onDelete: Cascade)
 
-  @@index([countId], map: "erp_cycle_count_lines_count_id_fkey")
+  @@index([countId])
   @@map("erp_cycle_count_lines")
 }
 
@@ -748,7 +748,7 @@ model ErpPosSession {
   transactions   ErpPosTransaction[]
   zReport        ErpZReport?
 
-  @@index([branchId], map: "erp_pos_sessions_branch_id_fkey")
+  @@index([branchId])
   @@map("erp_pos_sessions")
 }
 
@@ -778,7 +778,7 @@ model ErpZReport {
   branch         ErpBranch?    @relation(fields: [branchId], references: [id])
   session        ErpPosSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
-  @@index([branchId], map: "erp_z_reports_branch_id_fkey")
+  @@index([branchId])
   @@map("erp_z_reports")
 }
 
@@ -812,8 +812,8 @@ model ErpPosTransaction {
   fiscalisedDoc     FiscalisedDocument?     @relation(fields: [fiscalisedDocId], references: [id])
   session           ErpPosSession           @relation(fields: [sessionId], references: [id])
 
-  @@index([branchId], map: "erp_pos_transactions_branch_id_fkey")
-  @@index([sessionId], map: "erp_pos_transactions_session_id_fkey")
+  @@index([branchId])
+  @@index([sessionId])
   @@map("erp_pos_transactions")
 }
 
@@ -829,7 +829,7 @@ model ErpPosTransactionLine {
   createdAt     DateTime          @default(now()) @map("created_at")
   transaction   ErpPosTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 
-  @@index([transactionId], map: "erp_pos_transaction_lines_transaction_id_fkey")
+  @@index([transactionId])
   @@map("erp_pos_transaction_lines")
 }
 
@@ -844,7 +844,7 @@ model ErpPosPayment {
   createdAt     DateTime          @default(now()) @map("created_at")
   transaction   ErpPosTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 
-  @@index([transactionId], map: "erp_pos_payments_transaction_id_fkey")
+  @@index([transactionId])
   @@map("erp_pos_payments")
 }
 
@@ -873,7 +873,7 @@ model ErpQuotation {
   lines         ErpQuotationLine[]
   branch        ErpBranch?         @relation(fields: [branchId], references: [id])
 
-  @@index([branchId], map: "erp_quotations_branch_id_fkey")
+  @@index([branchId])
   @@map("erp_quotations")
 }
 
@@ -887,7 +887,7 @@ model ErpQuotationLine {
   total       Decimal      @db.Decimal(15, 2)
   quote       ErpQuotation @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 
-  @@index([quoteId], map: "erp_quotation_lines_quote_id_fkey")
+  @@index([quoteId])
   @@map("erp_quotation_lines")
 }
 
@@ -909,7 +909,7 @@ model ErpReturn {
   lines         ErpReturnLine[]
   branch        ErpBranch?      @relation(fields: [branchId], references: [id])
 
-  @@index([branchId], map: "erp_returns_branch_id_fkey")
+  @@index([branchId])
   @@map("erp_returns")
 }
 
@@ -925,7 +925,7 @@ model ErpReturnLine {
   condition   String    @default("'good'")
   return      ErpReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
 
-  @@index([returnId], map: "erp_return_lines_return_id_fkey")
+  @@index([returnId])
   @@map("erp_return_lines")
 }
 
@@ -948,7 +948,7 @@ model ErpDispatchNote {
   lines           ErpDispatchNoteLine[]
   branch          ErpBranch?            @relation(fields: [branchId], references: [id])
 
-  @@index([branchId], map: "erp_dispatch_notes_branch_id_fkey")
+  @@index([branchId])
   @@map("erp_dispatch_notes")
 }
 
@@ -962,7 +962,7 @@ model ErpDispatchNoteLine {
   batchNo     String?         @map("batch_no")
   dispatch    ErpDispatchNote @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
 
-  @@index([dispatchId], map: "erp_dispatch_note_lines_dispatch_id_fkey")
+  @@index([dispatchId])
   @@map("erp_dispatch_note_lines")
 }
 
@@ -999,7 +999,7 @@ model ErpStockAdjustment {
   branchId       String?    @map("branch_id")
   branch         ErpBranch? @relation(fields: [branchId], references: [id])
 
-  @@index([branchId], map: "erp_stock_adjustments_branch_id_fkey")
+  @@index([branchId])
   @@map("erp_stock_adjustments")
 }
 
@@ -1024,10 +1024,10 @@ model ErpStockTransfer {
   toBranch        ErpBranch?             @relation("ToBranch", fields: [toBranchId], references: [id])
   toWarehouse     ErpWarehouse?          @relation("WarehouseToTransfer", fields: [toWarehouseId], references: [id])
 
-  @@index([fromBranchId], map: "erp_stock_transfers_from_branch_id_fkey")
-  @@index([toBranchId], map: "erp_stock_transfers_to_branch_id_fkey")
-  @@index([fromWarehouseId], map: "erp_stock_transfers_from_warehouse_id_fkey")
-  @@index([toWarehouseId], map: "erp_stock_transfers_to_warehouse_id_fkey")
+  @@index([fromBranchId])
+  @@index([toBranchId])
+  @@index([fromWarehouseId])
+  @@index([toWarehouseId])
   @@map("erp_stock_transfers")
 }
 
@@ -1041,7 +1041,7 @@ model ErpStockTransferLine {
   unitPrice   Decimal          @default(0.00) @map("unit_price") @db.Decimal(15, 2)
   transfer    ErpStockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
 
-  @@index([transferId], map: "erp_stock_transfer_lines_transfer_id_fkey")
+  @@index([transferId])
   @@map("erp_stock_transfer_lines")
 }
 
@@ -1059,7 +1059,7 @@ model ErpInventoryCount {
   lines      ErpInventoryCountLine[]
   branch     ErpBranch?              @relation(fields: [branchId], references: [id])
 
-  @@index([branchId], map: "erp_inventory_counts_branch_id_fkey")
+  @@index([branchId])
   @@map("erp_inventory_counts")
 }
 
@@ -1074,7 +1074,7 @@ model ErpInventoryCountLine {
   notes       String?
   count       ErpInventoryCount @relation(fields: [countId], references: [id], onDelete: Cascade)
 
-  @@index([countId], map: "erp_inventory_count_lines_count_id_fkey")
+  @@index([countId])
   @@map("erp_inventory_count_lines")
 }
 
@@ -1093,7 +1093,7 @@ model ErpInventoryForecast {
   branchId              String?    @map("branch_id")
   branch                ErpBranch? @relation(fields: [branchId], references: [id])
 
-  @@index([branchId], map: "erp_inventory_forecasts_branch_id_fkey")
+  @@index([branchId])
   @@map("erp_inventory_forecasts")
 }
 
@@ -1112,7 +1112,7 @@ model ErpSalesPrediction {
   createdAt         DateTime   @default(now()) @map("created_at")
   branch            ErpBranch? @relation(fields: [branchId], references: [id])
 
-  @@index([branchId], map: "erp_sales_predictions_branch_id_fkey")
+  @@index([branchId])
   @@map("erp_sales_predictions")
 }
 
@@ -1131,7 +1131,7 @@ model ErpInventoryOptimization {
   createdAt          DateTime   @default(now()) @map("created_at")
   branch             ErpBranch? @relation(fields: [branchId], references: [id])
 
-  @@index([branchId], map: "erp_inventory_optimizations_branch_id_fkey")
+  @@index([branchId])
   @@map("erp_inventory_optimizations")
 }
 
@@ -1150,7 +1150,7 @@ model ErpAlert {
   branchId      String?    @map("branch_id")
   branch        ErpBranch? @relation(fields: [branchId], references: [id])
 
-  @@index([branchId], map: "erp_alerts_branch_id_fkey")
+  @@index([branchId])
   @@map("erp_alerts")
 }
 
@@ -1168,7 +1168,7 @@ model ErpInventoryAuditLog {
   branchId    String?    @map("branch_id")
   branch      ErpBranch? @relation(fields: [branchId], references: [id])
 
-  @@index([branchId], map: "erp_inventory_audit_logs_branch_id_fkey")
+  @@index([branchId])
   @@map("erp_inventory_audit_logs")
 }
 
@@ -1226,7 +1226,7 @@ model ErpPayrollEntry {
   updatedAt       DateTime    @updatedAt @map("updated_at")
   employee        ErpEmployee @relation(fields: [employeeId], references: [id])
 
-  @@index([employeeId], map: "erp_payroll_entries_employee_id_fkey")
+  @@index([employeeId])
   @@map("erp_payroll_entries")
 }
 
@@ -1241,7 +1241,7 @@ model ErpAttendance {
   createdAt  DateTime    @default(now()) @map("created_at")
   employee   ErpEmployee @relation(fields: [employeeId], references: [id])
 
-  @@index([employeeId], map: "erp_attendance_employee_id_fkey")
+  @@index([employeeId])
   @@map("erp_attendance")
 }
 
@@ -1259,7 +1259,7 @@ model ErpLeaveRequest {
   updatedAt  DateTime    @updatedAt @map("updated_at")
   employee   ErpEmployee @relation(fields: [employeeId], references: [id])
 
-  @@index([employeeId], map: "erp_leave_requests_employee_id_fkey")
+  @@index([employeeId])
   @@map("erp_leave_requests")
 }
 
@@ -1309,7 +1309,7 @@ model ErpFuelRecord {
   createdAt  DateTime   @default(now()) @map("created_at")
   vehicle    ErpVehicle @relation(fields: [vehicleId], references: [id])
 
-  @@index([vehicleId], map: "erp_fuel_records_vehicle_id_fkey")
+  @@index([vehicleId])
   @@map("erp_fuel_records")
 }
 
@@ -1328,7 +1328,7 @@ model ErpServiceRecord {
   createdAt           DateTime   @default(now()) @map("created_at")
   vehicle             ErpVehicle @relation(fields: [vehicleId], references: [id])
 
-  @@index([vehicleId], map: "erp_service_records_vehicle_id_fkey")
+  @@index([vehicleId])
   @@map("erp_service_records")
 }
 
@@ -1351,7 +1351,7 @@ model ErpVehicleDispatch {
   updatedAt     DateTime   @updatedAt @map("updated_at")
   vehicle       ErpVehicle @relation(fields: [vehicleId], references: [id])
 
-  @@index([vehicleId], map: "erp_vehicle_dispatches_vehicle_id_fkey")
+  @@index([vehicleId])
   @@map("erp_vehicle_dispatches")
 }
 
@@ -1398,7 +1398,7 @@ model ErpWorkOrder {
   parts         ErpWorkOrderPart[]
   equipment     ErpEquipment       @relation(fields: [equipmentId], references: [id])
 
-  @@index([equipmentId], map: "erp_work_orders_equipment_id_fkey")
+  @@index([equipmentId])
   @@map("erp_work_orders")
 }
 
@@ -1413,7 +1413,7 @@ model ErpWorkOrderPart {
   createdAt   DateTime     @default(now()) @map("created_at")
   wo          ErpWorkOrder @relation(fields: [woId], references: [id], onDelete: Cascade)
 
-  @@index([woId], map: "erp_work_order_parts_wo_id_fkey")
+  @@index([woId])
   @@map("erp_work_order_parts")
 }
 
@@ -1438,7 +1438,7 @@ model ErpChatParticipant {
   user       ErpUser   @relation(fields: [userId], references: [id])
 
   @@unique([chatId, userId])
-  @@index([userId], map: "erp_chat_participants_user_id_fkey")
+  @@index([userId])
   @@map("erp_chat_participants")
 }
 
@@ -1452,8 +1452,8 @@ model ErpChatMessage {
   chat        ErpChat  @relation(fields: [chatId], references: [id], onDelete: Cascade)
   sender      ErpUser  @relation(fields: [senderId], references: [id])
 
-  @@index([chatId], map: "erp_chat_messages_chat_id_fkey")
-  @@index([senderId], map: "erp_chat_messages_sender_id_fkey")
+  @@index([chatId])
+  @@index([senderId])
   @@map("erp_chat_messages")
 }
 
@@ -1524,7 +1524,7 @@ model ErpUser {
   chatParticipants ErpChatParticipant[]
   branch           ErpBranch?           @relation(fields: [branchId], references: [id])
 
-  @@index([branchId], map: "erp_users_branch_id_fkey")
+  @@index([branchId])
   @@map("erp_users")
 }
 
@@ -1624,8 +1624,8 @@ model ErpAsset {
   branch             ErpBranch?             @relation(fields: [branchId], references: [id])
   category           ErpAssetCategory       @relation(fields: [categoryId], references: [id])
 
-  @@index([branchId], map: "erp_assets_branch_id_fkey")
-  @@index([categoryId], map: "erp_assets_category_id_fkey")
+  @@index([branchId])
+  @@index([categoryId])
   @@map("erp_assets")
 }
 
@@ -1641,7 +1641,7 @@ model ErpAssetDepreciation {
   createdAt       DateTime @default(now()) @map("created_at")
   asset           ErpAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
 
-  @@index([assetId], map: "erp_asset_depreciation_asset_id_fkey")
+  @@index([assetId])
   @@map("erp_asset_depreciation")
 }
 
@@ -1664,8 +1664,8 @@ model ErpAssetMaintenance {
   asset           ErpAsset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
   branch          ErpBranch? @relation(fields: [branchId], references: [id])
 
-  @@index([assetId], map: "erp_asset_maintenance_asset_id_fkey")
-  @@index([branchId], map: "erp_asset_maintenance_branch_id_fkey")
+  @@index([assetId])
+  @@index([branchId])
   @@map("erp_asset_maintenance")
 }
 
@@ -1684,7 +1684,7 @@ model ErpAssetTransfer {
   createdAt      DateTime @default(now()) @map("created_at")
   asset          ErpAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
 
-  @@index([assetId], map: "erp_asset_transfers_asset_id_fkey")
+  @@index([assetId])
   @@map("erp_asset_transfers")
 }
 
@@ -1704,7 +1704,7 @@ model ErpAssetCheckout {
   createdAt      DateTime  @default(now()) @map("created_at")
   asset          ErpAsset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
 
-  @@index([assetId], map: "erp_asset_checkouts_asset_id_fkey")
+  @@index([assetId])
   @@map("erp_asset_checkouts")
 }
 
@@ -1722,8 +1722,8 @@ model ErpAssetAuditLog {
   asset     ErpAsset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
   branch    ErpBranch? @relation(fields: [branchId], references: [id])
 
-  @@index([assetId], map: "erp_asset_audit_logs_asset_id_fkey")
-  @@index([branchId], map: "erp_asset_audit_logs_branch_id_fkey")
+  @@index([assetId])
+  @@index([branchId])
   @@map("erp_asset_audit_logs")
 }
 
@@ -1771,7 +1771,7 @@ model ErpFuelRequisition {
   updatedAt                DateTime   @updatedAt @map("updated_at")
   vehicle                  ErpVehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
-  @@index([vehicleId], map: "erp_fuel_requisitions_vehicle_id_fkey")
+  @@index([vehicleId])
   @@map("erp_fuel_requisitions")
 }
 
@@ -1790,7 +1790,7 @@ model ErpHaulingTrip {
   createdAt             DateTime   @default(now()) @map("created_at")
   vehicle               ErpVehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
-  @@index([vehicleId], map: "erp_hauling_trips_vehicle_id_fkey")
+  @@index([vehicleId])
   @@map("erp_hauling_trips")
 }
 
@@ -1808,7 +1808,7 @@ model ErpBackOrder {
   lines       ErpBackOrderLine[]
   branch      ErpBranch          @relation(fields: [branchId], references: [id])
 
-  @@index([branchId], map: "erp_back_orders_branch_id_fkey")
+  @@index([branchId])
   @@map("erp_back_orders")
 }
 
@@ -1824,6 +1824,6 @@ model ErpBackOrderLine {
   notes          String?
   backOrder      ErpBackOrder @relation(fields: [backOrderId], references: [id], onDelete: Cascade)
 
-  @@index([backOrderId], map: "erp_back_order_lines_back_order_id_fkey")
+  @@index([backOrderId])
   @@map("erp_back_order_lines")
 }
