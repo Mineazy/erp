@@ -1,10 +1,12 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSession, unauthorized, ok } from '@/lib/api';
+import { getSession, unauthorized, ok, getBranchFilter } from '@/lib/api';
 
 export async function GET(_request: NextRequest) {
   const session = await getSession();
   if (!session) return unauthorized();
+
+  const branchFilter = getBranchFilter(session) || {};
 
   const [
     products,
@@ -28,26 +30,29 @@ export async function GET(_request: NextRequest) {
     prisma.erpProduct.count({ where: { isActive: true } }),
     prisma.erpCustomer.count({ where: { isActive: true } }),
     prisma.erpSupplier.count({ where: { isActive: true } }),
-    prisma.erpSalesOrder.count(),
-    prisma.erpSalesOrder.count({ where: { status: { in: ['draft', 'confirmed', 'processing'] } } }),
-    prisma.erpPurchaseOrder.count(),
-    prisma.erpPurchaseOrder.count({ where: { status: { in: ['draft', 'sent', 'confirmed'] } } }),
-    prisma.erpAccountReceivable.aggregate({ _sum: { balance: true }, _count: true }),
-    prisma.erpAccountPayable.aggregate({ _sum: { balance: true }, _count: true }),
-    prisma.erpPosSession.count({ where: { status: 'open' } }),
-    prisma.erpReturn.count({ where: { status: 'pending' } }),
-    prisma.erpCashbook.aggregate({ _sum: { amount: true } }),
-    prisma.erpAccountReceivable.findMany({ orderBy: { createdAt: 'desc' }, take: 5, select: { invoiceDate: true, invoiceNumber: true, customerName: true, amount: true, balance: true, status: true } }),
-    prisma.erpAccountPayable.findMany({ orderBy: { createdAt: 'desc' }, take: 5, select: { billDate: true, billNumber: true, supplierName: true, amount: true, balance: true, status: true } }),
-    prisma.erpPosTransaction.findMany({ where: { createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } }, select: { total: true } }),
+    prisma.erpSalesOrder.count({ where: { ...branchFilter } }),
+    prisma.erpSalesOrder.count({ where: { status: { in: ['draft', 'confirmed', 'processing'] }, ...branchFilter } }),
+    prisma.erpPurchaseOrder.count({ where: { ...branchFilter } }),
+    prisma.erpPurchaseOrder.count({ where: { status: { in: ['draft', 'sent', 'confirmed'] }, ...branchFilter } }),
+    prisma.erpAccountReceivable.aggregate({ _sum: { balance: true }, _count: true, where: { ...branchFilter } }),
+    prisma.erpAccountPayable.aggregate({ _sum: { balance: true }, _count: true, where: { ...branchFilter } }),
+    prisma.erpPosSession.count({ where: { status: 'open', ...branchFilter } }),
+    prisma.erpReturn.count({ where: { status: 'pending', ...branchFilter } }),
+    prisma.erpCashbook.aggregate({ _sum: { amount: true }, where: { ...branchFilter } }),
+    prisma.erpAccountReceivable.findMany({ where: { ...branchFilter }, orderBy: { createdAt: 'desc' }, take: 5, select: { invoiceDate: true, invoiceNumber: true, customerName: true, amount: true, balance: true, status: true } }),
+    prisma.erpAccountPayable.findMany({ where: { ...branchFilter }, orderBy: { createdAt: 'desc' }, take: 5, select: { billDate: true, billNumber: true, supplierName: true, amount: true, balance: true, status: true } }),
+    prisma.erpPosTransaction.findMany({ where: { createdAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) }, ...branchFilter }, select: { total: true } }),
   ]);
 
   const lowStockProducts = await prisma.erpBranchStock.findMany({
-    where: { product: { isActive: true }, quantity: { gt: 0 } },
+    where: { product: { isActive: true }, quantity: { gt: 0 }, ...branchFilter },
     select: { quantity: true, minQuantity: true },
   });
   const lowStockItems = lowStockProducts.filter(p => Number(p.quantity) <= Number(p.minQuantity)).length;
-  const outOfStockItems = await prisma.erpBranchStock.count({ where: { quantity: 0, product: { isActive: true } } });
+  
+  // To correctly compute out-of-stock, subtract the products that currently have stock in this branch from the total active products
+  const productsWithStock = await prisma.erpBranchStock.count({ where: { quantity: { gt: 0 }, product: { isActive: true }, ...branchFilter } });
+  const outOfStockItems = activeProducts - productsWithStock;
 
   let posSalesToday = 0;
   for (const t of posToday) { posSalesToday += Number(t.total); }
@@ -58,12 +63,12 @@ export async function GET(_request: NextRequest) {
   const monthly: { month: string; revenue: number; expenses: number }[] = [];
 
   const arRecords = await prisma.erpAccountReceivable.findMany({
-    where: { invoiceDate: { gte: twelveMonthsAgo } },
+    where: { invoiceDate: { gte: twelveMonthsAgo }, ...branchFilter },
     select: { invoiceDate: true, amount: true },
   });
 
   const apRecords = await prisma.erpAccountPayable.findMany({
-    where: { billDate: { gte: twelveMonthsAgo } },
+    where: { billDate: { gte: twelveMonthsAgo }, ...branchFilter },
     select: { billDate: true, amount: true },
   });
 
