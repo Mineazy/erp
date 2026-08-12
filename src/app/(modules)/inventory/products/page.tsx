@@ -446,6 +446,65 @@ export default function ProductsPage() {
         </CardContent>
       </Card>
 
+      {/* Category Modal */}
+      <Dialog open={categoryModalOpen} onClose={() => setCategoryModalOpen(false)} title={`Products in ${selectedCategoryForModal?.name}`} size="xl">
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input type="text" placeholder="Search category products..." value={categoryModalSearch} onChange={(e) => setCategoryModalSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { setCategoryModalActiveSearch(categoryModalSearch); setCategoryModalPage(1); } }} className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-mine-blue-500 w-full" />
+            </div>
+            <Button variant="default" size="sm" onClick={() => { setCategoryModalActiveSearch(categoryModalSearch); setCategoryModalPage(1); }}>Search</Button>
+          </div>
+          {categoryModalLoading ? (
+            <div className="text-center text-slate-500 py-4">Loading...</div>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Product Name</TableHead>
+                    <TableHead className="text-right">Price</TableHead>
+                    <TableHead className="text-right">Stock</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {categoryModalProducts.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} className="text-center py-4 text-slate-500">No products found.</TableCell></TableRow>
+                  ) : (
+                    categoryModalProducts.map(p => (
+                      <TableRow key={p.id}>
+                        <TableCell className="font-mono text-xs">{p.code}</TableCell>
+                        <TableCell className="font-medium">{p.name}</TableCell>
+                        <TableCell className="text-right">${Number(p.sellingPrice).toFixed(2)}</TableCell>
+                        <TableCell className="text-right">{p.stock}</TableCell>
+                        <TableCell><Badge variant={p.isActive ? 'success' : 'secondary'}>{p.isActive ? 'Active' : 'Archived'}</Badge></TableCell>
+                        <TableCell className="text-right">
+                          <button onClick={() => openEdit(p)} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-mine-blue-600 transition-colors" title="Edit Product"><Edit2 className="h-4 w-4" /></button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+              <div className="flex items-center justify-between mt-4 text-sm text-slate-500">
+                <div>
+                  Showing {categoryModalProducts.length > 0 ? (categoryModalPage - 1) * 10 + 1 : 0} to {Math.min(categoryModalPage * 10, categoryModalTotal)} of {categoryModalTotal}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setCategoryModalPage(p => Math.max(1, p - 1))} disabled={categoryModalPage === 1}>Previous</Button>
+                  <Button variant="outline" size="sm" onClick={() => setCategoryModalPage(p => p + 1)} disabled={categoryModalPage >= Math.ceil(categoryModalTotal / 10)}>Next</Button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+        <DialogFooter><Button variant="outline" onClick={() => setCategoryModalOpen(false)}>Close</Button></DialogFooter>
+      </Dialog>
+
       {/* Product Dialog */}
       <Dialog open={dialogOpen} onClose={() => { setDialogOpen(false); setEditingProduct(null); }} title={editingProduct ? 'Edit Product' : 'Add Product'} size="lg">
         <div className="space-y-4">
@@ -576,63 +635,7 @@ export default function ProductsPage() {
         </DialogFooter>
       </Dialog>
 
-      <Dialog open={categoryModalOpen} onClose={() => setCategoryModalOpen(false)} title={`Products in ${selectedCategoryForModal?.name}`} size="xl">
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <input type="text" placeholder="Search category products..." value={categoryModalSearch} onChange={(e) => setCategoryModalSearch(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { setCategoryModalActiveSearch(categoryModalSearch); setCategoryModalPage(1); } }} className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-mine-blue-500 w-full" />
-            </div>
-            <Button variant="default" size="sm" onClick={() => { setCategoryModalActiveSearch(categoryModalSearch); setCategoryModalPage(1); }}>Search</Button>
-          </div>
-          {categoryModalLoading ? (
-            <div className="text-center text-slate-500 py-4">Loading...</div>
-          ) : (
-            <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Product Name</TableHead>
-                    <TableHead className="text-right">Price</TableHead>
-                    <TableHead className="text-right">Stock</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {categoryModalProducts.length === 0 ? (
-                    <TableRow><TableCell colSpan={5} className="text-center py-4 text-slate-500">No products found.</TableCell></TableRow>
-                  ) : (
-                    categoryModalProducts.map(p => (
-                      <TableRow key={p.id}>
-                        <TableCell className="font-mono text-xs">{p.code}</TableCell>
-                        <TableCell className="font-medium">{p.name}</TableCell>
-                        <TableCell className="text-right">${Number(p.sellingPrice).toFixed(2)}</TableCell>
-                        <TableCell className="text-right">{p.stock}</TableCell>
-                        <TableCell><Badge variant={p.isActive ? 'success' : 'secondary'}>{p.isActive ? 'Active' : 'Archived'}</Badge></TableCell>
-                        <TableCell className="text-right">
-                          <button onClick={() => openEdit(p)} className="p-1.5 hover:bg-slate-100 rounded text-slate-400 hover:text-mine-blue-600 transition-colors" title="Edit Product"><Edit2 className="h-4 w-4" /></button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-              <div className="flex items-center justify-between mt-4 text-sm text-slate-500">
-                <div>
-                  Showing {categoryModalProducts.length > 0 ? (categoryModalPage - 1) * 10 + 1 : 0} to {Math.min(categoryModalPage * 10, categoryModalTotal)} of {categoryModalTotal}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setCategoryModalPage(p => Math.max(1, p - 1))} disabled={categoryModalPage === 1}>Previous</Button>
-                  <Button variant="outline" size="sm" onClick={() => setCategoryModalPage(p => p + 1)} disabled={categoryModalPage >= Math.ceil(categoryModalTotal / 10)}>Next</Button>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-        <DialogFooter><Button variant="outline" onClick={() => setCategoryModalOpen(false)}>Close</Button></DialogFooter>
-      </Dialog>
+
     </div>
   );
 }
