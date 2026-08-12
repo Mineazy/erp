@@ -20,7 +20,9 @@ export async function GET(_request: NextRequest) {
       },
     }),
     prisma.erpBranch.findMany({ select: { id: true, name: true } }),
-    prisma.erpProduct.count({ where: { isActive: true } }),
+    branchFilter.branchId 
+      ? prisma.erpBranchStock.count({ where: { branchId: branchFilter.branchId, product: { isActive: true } } }) 
+      : prisma.erpProduct.count({ where: { isActive: true } }),
   ]);
 
   const stocks = await prisma.erpBranchStock.findMany({
@@ -54,7 +56,8 @@ export async function GET(_request: NextRequest) {
     }
   }
 
-  const outOfStockCount = totalProducts - inStockCount;
+  const globalActiveProducts = await prisma.erpProduct.count({ where: { isActive: true } });
+  const outOfStockCount = globalActiveProducts - inStockCount;
   const totalStockQty = stockAgg._sum.quantity || 0;
   const totalInventoryValue = stocks.reduce((sum, s) => sum + Number(s.quantity) * Number(s.product.costPrice), 0);
 

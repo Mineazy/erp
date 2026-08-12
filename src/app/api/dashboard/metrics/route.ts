@@ -26,8 +26,12 @@ export async function GET(_request: NextRequest) {
     recentAP,
     posToday,
   ] = await Promise.all([
-    prisma.erpProduct.count(),
-    prisma.erpProduct.count({ where: { isActive: true } }),
+    branchFilter.branchId 
+      ? prisma.erpBranchStock.count({ where: { branchId: branchFilter.branchId } })
+      : prisma.erpProduct.count(),
+    branchFilter.branchId
+      ? prisma.erpBranchStock.count({ where: { branchId: branchFilter.branchId, product: { isActive: true } } })
+      : prisma.erpProduct.count({ where: { isActive: true } }),
     prisma.erpCustomer.count({ where: { isActive: true } }),
     prisma.erpSupplier.count({ where: { isActive: true } }),
     prisma.erpSalesOrder.count({ where: { ...branchFilter } }),
