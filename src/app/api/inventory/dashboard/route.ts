@@ -47,12 +47,6 @@ export async function GET(_request: NextRequest) {
     branchMap.set(b.id, { id: b.id, branch: b.name, productCount: 0, stockQty: 0, value: 0 });
   }
 
-  const categoryMap = new Map<string, { id: string; name: string; productCount: number }>();
-
-  // A given branch/HQ could have multiple ErpBranchStock records for the SAME product (if it's an error), 
-  // but usually it's 1-to-1 per branch. We want to count distinct products per category.
-  const seenProductByCategory = new Set<string>();
-
   for (const s of stocks) {
     if (s.branchId && branchMap.has(s.branchId)) {
       const b = branchMap.get(s.branchId)!;
@@ -60,23 +54,33 @@ export async function GET(_request: NextRequest) {
       b.stockQty += Number(s.quantity);
       b.value += Number(s.quantity) * Number(s.product.costPrice);
     }
-
-    if (s.product.categoryId) {
-      const uniqueKey = `${s.product.categoryId}_${s.productId}`;
-      if (!seenProductByCategory.has(uniqueKey)) {
-        seenProductByCategory.add(uniqueKey);
-        const catId = s.product.categoryId;
-        const catName = s.product.category?.name || 'Uncategorized';
-        if (!categoryMap.has(catId)) {
-          categoryMap.set(catId, { id: catId, name: catName, productCount: 0 });
-        }
-        categoryMap.get(catId)!.productCount++;
-      }
-    }
   }
-  const branchSummary = Array.from(branchMap.values());
-  const categorySummary = Array.from(categoryMap.values()).sort((a, b) => b.productCount - a.productCount);
 
+  const branchSummary = Array.from(branchMap.values());
+  
+  // Calculate category summary by grouping ALL active products
+  const productCategoryCounts = await prisma.erpProduct.groupBy({
+    by: ['categoryId'],
+    _count: { id: true },
+    where: { isActive: true }
+  });
+  
+  const categoryIds = productCategoryCounts.map(c => c.categoryId).filter(Boolean) as string[];
+  const categories = await prisma.erpProductCategory.findMany({
+    where: { id: { in: categoryIds } },
+    select: { id: true, name: true }
+  });
+  
+  const categoryNameMap = new Map(categories.map(c => [c.id, c.name]));
+  
+  const categorySummary = productCategoryCounts
+    .filter(c => c.categoryId)
+    .map(c => ({
+      id: c.categoryId!,
+      name: categoryNameMap.get(c.categoryId!) || 'Uncategorized',
+      productCount: c._count.id
+    }))
+    .sort((a, b) => b.productCount - a.productCount);
   const forecastCount = await prisma.erpInventoryForecast.count();
 
   return ok({
