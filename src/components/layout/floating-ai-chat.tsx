@@ -9,7 +9,9 @@ import { Button } from '@/components/ui/button';
 export function FloatingAiChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-  const { messages: chatMessages, input, handleInputChange, handleSubmit, status } = useChat({
+  const [input, setInput] = useState('');
+  
+  const { messages: chatMessages, append, status } = useChat({
     api: '/api/chat',
     initialMessages: [
       {
@@ -123,13 +125,20 @@ export function FloatingAiChatWidget() {
           {/* Input Area */}
           <div className="p-3 bg-white border-t border-slate-200">
             <form 
-              onSubmit={handleSubmit}
+              onSubmit={(e) => {
+                e.preventDefault();
+                if ((input || '').trim() && !isLoading) {
+                  const messageText = input;
+                  setInput('');
+                  append({ id: Date.now().toString(), role: 'user', content: messageText });
+                }
+              }}
               className="flex items-end gap-2"
             >
               <div className="flex-1 bg-slate-100 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500 transition-shadow">
                 <textarea
-                  value={input || ''}
-                  onChange={handleInputChange}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
                   placeholder="Ask Ezzie anything..."
                   className="w-full bg-transparent text-sm resize-none outline-none max-h-32 placeholder:text-slate-500"
                   rows={1}
@@ -137,8 +146,9 @@ export function FloatingAiChatWidget() {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
                       if ((input || '').trim() && !isLoading) {
-                         const form = e.currentTarget.form;
-                         if (form) form.requestSubmit();
+                         const messageText = input;
+                         setInput('');
+                         append({ id: Date.now().toString(), role: 'user', content: messageText });
                       }
                     }
                   }}
