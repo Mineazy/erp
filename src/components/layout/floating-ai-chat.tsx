@@ -34,12 +34,10 @@ export function FloatingAiChatWidget() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-24 z-50 p-4 bg-indigo-600 text-white rounded-full shadow-xl hover:bg-indigo-700 transition-all hover:scale-110 flex items-center justify-center group"
+        className="relative p-2 text-slate-500 hover:bg-slate-100 hover:text-indigo-600 rounded-lg transition-colors flex items-center justify-center group"
+        title="Ask Ezzie (AI)"
       >
-        <Bot className="h-6 w-6" />
-        <span className="absolute right-full mr-4 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity pointer-events-none">
-          Ask Ezzie (AI)
-        </span>
+        <Bot className="h-5 w-5" />
       </button>
     );
   }

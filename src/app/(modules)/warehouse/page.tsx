@@ -1,10 +1,42 @@
-'use client';
-
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Warehouse, Building2, Package, ClipboardCheck, ArrowLeftRight, AlertTriangle, TrendingUp, Bell } from 'lucide-react';
 import Link from 'next/link';
+import { prisma } from '@/lib/prisma';
+import { formatDistanceToNow } from 'date-fns';
 
-export default function WarehouseDashboard() {
+export default async function WarehouseDashboard() {
+  const [
+    totalWarehouses,
+    totalBranches,
+    warehouseStocks,
+    branchStocks,
+    pendingReceipts,
+    pendingTransfers,
+    recentActivity,
+    lowStockResult
+  ] = await Promise.all([
+    prisma.erpWarehouse.count({ where: { type: { not: 'transit' } } }),
+    prisma.erpBranch.count(),
+    prisma.erpWarehouseStock.aggregate({ _sum: { quantity: true } }),
+    prisma.erpBranchStock.aggregate({ _sum: { quantity: true } }),
+    prisma.erpGoodsReceipt.count({ where: { status: 'Pending Review' } }),
+    prisma.erpStockTransfer.count({ where: { status: 'in_transit' } }),
+    prisma.erpStockMovement.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 4,
+    }),
+    prisma.$queryRaw`SELECT COUNT(*) as count FROM erp_branch_stocks WHERE quantity <= min_quantity AND min_quantity > 0`
+  ]);
+
+  const totalStockOnHand = Number(warehouseStocks._sum.quantity || 0) + Number(branchStocks._sum.quantity || 0);
+  const lowStockAlerts = Number((lowStockResult as any[])[0]?.count || 0);
+  
+  const formatStock = (num: number) => {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
+    return num.toLocaleString();
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -20,7 +52,7 @@ export default function WarehouseDashboard() {
             </div>
             <div>
               <p className="text-sm font-medium text-slate-500">Total Warehouses</p>
-              <h3 className="text-2xl font-bold text-slate-900">12</h3>
+              <h3 className="text-2xl font-bold text-slate-900">{totalWarehouses}</h3>
             </div>
           </CardContent>
         </Card>
@@ -32,7 +64,7 @@ export default function WarehouseDashboard() {
             </div>
             <div>
               <p className="text-sm font-medium text-slate-500">Total Branches</p>
-              <h3 className="text-2xl font-bold text-slate-900">48</h3>
+              <h3 className="text-2xl font-bold text-slate-900">{totalBranches}</h3>
             </div>
           </CardContent>
         </Card>
@@ -44,7 +76,7 @@ export default function WarehouseDashboard() {
             </div>
             <div>
               <p className="text-sm font-medium text-slate-500">Total Stock on Hand</p>
-              <h3 className="text-2xl font-bold text-slate-900">124.5k</h3>
+              <h3 className="text-2xl font-bold text-slate-900">{formatStock(totalStockOnHand)}</h3>
             </div>
           </CardContent>
         </Card>
@@ -56,7 +88,7 @@ export default function WarehouseDashboard() {
             </div>
             <div>
               <p className="text-sm font-medium text-slate-500">Pending Receipts</p>
-              <h3 className="text-2xl font-bold text-slate-900">23</h3>
+              <h3 className="text-2xl font-bold text-slate-900">{pendingReceipts}</h3>
             </div>
           </CardContent>
         </Card>
@@ -68,7 +100,7 @@ export default function WarehouseDashboard() {
             </div>
             <div>
               <p className="text-sm font-medium text-slate-500">Pending Back Orders</p>
-              <h3 className="text-2xl font-bold text-slate-900">15</h3>
+              <h3 className="text-2xl font-bold text-slate-900">0</h3>
             </div>
           </CardContent>
         </Card>
@@ -80,7 +112,7 @@ export default function WarehouseDashboard() {
             </div>
             <div>
               <p className="text-sm font-medium text-slate-500">Pending Transfers</p>
-              <h3 className="text-2xl font-bold text-slate-900">8</h3>
+              <h3 className="text-2xl font-bold text-slate-900">{pendingTransfers}</h3>
             </div>
           </CardContent>
         </Card>
@@ -92,7 +124,7 @@ export default function WarehouseDashboard() {
             </div>
             <div>
               <p className="text-sm font-medium text-slate-500">Low Stock Alerts</p>
-              <h3 className="text-2xl font-bold text-slate-900">42</h3>
+              <h3 className="text-2xl font-bold text-slate-900">{lowStockAlerts}</h3>
             </div>
           </CardContent>
         </Card>
@@ -137,21 +169,24 @@ export default function WarehouseDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {[
-                { action: 'Goods Receipt', desc: 'Received 500 units of Product A', time: '2 hours ago' },
-                { action: 'Stock Transfer', desc: 'Dispatched 200 units to Branch XYZ', time: '4 hours ago' },
-                { action: 'Cycle Count', desc: 'Completed Zone B count (99% match)', time: '5 hours ago' },
-                { action: 'Back Order', desc: 'Allocated stock for BO-0012', time: '1 day ago' },
-              ].map((item, i) => (
-                <div key={i} className="flex gap-4">
-                  <div className="mt-1 h-2 w-2 rounded-full bg-mine-blue-500 shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-slate-900">{item.action}</p>
-                    <p className="text-sm text-slate-500">{item.desc}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">{item.time}</p>
+              {recentActivity.length === 0 ? (
+                <p className="text-slate-500 text-sm">No recent activity</p>
+              ) : (
+                recentActivity.map((item, i) => (
+                  <div key={i} className="flex gap-4">
+                    <div className="mt-1 h-2 w-2 rounded-full bg-mine-blue-500 shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">
+                        {item.type.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                      </p>
+                      <p className="text-sm text-slate-500">{item.notes || `Movement of ${item.productName}`}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </CardContent>
         </Card>

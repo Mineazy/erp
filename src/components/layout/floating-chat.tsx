@@ -247,13 +247,12 @@ export function FloatingChatWidget() {
       {/* Floating Toggle Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full bg-gradient-to-br from-mine-blue-700 to-indigo-800 text-white shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center border border-white/20"
+        className="relative p-2 text-slate-500 hover:bg-slate-100 hover:text-mine-blue-600 rounded-lg transition-colors flex items-center justify-center"
+        title="Messenger"
       >
-        <MessageCircle className="h-6 w-6" />
+        <MessageCircle className="h-5 w-5" />
         {totalUnread > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 h-6 w-6 rounded-full bg-red-500 text-[11px] font-bold text-white border-2 border-white flex items-center justify-center shadow-md animate-pulse">
-            {totalUnread}
-          </span>
+          <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-red-500 border border-white" />
         )}
       </button>
 

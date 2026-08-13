@@ -11,6 +11,8 @@ import { toast, dismissToast } from '@/components/ui/toast';
 import { Menu, LogOut, User, Lock, ChevronLeft, Mail, Shield, Clock, Building } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SyncManager } from '@/components/sync-manager';
+import { FloatingChatWidget } from './floating-chat';
+import { FloatingAiChatWidget } from './floating-ai-chat';
 
 interface HeaderProps {
   collapsed: boolean;
@@ -86,7 +88,12 @@ export function Header({ collapsed, onToggleSidebar }: HeaderProps) {
               <h1 className="text-lg font-semibold text-slate-900">ERP System</h1>
               <p className="text-xs text-slate-500">Mineazy Mining Solutions</p>
             </div>
-            <SyncManager />
+            <div className="hidden md:flex items-center gap-2">
+              <SyncManager />
+              <div className="w-px h-6 bg-slate-200 mx-2" />
+              <FloatingChatWidget />
+              <FloatingAiChatWidget />
+            </div>
           </div>
         </div>
 

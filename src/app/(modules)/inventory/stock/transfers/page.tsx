@@ -10,8 +10,8 @@ import { Select } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
-import { ArrowLeftRight, Plus, Search, Edit2, Trash2, Send, CheckCircle, XCircle, Building2, Package } from 'lucide-react';
-
+import { ArrowLeftRight, Plus, Search, Edit2, Trash2, Send, CheckCircle, XCircle, Building2, Package, Printer } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 interface Branch { id: string; name: string; code: string }
 interface Product { id: string; name: string; code?: string }
 interface LineItem { productId: string; productName: string; quantity: number; batchNo?: string }
@@ -149,7 +149,7 @@ export default function StockTransfersPage() {
       const ok = await confirmDialog({ title: 'Cancel Transfer', message: 'Are you sure you want to cancel this transfer?', variant: 'danger' });
       if (!ok) return;
     }
-    const endpoint = action === 'receive' ? 'receive' : action === 'cancel' ? 'cancel' : '';
+    const endpoint = action === 'receive' ? 'receive' : action === 'cancel' ? 'cancel' : action === 'send' ? 'send' : '';
     const method = endpoint ? 'POST' : 'PUT';
     const url = endpoint
       ? `/api/inventory/stock/transfers/${id}/${endpoint}`
@@ -197,6 +197,60 @@ export default function StockTransfersPage() {
     } catch {
       toast('Network error. Please try again.', 'error');
     }
+  };
+
+  const printDispatchNote = (t: Transfer) => {
+    const doc = new jsPDF();
+    doc.setFontSize(20);
+    doc.text('Dispatch Note', 14, 22);
+    
+    doc.setFontSize(12);
+    doc.text(`Transfer No: ${t.transferNo}`, 14, 35);
+    doc.text(`Status: ${t.status}`, 14, 42);
+    doc.text(`Date: ${new Date(t.updatedAt).toLocaleString()}`, 14, 49);
+    
+    doc.text(`From: ${t.fromBranch?.name || 'Warehouse'}`, 14, 62);
+    doc.text(`To: ${t.toBranch?.name || 'Branch'}`, 14, 69);
+    doc.text(`Transit Location: L99 Transit Warehouse (Disaggregated for ${t.toBranch?.code || 'Branch'})`, 14, 76);
+
+    doc.setFontSize(14);
+    doc.text('Items:', 14, 90);
+    doc.setFontSize(12);
+    
+    let y = 100;
+    t.lines?.forEach((line, idx) => {
+      doc.text(`${idx + 1}. ${line.productName} - Qty: ${line.quantity}`, 14, y);
+      y += 8;
+    });
+
+    doc.save(`DispatchNote_${t.transferNo}.pdf`);
+  };
+
+  const printReceivingReport = (t: Transfer) => {
+    const doc = new jsPDF();
+    doc.setFontSize(20);
+    doc.text('Receiving Report', 14, 22);
+    
+    doc.setFontSize(12);
+    doc.text(`Transfer No: ${t.transferNo}`, 14, 35);
+    doc.text(`Status: ${t.status}`, 14, 42);
+    doc.text(`Received Date: ${new Date(t.updatedAt).toLocaleString()}`, 14, 49);
+    
+    doc.text(`From: ${t.fromBranch?.name || 'Warehouse'}`, 14, 62);
+    doc.text(`To: ${t.toBranch?.name || 'Branch'}`, 14, 69);
+    doc.text(`Received By: ${t.requestedBy}`, 14, 76);
+
+    doc.setFontSize(14);
+    doc.text('Items Received:', 14, 90);
+    doc.setFontSize(12);
+    
+    let y = 100;
+    t.lines?.forEach((line, idx) => {
+      doc.text(`${idx + 1}. ${line.productName} - Qty Received: ${line.quantity}`, 14, y);
+      y += 8;
+    });
+
+    doc.save(`ReceivingReport_${t.transferNo}.pdf`);
   };
 
   const addLine = () => {
@@ -301,6 +355,16 @@ export default function StockTransfersPage() {
                           {t.status === 'in_transit' && (
                             <button onClick={() => handleStatusAction(t.id, 'receive')} className="p-1.5 hover:bg-green-50 rounded" title="Receive">
                               <CheckCircle className="h-4 w-4 text-green-500" />
+                            </button>
+                          )}
+                          {(t.status === 'in_transit' || t.status === 'received') && (
+                            <button onClick={() => printDispatchNote(t)} className="p-1.5 hover:bg-slate-100 rounded" title="Print Dispatch Note">
+                              <Printer className="h-4 w-4 text-slate-500" />
+                            </button>
+                          )}
+                          {t.status === 'received' && (
+                            <button onClick={() => printReceivingReport(t)} className="p-1.5 hover:bg-slate-100 rounded" title="Print Receiving Report">
+                              <Printer className="h-4 w-4 text-green-600" />
                             </button>
                           )}
                           {(t.status === 'draft' || t.status === 'in_transit') && (
