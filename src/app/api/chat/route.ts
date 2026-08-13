@@ -26,7 +26,7 @@ Do not share sensitive financial data if the user's role is not "admin" or "acco
 When queried for information, always attempt to use the available tools to fetch live data from the system rather than guessing.`;
 
     const result = await streamText({
-      model: google('models/gemini-1.5-pro-latest'),
+      model: google('gemini-1.5-pro'),
       system: systemPrompt,
       messages,
       tools: getAiTools(userRole),
