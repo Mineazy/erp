@@ -11,6 +11,7 @@ export async function ensureDefaultAccounts(prisma: PrismaClient) {
     { codeMatch: '1100', name: 'Accounts Receivable', type: 'ASSET', category: 'Receivables' },
     { codeMatch: '1200', name: 'Inventory Asset', type: 'ASSET', category: 'Inventory' },
     { codeMatch: '2000', name: 'Sales Tax Payable', type: 'LIABILITY', category: 'Tax' },
+    { codeMatch: '2100', name: 'Accounts Payable', type: 'LIABILITY', category: 'Payables' },
     { codeMatch: '4000', name: 'Sales Revenue', type: 'INCOME', category: 'Revenue' },
     { codeMatch: '5000', name: 'Cost of Goods Sold', type: 'EXPENSE', category: 'Cost of Sales' },
   ];

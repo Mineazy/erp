@@ -300,9 +300,9 @@ export default function POSTerminalPage() {
         }
       }
 
-      const params = new URLSearchParams({ limit: '100' });
+      const params = new URLSearchParams({ limit: '5000' });
       if (search) params.append('search', search);
-      if (category) params.append('category', category);
+      if (category) params.append('categoryId', category);
       if (session?.branchId) params.append('branchId', session.branchId);
       
       const res = await fetch(`/api/inventory/products?${params.toString()}`);
@@ -571,13 +571,14 @@ export default function POSTerminalPage() {
   const getStockStatus = (p: Product) => {
     const stock = Number(p.stock);
     const minStock = Number(p.minStock ?? 0);
-    if (stock === 0) {
+    if (stock <= 0) {
       return {
         bg: 'bg-red-50/50 hover:bg-red-50',
         border: 'border-red-200 hover:border-red-400',
         text: 'text-red-800',
         stockText: 'text-red-600 font-bold',
-        badge: 'bg-red-100 text-red-800 border-red-200'
+        badge: 'bg-red-100 text-red-800 border-red-200',
+        label: 'Not Available'
       };
     }
     if (stock <= minStock) {
@@ -586,7 +587,8 @@ export default function POSTerminalPage() {
         border: 'border-amber-200 hover:border-amber-400',
         text: 'text-amber-800',
         stockText: 'text-amber-600 font-bold',
-        badge: 'bg-amber-100 text-amber-800 border-amber-200'
+        badge: 'bg-amber-100 text-amber-800 border-amber-200',
+        label: `Stock: ${stock}`
       };
     }
     return {
@@ -594,7 +596,8 @@ export default function POSTerminalPage() {
       border: 'border-emerald-200 hover:border-emerald-400',
       text: 'text-emerald-800',
       stockText: 'text-emerald-600 font-medium',
-      badge: 'bg-emerald-100 text-emerald-800 border-emerald-200'
+      badge: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      label: `Stock: ${stock}`
     };
   };
 
@@ -937,14 +940,14 @@ export default function POSTerminalPage() {
                       <button
                         key={product.id}
                         onClick={() => addToCart(product)}
-                        disabled={product.stock === 0}
+                        disabled={Number(product.stock) <= 0}
                         className={`text-left p-3 rounded-lg border ${status.border} ${status.bg} transition-all disabled:opacity-60 disabled:cursor-not-allowed`}
                       >
                         <div className="flex justify-between items-start gap-1">
                           <p className="font-semibold text-sm text-slate-900 truncate flex-1">{product.name}</p>
-                          {product.stock === 0 ? (
+                          {Number(product.stock) <= 0 ? (
                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${status.badge}`}>OUT</span>
-                          ) : product.stock <= (product.minStock ?? 0) ? (
+                          ) : Number(product.stock) <= Number(product.minStock ?? 0) ? (
                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${status.badge}`}>LOW</span>
                           ) : (
                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${status.badge}`}>OK</span>
@@ -956,7 +959,7 @@ export default function POSTerminalPage() {
                           <span className="font-normal text-xs text-slate-400 ml-1">/{product.unit}</span>
                         </p>
                         <p className={`text-xs mt-1 ${status.stockText}`}>
-                          Stock: {product.stock}
+                          {status.label}
                         </p>
                       </button>
                     );
@@ -1014,7 +1017,7 @@ export default function POSTerminalPage() {
                                 <div className="flex items-center gap-4 flex-shrink-0">
                                   <div className="text-right">
                                     <span className={`text-[10px] font-bold px-2.5 py-1 rounded border inline-block ${status.badge}`}>
-                                      Stock: {product.stock}
+                                      {status.label}
                                     </span>
                                   </div>
                                   <div className="font-bold text-sm text-mine-blue-900 font-mono w-24 text-right">
@@ -1023,7 +1026,7 @@ export default function POSTerminalPage() {
                                   </div>
                                   <Button
                                     size="sm"
-                                    disabled={product.stock === 0}
+                                    disabled={Number(product.stock) <= 0}
                                     onClick={() => addToCart(product)}
                                     className="h-8 text-xs font-semibold px-3 bg-mine-blue-800 hover:bg-mine-blue-900 text-white"
                                   >
