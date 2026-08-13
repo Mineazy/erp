@@ -76,28 +76,30 @@ export function Header({ collapsed, onToggleSidebar }: HeaderProps) {
           collapsed ? 'md:left-16' : 'md:left-64'
         )}
       >
-        <div className="flex items-center gap-4">
+        {/* Left Side */}
+        <div className="flex items-center gap-4 flex-1">
           <button
             onClick={onToggleSidebar}
             className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
           >
             {collapsed ? <Menu className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
           </button>
-          <div className="flex items-center gap-4">
-            <div>
-              <h1 className="text-lg font-semibold text-slate-900">ERP System</h1>
-              <p className="text-xs text-slate-500">Mineazy Mining Solutions</p>
-            </div>
-            <div className="hidden md:flex items-center gap-2">
-              <SyncManager />
-              <div className="w-px h-6 bg-slate-200 mx-2" />
-              <FloatingChatWidget />
-              <FloatingAiChatWidget />
-            </div>
+          <div className="hidden sm:block">
+            <h1 className="text-lg font-semibold text-slate-900">ERP System</h1>
+            <p className="text-xs text-slate-500">Mineazy Mining Solutions</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        {/* Center */}
+        <div className="flex items-center justify-center gap-2 flex-1">
+          <SyncManager />
+          <div className="hidden sm:block w-px h-6 bg-slate-200 mx-2" />
+          <FloatingChatWidget />
+          <FloatingAiChatWidget />
+        </div>
+
+        {/* Right Side */}
+        <div className="flex items-center justify-end gap-4 flex-1">
           <DropdownMenu
             trigger={
               <div className="flex items-center gap-3 cursor-pointer hover:bg-slate-50 rounded-lg p-2 transition-colors">
