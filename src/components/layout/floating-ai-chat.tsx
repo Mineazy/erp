@@ -11,7 +11,7 @@ export function FloatingAiChatWidget() {
   const [isMinimized, setIsMinimized] = useState(false);
   const [input, setInput] = useState('');
   
-  const { messages: chatMessages, append, status } = useChat({
+  const { messages: chatMessages, sendMessage, status } = useChat({
     api: '/api/chat',
     initialMessages: [
       {
@@ -130,7 +130,7 @@ export function FloatingAiChatWidget() {
                 if ((input || '').trim() && !isLoading) {
                   const messageText = input;
                   setInput('');
-                  append({ id: Date.now().toString(), role: 'user', content: messageText });
+                  sendMessage({ id: Date.now().toString(), role: 'user', content: messageText });
                 }
               }}
               className="flex items-end gap-2"
@@ -148,7 +148,7 @@ export function FloatingAiChatWidget() {
                       if ((input || '').trim() && !isLoading) {
                          const messageText = input;
                          setInput('');
-                         append({ id: Date.now().toString(), role: 'user', content: messageText });
+                         sendMessage({ id: Date.now().toString(), role: 'user', content: messageText });
                       }
                     }
                   }}
