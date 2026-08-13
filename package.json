@@ -9,6 +9,7 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@ai-sdk/google": "^4.0.43",
     "@ai-sdk/openai": "^4.0.17",
     "@ai-sdk/react": "^4.0.37",
     "@hookform/resolvers": "^3.6.0",

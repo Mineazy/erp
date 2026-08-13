@@ -1,4 +1,4 @@
-import { openai } from '@ai-sdk/openai';
+import { google } from '@ai-sdk/google';
 import { streamText, tool } from 'ai';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -26,7 +26,7 @@ Do not share sensitive financial data if the user's role is not "admin" or "acco
 When queried for information, always attempt to use the available tools to fetch live data from the system rather than guessing.`;
 
     const result = await streamText({
-      model: openai('gpt-4o'),
+      model: google('models/gemini-1.5-pro-latest'),
       system: systemPrompt,
       messages,
       tools: getAiTools(userRole),
