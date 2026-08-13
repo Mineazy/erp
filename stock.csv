@@ -1,0 +1,1 @@
+Item No,Name,LOCATION CODE';\nconst startIdx = content.lastIndexOf(startMatch);\nif (startIdx !== -1) {\n    let endIdx = content.indexOf('

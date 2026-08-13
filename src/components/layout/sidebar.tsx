@@ -124,6 +124,7 @@ const navGroups = [
       { label: 'History', href: '/pos/history', icon: 'FileText' },
       { label: 'Invoice Journal', href: '/pos/journal', icon: 'Book' },
       { label: 'Z Reports (EOD)', href: '/pos/reports/z-reports', icon: 'FileText' },
+      { label: 'Variances', href: '/pos/reports/variances', icon: 'AlertTriangle' },
       { label: 'Reports & Analytics', href: '/pos/reports', icon: 'FileBarChart' },
     ],
   },

@@ -118,6 +118,8 @@ export default function POSTerminalPage() {
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [warningLevel, setWarningLevel] = useState<'none' | 'warning' | 'critical' | 'expired'>('none');
   const [forceCloseDialogOpen, setForceCloseDialogOpen] = useState(false);
+  const [closeSessionDialogOpen, setCloseSessionDialogOpen] = useState(false);
+  const [actualCashInput, setActualCashInput] = useState('');
 
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [receiptCustomer, setReceiptCustomer] = useState<Customer | null>(null);
@@ -445,7 +447,7 @@ export default function POSTerminalPage() {
         res = await fetch(`/api/pos/sessions/${session.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ closingBalance: session.totalSales || 0 }),
+          body: JSON.stringify({ closingBalance: actualCashInput || 0 }),
         });
       } catch (e) { dismissToast(tid); throw e; }
       if (!res.ok) {
@@ -459,6 +461,8 @@ export default function POSTerminalPage() {
       toast('Session updated successfully', 'success');
       setSession(data.data || { ...session, status: 'closed', closedAt: new Date().toISOString() });
       setCart([]);
+      setCloseSessionDialogOpen(false);
+      setActualCashInput('');
     } catch {
       toast('Failed to close session', 'error');
     }
@@ -835,10 +839,10 @@ export default function POSTerminalPage() {
             Mobile Orders
           </Button>
           {sessionOpen ? (
-            <Button variant="destructive" onClick={closeSession}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Close Session
-            </Button>
+              <Button variant="destructive" onClick={() => setCloseSessionDialogOpen(true)}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Close Session
+              </Button>
           ) : (
             <Button onClick={openSession} variant="secondary">
               <LogIn className="h-4 w-4 mr-2" />
@@ -1781,6 +1785,27 @@ export default function POSTerminalPage() {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setMobileOrdersDialogOpen(false)}>Close</Button>
+        </DialogFooter>
+      </Dialog>
+
+      <Dialog open={closeSessionDialogOpen} onClose={() => setCloseSessionDialogOpen(false)} title="Close Session">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600">Enter the total cash counted in the drawer to close the session and generate the day-end report.</p>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Total Cash Counted ($)</label>
+            <Input 
+              type="number" 
+              placeholder="0.00" 
+              value={actualCashInput}
+              onChange={(e) => setActualCashInput(e.target.value)}
+              step="0.01"
+              min="0"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setCloseSessionDialogOpen(false)}>Cancel</Button>
+          <Button onClick={closeSession} disabled={!actualCashInput}>Confirm & Close</Button>
         </DialogFooter>
       </Dialog>
     </div>
