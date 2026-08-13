@@ -120,7 +120,7 @@ export const authOptions: NextAuthOptions = {
             action: 'LOGIN',
             entityType: 'UserSession',
             entityId: message.user.id,
-            changes: { method: 'credentials', timestamp: new Date().toISOString() },
+            changes: JSON.stringify({ method: 'credentials', timestamp: new Date().toISOString() }),
           });
         } catch (err) {
           console.error('[Auth] Failed to write signIn audit log:', err);
