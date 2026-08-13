@@ -150,7 +150,7 @@ export default function POSJournalPage() {
 
       {/* Filters */}
       <Card>
-        <CardContent className="p-3 flex items-center gap-3 flex-wrap">
+        <CardContent className="p-3 flex items-end gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
@@ -158,22 +158,26 @@ export default function POSJournalPage() {
               placeholder="Search transactions..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-mine-blue-500 w-full"
+              className="pl-9 pr-4 h-10 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-mine-blue-500 w-full"
             />
           </div>
-          <Input type="date" label="From" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-40" />
-          <Input type="date" label="To" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-40" />
+          <div className="w-40">
+            <Input type="date" label="From" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+          </div>
+          <div className="w-40">
+            <Input type="date" label="To" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+          </div>
           <select
             value={groupBy}
             onChange={(e) => setGroupBy(e.target.value)}
-            className="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mine-blue-500"
+            className="text-sm border border-slate-200 rounded-lg px-3 h-10 focus:outline-none focus:ring-2 focus:ring-mine-blue-500"
           >
             <option value="transaction">Group by Transaction</option>
             <option value="day">Group by Day</option>
           </select>
           <button
             onClick={() => fetchData()}
-            className="px-4 py-2 text-sm font-medium text-white bg-mine-blue-800 rounded-lg hover:bg-mine-blue-700"
+            className="px-4 h-10 text-sm font-medium text-white bg-mine-blue-800 rounded-lg hover:bg-mine-blue-700"
           >
             <Download className="h-4 w-4 mr-1.5 inline-block" />
             Refresh

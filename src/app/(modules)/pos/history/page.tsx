@@ -132,33 +132,37 @@ export default function TransactionHistoryPage() {
           <div className="flex items-center gap-3 mb-4 flex-wrap">
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-slate-400" />
-              <Input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="w-40"
-              />
+              <div className="w-40">
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                />
+              </div>
               <span className="text-slate-400">to</span>
-              <Input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="w-40"
+              <div className="w-40">
+                <Input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="w-36">
+              <Select
+                options={statusFilters}
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
               />
             </div>
-            <Select
-              options={statusFilters}
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-36"
-            />
-            <Select
-              options={paymentMethodFilters}
-              value={paymentFilter}
-              onChange={(e) => setPaymentFilter(e.target.value)}
-              className="w-40"
-            />
-            <Button variant="outline" size="sm" onClick={handleSearch}>
+            <div className="w-40">
+              <Select
+                options={paymentMethodFilters}
+                value={paymentFilter}
+                onChange={(e) => setPaymentFilter(e.target.value)}
+              />
+            </div>
+            <Button variant="outline" size="sm" onClick={handleSearch} className="h-10">
               Filter
             </Button>
           </div>
