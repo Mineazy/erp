@@ -12,15 +12,17 @@ export default async function WarehouseDashboard() {
     branchStocks,
     pendingReceipts,
     pendingTransfers,
+    pendingBackOrders,
     recentActivity,
     lowStockResult
   ] = await Promise.all([
-    prisma.erpWarehouse.count({ where: { type: { not: 'transit' } } }),
+    prisma.erpWarehouse.count({ where: { code: { not: 'L99' } } }),
     prisma.erpBranch.count(),
-    prisma.erpWarehouseStock.aggregate({ _sum: { quantity: true } }),
+    prisma.erpWarehouseStock.aggregate({ where: { warehouse: { code: { not: 'L99' } } }, _sum: { quantity: true } }),
     prisma.erpBranchStock.aggregate({ _sum: { quantity: true } }),
     prisma.erpGoodsReceipt.count({ where: { status: 'Pending Review' } }),
-    prisma.erpStockTransfer.count({ where: { status: 'in_transit' } }),
+    prisma.erpStockTransfer.count({ where: { status: { in: ['draft', 'pending'] } } }),
+    prisma.erpBackOrder.count({ where: { status: 'submitted' } }),
     prisma.erpStockMovement.findMany({
       orderBy: { createdAt: 'desc' },
       take: 4,
@@ -100,7 +102,7 @@ export default async function WarehouseDashboard() {
             </div>
             <div>
               <p className="text-sm font-medium text-slate-500">Pending Back Orders</p>
-              <h3 className="text-2xl font-bold text-slate-900">0</h3>
+              <h3 className="text-2xl font-bold text-slate-900">{pendingBackOrders}</h3>
             </div>
           </CardContent>
         </Card>

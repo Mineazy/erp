@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
 import { AlertTriangle, Upload, Plus, Search, FileSpreadsheet, CheckCircle2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import Link from 'next/link';
 
 interface BackOrder {
   id: string;
@@ -198,7 +199,9 @@ export default function BackOrdersPage() {
                       </TableCell>
                       <TableCell>{getStatusBadge(order.status)}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="outline" size="sm">Review</Button>
+                        <Link href={`/warehouse/back-orders/${order.id}`}>
+                          <Button variant="outline" size="sm">Review</Button>
+                        </Link>
                       </TableCell>
                     </TableRow>
                   );

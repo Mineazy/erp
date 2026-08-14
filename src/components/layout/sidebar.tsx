@@ -12,7 +12,7 @@ import {
   LucideIcon, Target, Percent, ClipboardList, Warehouse, ArrowLeftRight,
   ClipboardCheck, Wrench, QrCode, BarChart3, Shield, Settings, FolderTree,
   RotateCcw, MessageCircle, AlertTriangle, TrendingUp, LineChart, Bell,
-  FileBarChart, ScrollText, Award, Crown, Handshake,
+  FileBarChart, ScrollText, Award, Crown, Handshake, Store,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -21,7 +21,7 @@ const iconMap: Record<string, LucideIcon> = {
   Package, ShoppingCart, Truck, Users, Building2, Target, Percent, ClipboardList,
   Warehouse, ArrowLeftRight, ClipboardCheck, Wrench, QrCode, BarChart3, Shield, Settings,
   RotateCcw, MessageCircle, AlertTriangle, TrendingUp, LineChart, Bell,
-  FileBarChart, ScrollText, FolderTree, Award, Crown, Handshake,
+  FileBarChart, ScrollText, FolderTree, Award, Crown, Handshake, Store,
 };
 
 const navGroups = [
@@ -88,6 +88,7 @@ const navGroups = [
       { label: 'Sales Management', href: '/inventory/sales-management', icon: 'BarChart' },
       { label: 'Sales Forecasting', href: '/inventory/sales-forecasting', icon: 'TrendingUp' },
       { label: 'Inventory Overview', href: '/inventory/overview', icon: 'Layers' },
+      { label: 'Branch Orders', href: '/inventory/branch-orders', icon: 'Store' },
       { label: 'Seasonality', href: '/inventory/seasonality', icon: 'CalendarClock' },
       { label: 'Reports', href: '/inventory/reports', icon: 'FileBarChart' },
     ],
@@ -109,6 +110,8 @@ const navGroups = [
       { label: 'Locations', href: '/warehouse/branches', icon: 'Building2' },
       { label: 'Back Order Management', href: '/warehouse/back-orders', icon: 'AlertTriangle' },
       { label: 'Goods Receiving', href: '/inventory/goods-receipts', icon: 'ClipboardCheck' },
+      { label: 'Branch Orders', href: '/warehouse/branch-orders', icon: 'Store' },
+      { label: 'L99 Discrepancies', href: '/warehouse/l99-investigation', icon: 'AlertTriangle' },
       { label: 'Stock Transfers', href: '/warehouse/stock-transfers', icon: 'ArrowLeftRight' },
       { label: 'Storage Locations', href: '/warehouse/storage-locations', icon: 'Package' },
       { label: 'Cycle Counts', href: '/warehouse/cycle-counts', icon: 'ClipboardList' },
@@ -125,6 +128,7 @@ const navGroups = [
       { label: 'Invoice Journal', href: '/pos/journal', icon: 'Book' },
       { label: 'Z Reports (EOD)', href: '/pos/reports/z-reports', icon: 'FileText' },
       { label: 'Variances', href: '/pos/reports/variances', icon: 'AlertTriangle' },
+      { label: 'Branch Orders', href: '/inventory/branch-orders', icon: 'Store' },
       { label: 'Reports & Analytics', href: '/pos/reports', icon: 'FileBarChart' },
     ],
   },

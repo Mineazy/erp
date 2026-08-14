@@ -1037,6 +1037,7 @@ model ErpStockTransferLine {
   productId   String           @map("product_id")
   productName String           @map("product_name")
   quantity    Decimal          @db.Decimal(15, 2)
+  receivedQty Decimal?         @map("received_qty") @db.Decimal(15, 2)
   batchNo     String?          @map("batch_no")
   unitPrice   Decimal          @default(0.00) @map("unit_price") @db.Decimal(15, 2)
   transfer    ErpStockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
