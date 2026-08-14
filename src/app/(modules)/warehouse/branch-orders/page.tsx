@@ -10,8 +10,9 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { Store, Search, Eye, Send } from 'lucide-react';
+import { Store, Search, Eye, Send, FileText } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { jsPDF } from 'jspdf';
 
 export default function WarehouseBranchOrdersPage() {
   const router = useRouter();
@@ -63,6 +64,49 @@ export default function WarehouseBranchOrdersPage() {
     } finally {
       dismissToast(tid);
     }
+  };
+
+  const printDispatchNote = (t: any) => {
+    const doc = new jsPDF();
+    doc.setFontSize(20);
+    doc.text('Dispatch Note', 14, 22);
+    
+    doc.setFontSize(12);
+    doc.text(`Order No: ${t.transferNo}`, 14, 35);
+    doc.text(`Status: ${t.status}`, 14, 42);
+    doc.text(`Date: ${new Date(t.updatedAt || t.createdAt).toLocaleString()}`, 14, 49);
+    
+    doc.text(`From: ${t.fromWarehouse?.name || 'Warehouse'}`, 14, 62);
+    doc.text(`To: ${t.toBranch?.name || 'Branch'}`, 14, 69);
+    doc.text(`Requested By: ${t.requestedBy || 'N/A'}`, 14, 76);
+
+    doc.setFontSize(14);
+    doc.text('Items:', 14, 90);
+    doc.setFontSize(12);
+    
+    let y = 100;
+    t.lines?.forEach((line: any, idx: number) => {
+      doc.text(`${idx + 1}. ${line.productName} - Qty: ${line.quantity}`, 14, y);
+      y += 8;
+    });
+
+    y += 10;
+    
+    // Add Security Signatures section
+    doc.setFontSize(14);
+    doc.text('Security Clearance:', 14, y);
+    doc.setFontSize(12);
+    y += 10;
+    doc.text('Dispatched By (Warehouse): _______________________  Sign: _________________  Date: _________', 14, y);
+    y += 15;
+    doc.text('Checked By (Security):     _______________________  Sign: _________________  Date: _________', 14, y);
+    y += 15;
+    doc.text('Security Stamp:', 14, y);
+    
+    // Draw a box for the stamp
+    doc.rect(14, y + 5, 50, 30);
+
+    doc.save(`DispatchNote_${t.transferNo}.pdf`);
   };
 
   return (
@@ -146,6 +190,12 @@ export default function WarehouseBranchOrdersPage() {
                           <Button variant="ghost" size="sm" onClick={() => handleProcess(item.id)}>
                             <Send className="h-4 w-4 mr-1 text-mine-blue-600" />
                             Process
+                          </Button>
+                        )}
+                        {(item.status === 'in_transit' || item.status === 'received') && (
+                          <Button variant="ghost" size="sm" onClick={() => printDispatchNote(item)} title="Download Dispatch Note">
+                            <FileText className="h-4 w-4 mr-1 text-emerald-600" />
+                            PDF
                           </Button>
                         )}
                       </TableCell>
