@@ -47,7 +47,8 @@ export default function L99InvestigationPage() {
     fetch('/api/warehouse?limit=100').then(async r => { 
       if (r.ok) { 
         const d = await r.json(); 
-        setWarehouses((d.items || []).filter((w: any) => w.code !== 'L99')); 
+        const items = Array.isArray(d) ? d : (d.items || []);
+        setWarehouses(items.filter((w: any) => w.code !== 'L99')); 
       } 
     }).catch(() => {});
   }, []);
