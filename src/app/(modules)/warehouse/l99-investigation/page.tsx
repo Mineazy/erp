@@ -19,7 +19,7 @@ export default function L99InvestigationPage() {
   
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
   const [selectedStock, setSelectedStock] = useState<any>(null);
-  const [returnQty, setReturnQty] = useState('');
+  const [returnLines, setReturnLines] = useState<Record<string, string>>({});
   const [targetWarehouseId, setTargetWarehouseId] = useState('');
   const [notes, setNotes] = useState('');
   
@@ -52,30 +52,38 @@ export default function L99InvestigationPage() {
     }).catch(() => {});
   }, []);
 
-  const handleOpenReturn = (stock: any) => {
-    setSelectedStock(stock);
-    setReturnQty(stock.quantity);
+  const handleOpenReturn = (transfer: any) => {
+    setSelectedStock(transfer);
+    const initialLines: Record<string, string> = {};
+    transfer.lines?.forEach((l: any) => {
+      initialLines[l.id] = l.quantity.toString();
+    });
+    setReturnLines(initialLines);
     setTargetWarehouseId('');
     setNotes('');
     setReturnDialogOpen(true);
   };
 
   const handleReturnSubmit = async () => {
-    if (!targetWarehouseId || !returnQty || Number(returnQty) <= 0) {
-      toast('Please select a target warehouse and enter a valid quantity', 'error');
+    if (!targetWarehouseId) {
+      toast('Please select a target warehouse', 'error');
       return;
     }
     
-    if (Number(returnQty) > Number(selectedStock?.quantity)) {
-      toast('Cannot return more than available in L99', 'error');
+    const linesToReturn = Object.entries(returnLines)
+      .map(([lineId, qty]) => ({ lineId, returnQty: Number(qty) }))
+      .filter(l => l.returnQty > 0);
+
+    if (linesToReturn.length === 0) {
+      toast('Please enter return quantities for at least one item', 'error');
       return;
     }
 
     const tid = toast('Returning stock...', 'info', 120000);
     try {
       const payload = {
-        warehouseStockId: selectedStock.id,
-        quantityToReturn: returnQty,
+        transferId: selectedStock.id,
+        linesToReturn,
         targetWarehouseId,
         notes
       };
@@ -136,11 +144,11 @@ export default function L99InvestigationPage() {
             <Table>
               <TableHeader className="bg-slate-50">
                 <TableRow>
-                  <TableHead>Product Code</TableHead>
-                  <TableHead>Product Name</TableHead>
-                  <TableHead>Transit Batch No</TableHead>
-                  <TableHead>Location Details</TableHead>
-                  <TableHead>Quantity Stuck</TableHead>
+                  <TableHead>Order No</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>From</TableHead>
+                  <TableHead>To</TableHead>
+                  <TableHead>Requested By</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -148,19 +156,19 @@ export default function L99InvestigationPage() {
                 {loading ? (
                   <TableRow><TableCell colSpan={6} className="text-center py-8 text-slate-500">Loading...</TableCell></TableRow>
                 ) : data.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-slate-400">No discrepancies found in L99</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-slate-400">No branch orders stuck in L99</TableCell></TableRow>
                 ) : (
                   data.map((item) => (
                     <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.product?.code}</TableCell>
-                      <TableCell>{item.product?.name}</TableCell>
-                      <TableCell>{item.batchNo}</TableCell>
-                      <TableCell>{item.location || 'N/A'}</TableCell>
-                      <TableCell className="font-bold text-amber-600">{item.quantity}</TableCell>
+                      <TableCell className="font-medium">{item.transferNo}</TableCell>
+                      <TableCell>{new Date(item.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>{item.fromWarehouse?.name || 'N/A'}</TableCell>
+                      <TableCell>{item.toBranch?.name || 'N/A'}</TableCell>
+                      <TableCell>{item.requestedBy}</TableCell>
                       <TableCell className="text-right whitespace-nowrap">
                         <Button variant="ghost" size="sm" onClick={() => handleOpenReturn(item)}>
                           <Undo2 className="h-4 w-4 mr-1 text-mine-blue-600" />
-                          Return to Warehouse
+                          Return Order
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -174,24 +182,46 @@ export default function L99InvestigationPage() {
 
       {/* Return Dialog */}
       <Dialog open={returnDialogOpen} onClose={() => setReturnDialogOpen(false)}>
-        <div className="p-6 max-w-md w-full">
-          <h3 className="text-lg font-bold mb-4">Return Stock from L99</h3>
+        <div className="p-6 max-w-2xl w-full">
+          <h3 className="text-lg font-bold mb-4">Return Order from L99</h3>
           <div className="space-y-4">
-            <div>
-              <Label>Product</Label>
-              <p className="text-sm font-medium">{selectedStock?.product?.name}</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Order No</Label>
+                <p className="text-sm font-medium">{selectedStock?.transferNo}</p>
+              </div>
+              <div>
+                <Label>Target Warehouse</Label>
+                <Select value={targetWarehouseId} onChange={e => setTargetWarehouseId(e.target.value)}>
+                  <option value="">Select Warehouse...</option>
+                  {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                </Select>
+              </div>
             </div>
-            <div>
-              <Label>Quantity to Return (Max {selectedStock?.quantity})</Label>
-              <Input type="number" min="1" max={selectedStock?.quantity} value={returnQty} onChange={e => setReturnQty(e.target.value)} />
+            
+            <div className="mt-4">
+              <Label className="mb-2 block">Items to Return</Label>
+              <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2">
+                {selectedStock?.lines?.map((line: any) => (
+                  <div key={line.id} className="flex items-center gap-3 border p-3 rounded bg-slate-50">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{line.productName}</p>
+                      <p className="text-xs text-slate-500">Max: {line.quantity}</p>
+                    </div>
+                    <div className="w-24">
+                      <Input 
+                        type="number" 
+                        min="0" 
+                        max={line.quantity} 
+                        value={returnLines[line.id] || ''} 
+                        onChange={(e) => setReturnLines({...returnLines, [line.id]: e.target.value})} 
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div>
-              <Label>Target Warehouse</Label>
-              <Select value={targetWarehouseId} onChange={e => setTargetWarehouseId(e.target.value)}>
-                <option value="">Select Warehouse...</option>
-                {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-              </Select>
-            </div>
+
             <div>
               <Label>Investigation Notes</Label>
               <Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Found in truck, returned to main..." />

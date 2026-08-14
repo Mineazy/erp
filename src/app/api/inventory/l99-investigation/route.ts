@@ -11,33 +11,35 @@ export async function GET(request: NextRequest) {
   const page = sp.page || 1;
   const limit = sp.limit || 50;
 
-  const l99 = await prisma.erpWarehouse.findUnique({ where: { code: 'L99' } });
-  if (!l99) return ok({ items: [], total: 0, page, limit });
-
   const where: any = {
-    warehouseId: l99.id,
-    quantity: { gt: 0 },
+    status: 'in_transit',
   };
 
   if (search) {
     where.OR = [
-      { product: { name: { contains: search } } },
-      { product: { code: { contains: search } } },
-      { batchNo: { contains: search } },
+      { transferNo: { contains: search } },
+      { fromWarehouse: { name: { contains: search } } },
+      { toBranch: { name: { contains: search } } },
     ];
   }
 
   const [items, total] = await Promise.all([
-    prisma.erpWarehouseStock.findMany({
+    prisma.erpStockTransfer.findMany({
       where,
       skip: (page - 1) * limit,
       take: limit,
       include: {
-        product: true,
+        fromWarehouse: true,
+        toBranch: true,
+        lines: {
+          include: {
+            product: true
+          }
+        }
       },
-      orderBy: { quantity: 'desc' },
+      orderBy: { createdAt: 'desc' },
     }),
-    prisma.erpWarehouseStock.count({ where }),
+    prisma.erpStockTransfer.count({ where }),
   ]);
 
   return ok({ items, total, page, limit });
