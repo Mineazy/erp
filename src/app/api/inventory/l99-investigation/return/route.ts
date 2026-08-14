@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
 
   const result = await prisma.$transaction(async (tx) => {
     const transfer = await tx.erpStockTransfer.findUnique({
-      where: { id: transferId },
+      where: { id: String(transferId) },
       include: { lines: true }
     });
 
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
           fromWarehouseId: l99.id,
           toWarehouseId: targetWarehouseId as string,
           referenceType: 'l99_investigation_return',
-          referenceId: transferId,
+          referenceId: String(transferId),
           notes: notes ? String(notes) : `Returned from L99 Transit to ${targetWarehouse.name}`,
           userId: userEmail,
         }
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     }
 
     await tx.erpStockTransfer.update({
-      where: { id: transferId },
+      where: { id: String(transferId) },
       data: { status: 'returned' }
     });
 
