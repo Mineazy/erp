@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogFooter } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
 import { Store, Search, Eye, Send } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -17,6 +19,8 @@ export default function WarehouseBranchOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
 
   const fetchData = async () => {
     try {
@@ -140,7 +144,7 @@ export default function WarehouseBranchOrdersPage() {
                             Process
                           </Button>
                         ) : (
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" onClick={() => { setSelectedOrder(item); setViewDialogOpen(true); }}>
                             <Eye className="h-4 w-4 mr-1 text-slate-600" />
                             View
                           </Button>
@@ -154,6 +158,74 @@ export default function WarehouseBranchOrdersPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* View Order Dialog */}
+      <Dialog open={viewDialogOpen} onClose={() => setViewDialogOpen(false)} className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-bold">View Stock Order: {selectedOrder?.transferNo}</h3>
+            <Badge className={
+              selectedOrder?.status === 'received' ? 'bg-emerald-100 text-emerald-800' :
+              selectedOrder?.status === 'pending' ? 'bg-amber-100 text-amber-800' :
+              selectedOrder?.status === 'in_transit' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-800'
+            }>
+              {selectedOrder?.status}
+            </Badge>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
+            <div>
+              <p className="text-slate-500 font-medium">From Warehouse</p>
+              <p>{selectedOrder?.fromWarehouse?.name || 'N/A'}</p>
+            </div>
+            <div>
+              <p className="text-slate-500 font-medium">To Branch</p>
+              <p>{selectedOrder?.toBranch?.name || 'N/A'}</p>
+            </div>
+            <div>
+              <p className="text-slate-500 font-medium">Requested By</p>
+              <p>{selectedOrder?.requestedBy || 'N/A'}</p>
+            </div>
+            <div>
+              <p className="text-slate-500 font-medium">Date</p>
+              <p>{selectedOrder?.createdAt ? new Date(selectedOrder.createdAt).toLocaleDateString() : 'N/A'}</p>
+            </div>
+            {selectedOrder?.notes && (
+              <div className="col-span-2">
+                <p className="text-slate-500 font-medium">Notes</p>
+                <p>{selectedOrder.notes}</p>
+              </div>
+            )}
+          </div>
+
+          <Separator className="my-4" />
+          <h4 className="font-semibold mb-3">Line Items</h4>
+          <div className="border rounded-md overflow-x-auto mb-4">
+            <Table>
+              <TableHeader className="bg-slate-50">
+                <TableRow>
+                  <TableHead>Product</TableHead>
+                  <TableHead>Shipped Qty</TableHead>
+                  <TableHead>Received Qty</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {selectedOrder?.lines?.map((line: any) => (
+                  <TableRow key={line.id}>
+                    <TableCell>{line.productName}</TableCell>
+                    <TableCell>{line.quantity}</TableCell>
+                    <TableCell>{line.receivedQty !== null ? line.receivedQty : '-'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          <DialogFooter className="mt-6">
+            <Button variant="outline" onClick={() => setViewDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
     </div>
   );
 }
