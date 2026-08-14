@@ -13,8 +13,8 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
   });
   
   if (!transfer) return notFound('Stock transfer not found');
-  if (transfer.status !== 'draft') {
-    return badRequest('Transfer can only be sent when in draft status');
+  if (transfer.status !== 'draft' && transfer.status !== 'pending') {
+    return badRequest('Transfer can only be sent when in draft or pending status');
   }
 
   const userEmail = (session.user as any).email || 'unknown';
