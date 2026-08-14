@@ -138,15 +138,14 @@ export default function WarehouseBranchOrdersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right whitespace-nowrap">
-                        {item.status === 'pending' || item.status === 'draft' ? (
+                        <Button variant="ghost" size="sm" onClick={() => { setSelectedOrder(item); setViewDialogOpen(true); }}>
+                          <Eye className="h-4 w-4 mr-1 text-slate-600" />
+                          View
+                        </Button>
+                        {(item.status === 'pending' || item.status === 'draft') && (
                           <Button variant="ghost" size="sm" onClick={() => handleProcess(item.id)}>
                             <Send className="h-4 w-4 mr-1 text-mine-blue-600" />
                             Process
-                          </Button>
-                        ) : (
-                          <Button variant="ghost" size="sm" onClick={() => { setSelectedOrder(item); setViewDialogOpen(true); }}>
-                            <Eye className="h-4 w-4 mr-1 text-slate-600" />
-                            View
                           </Button>
                         )}
                       </TableCell>

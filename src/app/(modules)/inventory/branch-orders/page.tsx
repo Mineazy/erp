@@ -229,15 +229,14 @@ export default function BranchOrdersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right whitespace-nowrap">
-                        {item.status === 'in_transit' ? (
+                        <Button variant="ghost" size="sm" onClick={() => { setSelectedOrder(item); setViewDialogOpen(true); }}>
+                          <Eye className="h-4 w-4 mr-1 text-slate-600" />
+                          View
+                        </Button>
+                        {item.status === 'in_transit' && (
                           <Button variant="ghost" size="sm" onClick={() => handleOpenReceive(item)}>
                             <PackageOpen className="h-4 w-4 mr-1 text-emerald-600" />
                             Receive
-                          </Button>
-                        ) : (
-                          <Button variant="ghost" size="sm" onClick={() => { setSelectedOrder(item); setViewDialogOpen(true); }}>
-                            <Eye className="h-4 w-4 mr-1 text-mine-blue-600" />
-                            View
                           </Button>
                         )}
                       </TableCell>
