@@ -66,25 +66,43 @@ export default function WarehouseBranchOrdersPage() {
     }
   };
 
-  const printDispatchNote = (t: any) => {
+  const fetchImageAsBase64 = async (url: string) => {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    return new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+  };
+
+  const printDispatchNote = async (t: any) => {
     const doc = new jsPDF();
+    
+    try {
+      const logoBase64 = await fetchImageAsBase64('/logo.png');
+      doc.addImage(logoBase64, 'PNG', 14, 10, 60, 20);
+    } catch (e) {
+      console.error('Failed to load logo', e);
+    }
+
     doc.setFontSize(20);
-    doc.text('Dispatch Note', 14, 22);
+    doc.text('Dispatch Note', 14, 40);
     
     doc.setFontSize(12);
-    doc.text(`Order No: ${t.transferNo}`, 14, 35);
-    doc.text(`Status: ${t.status}`, 14, 42);
-    doc.text(`Date: ${new Date(t.updatedAt || t.createdAt).toLocaleString()}`, 14, 49);
+    doc.text(`Order No: ${t.transferNo}`, 14, 50);
+    doc.text(`Status: ${t.status}`, 14, 57);
+    doc.text(`Date: ${new Date(t.updatedAt || t.createdAt).toLocaleString()}`, 14, 64);
     
-    doc.text(`From: ${t.fromWarehouse?.name || 'Warehouse'}`, 14, 62);
-    doc.text(`To: ${t.toBranch?.name || 'Branch'}`, 14, 69);
-    doc.text(`Requested By: ${t.requestedBy || 'N/A'}`, 14, 76);
+    doc.text(`From: ${t.fromWarehouse?.name || 'Warehouse'}`, 14, 77);
+    doc.text(`To: ${t.toBranch?.name || 'Branch'}`, 14, 84);
+    doc.text(`Requested By: ${t.requestedBy || 'N/A'}`, 14, 91);
 
     doc.setFontSize(14);
-    doc.text('Items:', 14, 90);
+    doc.text('Items:', 14, 105);
     doc.setFontSize(12);
     
-    let y = 100;
+    let y = 115;
     t.lines?.forEach((line: any, idx: number) => {
       doc.text(`${idx + 1}. ${line.productName} - Qty: ${line.quantity}`, 14, y);
       y += 8;
