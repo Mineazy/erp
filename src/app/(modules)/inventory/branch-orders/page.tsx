@@ -65,8 +65,8 @@ export default function BranchOrdersPage() {
 
   useEffect(() => {
     fetch('/api/inventory/products?limit=200').then(async r => { if (r.ok) { const d = await r.json(); setProducts(d.items || []); } }).catch(() => {});
-    fetch('/api/warehouse?limit=100').then(async r => { if (r.ok) { const d = await r.json(); setWarehouses(d.items || []); } }).catch(() => {});
-    fetch('/api/warehouse/branches?limit=100').then(async r => { if (r.ok) { const d = await r.json(); setBranches(d.items || []); } }).catch(() => {});
+    fetch('/api/warehouse?limit=100').then(async r => { if (r.ok) { const d = await r.json(); setWarehouses(Array.isArray(d) ? d : (d.items || [])); } }).catch(() => {});
+    fetch('/api/admin/branches').then(async r => { if (r.ok) { const d = await r.json(); setBranches(Array.isArray(d) ? d : (d.items || [])); } }).catch(() => {});
   }, []);
 
   const handleOpenNew = () => {
