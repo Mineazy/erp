@@ -31,11 +31,7 @@ export async function GET(request: NextRequest) {
       include: {
         fromWarehouse: true,
         toBranch: true,
-        lines: {
-          include: {
-            product: true
-          }
-        }
+        lines: true
       },
       orderBy: { createdAt: 'desc' },
     }),
