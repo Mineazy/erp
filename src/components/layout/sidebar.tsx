@@ -69,7 +69,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     ? navGroups
     : navGroups
         .filter((group) => {
-          if (!group.module || group.module === 'main') return true;
+          if (!group.module) return true;
           return canAccessModule(group.module, role, department, permissions);
         })
         .map((group) => {
@@ -78,7 +78,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           return {
             ...group,
             items: group.items.filter(item => {
-              if (!group.module || group.module === 'main') return true;
+              if (!group.module) return true;
               return permissions.menus.includes(item.href);
             })
           };
