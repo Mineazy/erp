@@ -27,6 +27,8 @@ export default function ProjectsList() {
     type: 'construction',
     status: 'planning',
     budget: '',
+    startDate: '',
+    endDate: '',
   });
 
   const fetchProjects = async () => {
@@ -62,7 +64,7 @@ export default function ProjectsList() {
       });
       if (res.ok) {
         setIsCreateOpen(false);
-        setNewProject({ name: '', description: '', type: 'construction', status: 'planning', budget: '' });
+        setNewProject({ name: '', description: '', type: 'construction', status: 'planning', budget: '', startDate: '', endDate: '' });
         fetchProjects();
       } else {
         const err = await res.json();
@@ -112,6 +114,16 @@ export default function ProjectsList() {
                   <option value="active">Active</option>
                   <option value="on_hold">On Hold</option>
                 </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Start Date</Label>
+                <Input type="date" value={newProject.startDate} onChange={e => setNewProject({...newProject, startDate: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <Label>Expected End Date</Label>
+                <Input type="date" value={newProject.endDate} onChange={e => setNewProject({...newProject, endDate: e.target.value})} />
               </div>
             </div>
             <div className="space-y-2">

@@ -75,6 +75,19 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
     } catch (e) { console.error(e); }
   };
 
+  const handleUpdateTask = async (taskId: string, field: string, value: string) => {
+    try {
+      const res = await fetch(`/api/projects/${id}/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: value }),
+      });
+      if (res.ok) fetchProject();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handleCreateExpense = async () => {
     if (!newExpense.amount) return alert('Amount required');
     try {
@@ -186,8 +199,22 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
                     <p className="font-medium">{task.title}</p>
                     <p className="text-sm text-slate-500">{task.description}</p>
                   </TableCell>
-                  <TableCell><Badge variant="outline" className="capitalize">{task.status}</Badge></TableCell>
-                  <TableCell><Badge variant="secondary" className="capitalize">{task.priority}</Badge></TableCell>
+                  <TableCell>
+                    <Select value={task.status} onChange={e => handleUpdateTask(task.id, 'status', e.target.value)} className="h-8 w-32 capitalize text-xs">
+                      <option value="todo">To Do</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="blocked">Blocked</option>
+                      <option value="done">Done</option>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Select value={task.priority} onChange={e => handleUpdateTask(task.id, 'priority', e.target.value)} className="h-8 w-28 capitalize text-xs">
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                      <option value="critical">Critical</option>
+                    </Select>
+                  </TableCell>
                   <TableCell>{task.estimatedHours} hrs</TableCell>
                 </TableRow>
               ))
