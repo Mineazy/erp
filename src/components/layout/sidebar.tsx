@@ -190,6 +190,7 @@ const navGroups = [
     items: [
       { label: 'Dashboard', href: '/projects/dashboard', icon: 'LayoutDashboard' },
       { label: 'All Projects', href: '/projects', icon: 'Briefcase' },
+      { label: 'Reports & Analytics', href: '/projects/reports', icon: 'BarChart' },
     ],
   },
 ];
