@@ -313,7 +313,17 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
                       <option value="critical">Critical</option>
                     </Select>
                   </TableCell>
-                  <TableCell>{task.estimatedHours} hrs</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Input 
+                        type="number" 
+                        defaultValue={task.estimatedHours} 
+                        onBlur={e => handleUpdateTask(task.id, 'estimatedHours', e.target.value)}
+                        className="h-8 w-20 text-xs px-2"
+                      />
+                      <span className="text-xs text-slate-500">hrs</span>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))
             )}
