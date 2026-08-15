@@ -281,16 +281,21 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
       </div>
       <Card>
         <Table>
-          <TableHeader><TableRow><TableHead>Task</TableHead><TableHead>Status</TableHead><TableHead>Priority</TableHead><TableHead>Est. Hours</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Task</TableHead><TableHead>Dates</TableHead><TableHead>Status</TableHead><TableHead>Priority</TableHead><TableHead>Est. Hours</TableHead></TableRow></TableHeader>
           <TableBody>
             {project.tasks.length === 0 ? (
-              <TableRow><TableCell colSpan={4} className="text-center text-slate-500">No tasks found.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center text-slate-500">No tasks found.</TableCell></TableRow>
             ) : (
               project.tasks.map((task: any) => (
                 <TableRow key={task.id}>
                   <TableCell>
                     <p className="font-medium">{task.title}</p>
                     <p className="text-sm text-slate-500">{task.description}</p>
+                  </TableCell>
+                  <TableCell className="text-xs whitespace-nowrap">
+                    {task.startDate && <div className="text-slate-600"><span className="font-medium">Start:</span> {format(new Date(task.startDate), 'MMM d, yyyy')}</div>}
+                    {task.dueDate && <div className="text-slate-600"><span className="font-medium">Due:</span> {format(new Date(task.dueDate), 'MMM d, yyyy')}</div>}
+                    {!task.startDate && !task.dueDate && <span className="text-slate-400">-</span>}
                   </TableCell>
                   <TableCell>
                     <Select value={task.status} onChange={e => handleUpdateTask(task.id, 'status', e.target.value)} className="h-8 w-32 capitalize text-xs">
