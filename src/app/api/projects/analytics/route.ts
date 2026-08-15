@@ -26,9 +26,9 @@ export async function GET(request: NextRequest) {
 
     let totalBudget = 0;
     let totalExpenses = 0;
-    const activeProjects = projects.filter(p => p.status === 'in_progress' || p.status === 'planning');
+    const activeProjects = projects.filter(p => p.status === 'active' || p.status === 'planning');
 
-    const statusCounts = { planning: 0, in_progress: 0, completed: 0, on_hold: 0 };
+    const statusCounts = { planning: 0, active: 0, completed: 0, on_hold: 0 };
     const taskStatusCounts = { todo: 0, in_progress: 0, blocked: 0, done: 0 };
     const budgetVsActuals: any[] = [];
 
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       let expenses = 0;
       project.expenses.forEach(e => expenses += Number(e.amount || 0));
 
-      if (project.status === 'in_progress' || project.status === 'planning') {
+      if (project.status === 'active' || project.status === 'planning') {
         totalBudget += budget;
         totalExpenses += expenses;
       }
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
       });
 
       // Budget vs Actuals per project (Top 5 active)
-      if (project.status === 'in_progress' || project.status === 'planning') {
+      if (project.status === 'active' || project.status === 'planning') {
         budgetVsActuals.push({
           name: project.name.length > 20 ? project.name.substring(0, 20) + '...' : project.name,
           budget,
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
 
     const projectStatusDistribution = [
       { name: 'Planning', value: statusCounts.planning, fill: '#64748b' }, // slate-500
-      { name: 'In Progress', value: statusCounts.in_progress, fill: '#3b82f6' }, // blue-500
+      { name: 'Active', value: statusCounts.active, fill: '#3b82f6' }, // blue-500
       { name: 'Completed', value: statusCounts.completed, fill: '#10b981' }, // emerald-500
       { name: 'On Hold', value: statusCounts.on_hold, fill: '#f59e0b' }, // amber-500
     ].filter(item => item.value > 0);
