@@ -19,6 +19,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       branchId: true,
       branch: { select: { id: true, code: true, name: true } },
       mfaEnabled: true,
+      permissions: true,
       isActive: true,
       lastLogin: true,
       createdAt: true,
@@ -38,7 +39,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   if (!existing) return notFound('User not found');
 
   const body = await getBody(request);
-  const { email, password, name, role, department, isActive, branchId } = body;
+  const { email, password, name, role, department, isActive, branchId, permissions } = body;
 
   const data: Record<string, unknown> = {};
   if (email) data.email = (email as string).toLowerCase();
@@ -48,6 +49,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   if (department !== undefined) data.department = department;
   if (isActive !== undefined) data.isActive = Boolean(isActive);
   if (branchId !== undefined) data.branchId = branchId;
+  if (permissions !== undefined) data.permissions = permissions;
 
   const item = await prisma.erpUser.update({
     where: { id: id },
@@ -61,6 +63,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       branchId: true,
       branch: { select: { id: true, code: true, name: true } },
       mfaEnabled: true,
+      permissions: true,
       isActive: true,
       lastLogin: true,
       createdAt: true,

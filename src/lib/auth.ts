@@ -78,6 +78,7 @@ export const authOptions: NextAuthOptions = {
             department: user.department || null,
             branchId: finalBranchId,
             branchName: branchName,
+            permissions: user.permissions || null,
           };
         } catch (error) {
           console.error('[Auth] Unexpected error during authorize callback:', error);
@@ -95,6 +96,7 @@ export const authOptions: NextAuthOptions = {
         token.department = u.department || null;
         token.branchId = u.branchId || null;
         token.branchName = u.branchName || null;
+        token.permissions = u.permissions || null;
       }
       return token;
     },
@@ -105,6 +107,7 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).department = token.department || null;
         (session.user as any).branchId = token.branchId || null;
         (session.user as any).branchName = token.branchName || null;
+        (session.user as any).permissions = token.permissions || null;
       }
       return session;
     },

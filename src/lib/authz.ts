@@ -129,6 +129,7 @@ export function checkApiAccess(
   method: string,
   role: string,
   department?: string | null,
+  permissions?: any | null,
 ): boolean {
   const normalizedRole = role as UserRole;
 
@@ -140,18 +141,22 @@ export function checkApiAccess(
   }
 
   if (method === 'GET') {
-    return canAccessModule(module, normalizedRole, department);
+    return canAccessModule(module, normalizedRole, department, permissions);
   }
 
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
-    return canWriteModule(module, normalizedRole, department);
+    return canWriteModule(module, normalizedRole, department, permissions);
   }
 
   return false;
 }
 
-export function canAccessModule(module: string, role: string | undefined, department?: string | null): boolean {
+export function canAccessModule(module: string, role: string | undefined, department?: string | null, permissions?: any | null): boolean {
   if (!role) return false;
+
+  if (permissions?.modules) {
+    return permissions.modules.includes(module.toLowerCase());
+  }
 
   // Custom overrides for users registered under the Purchasing Department
   if (department && department.toLowerCase() === 'purchasing') {
@@ -205,8 +210,12 @@ export function canAccessModule(module: string, role: string | undefined, depart
   return access === true || access === 'readonly';
 }
 
-export function canWriteModule(module: string, role: string | undefined, department?: string | null): boolean {
+export function canWriteModule(module: string, role: string | undefined, department?: string | null, permissions?: any | null): boolean {
   if (!role) return false;
+
+  if (permissions?.modules) {
+    return permissions.modules.includes(module.toLowerCase());
+  }
 
   if (department && department.toLowerCase() === 'purchasing') {
     const allowedModules = ['purchasing', 'inventory', 'warehouse', 'fleet', 'messaging'];
@@ -239,9 +248,29 @@ export function canWriteModule(module: string, role: string | undefined, departm
   return roleCanWrite(module, role as UserRole);
 }
 
-export function getVisibleModules(role: string | undefined, department?: string | null): string[] {
+export function getVisibleModules(role: string | undefined, department?: string | null, permissions?: any | null): string[] {
   if (!role) return [];
   return Object.keys(MODULE_PERMISSIONS).filter((mod) =>
-    canAccessModule(mod, role, department),
+    canAccessModule(mod, role, department, permissions),
   );
+}
+
+export function canAccessMenu(href: string, permissions: any | null, role: string | undefined, department?: string | null): boolean {
+  if (!role) return false;
+
+  // Exact menu match
+  if (permissions?.menus) {
+    if (permissions.menus.includes(href)) return true;
+    
+    // Allow if parent path is permitted? For now require exact match since admin explicitly selects
+    // But they might only select the module, in which case do we allow all menus?
+    // Let's rely strictly on the `menus` array if `permissions` is defined.
+    // If the admin only checks the module but no menus, they get no menus.
+    return false;
+  }
+
+  // If no explicit permissions set, fallback to whether they can access the module at all
+  // The module needs to be extracted from the href, e.g. /inventory/dashboard -> inventory
+  const mod = href.split('/')[1]; 
+  return canAccessModule(mod, role, department);
 }

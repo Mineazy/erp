@@ -1526,6 +1526,7 @@ model ErpUser {
   mfaSecret        String?              @map("mfa_secret")
   isActive         Boolean              @default(true) @map("is_active")
   lastLogin        DateTime?            @map("last_login")
+  permissions      Json?
   createdAt        DateTime             @default(now()) @map("created_at")
   updatedAt        DateTime             @updatedAt @map("updated_at")
   chatMessages     ErpChatMessage[]

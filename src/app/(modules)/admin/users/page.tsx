@@ -11,7 +11,8 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
-import { Users, Plus, Search, Edit2, Trash2, Shield, UserCog, UserCheck, User } from 'lucide-react';
+import { Users, Plus, Search, Edit2, Trash2, Shield, UserCog, UserCheck, User, Key } from 'lucide-react';
+import { PermissionsModal } from './permissions-modal';
 
 interface Branch {
   id: string;
@@ -30,6 +31,7 @@ interface AppUser {
   mfaEnabled: boolean;
   isActive: boolean;
   lastLogin: string;
+  permissions?: { modules: string[]; menus: string[] };
 }
 
 const roles = [
@@ -78,6 +80,7 @@ export default function UsersPage() {
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
+  const [permissionsUser, setPermissionsUser] = useState<AppUser | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [page, setPage] = useState(1);
@@ -315,8 +318,9 @@ export default function UsersPage() {
                   <TableCell className="text-xs text-slate-600">{user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : '-'}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => openEdit(user)} className="p-1.5 hover:bg-slate-100 rounded"><Edit2 className="h-4 w-4 text-slate-400" /></button>
-                      <button onClick={() => handleDelete(user.id)} className="p-1.5 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4 text-red-400" /></button>
+                      <button onClick={() => setPermissionsUser(user)} className="p-1.5 hover:bg-slate-100 rounded" title="Manage Permissions"><Key className="h-4 w-4 text-slate-400" /></button>
+                      <button onClick={() => openEdit(user)} className="p-1.5 hover:bg-slate-100 rounded" title="Edit User"><Edit2 className="h-4 w-4 text-slate-400" /></button>
+                      <button onClick={() => handleDelete(user.id)} className="p-1.5 hover:bg-red-50 rounded" title="Delete User"><Trash2 className="h-4 w-4 text-red-400" /></button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -380,6 +384,12 @@ export default function UsersPage() {
           <Button onClick={handleSave}>{editingUser ? 'Update' : 'Create'}</Button>
         </DialogFooter>
       </Dialog>
+
+      <PermissionsModal 
+        user={permissionsUser} 
+        onClose={() => setPermissionsUser(null)} 
+        onSave={() => { setPermissionsUser(null); fetchData(); }} 
+      />
     </div>
   );
 }
