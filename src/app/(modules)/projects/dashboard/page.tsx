@@ -15,28 +15,37 @@ export default function ProjectsDashboard() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // In a real app, this would be a dedicated dashboard endpoint.
-    // For now, we'll fetch all projects and calculate basic stats.
     const fetchStats = async () => {
       try {
-        const res = await fetch('/api/projects?status=active');
-        if (res.ok) {
-          const data = await res.json();
-          const active = data.items;
-          let budget = 0;
-          let expenses = 0;
-          active.forEach((p: any) => {
-            budget += Number(p.budget || 0);
-            p.expenses?.forEach((e: any) => expenses += Number(e.amount || 0));
-          });
-          
-          setStats({
-            activeProjects: data.total,
-            totalBudget: budget,
-            totalExpenses: expenses,
-            recentActivity: active.slice(0, 5) // just taking the most recent projects as "activity" for demonstration
-          });
+        const [analyticsRes, projectsRes] = await Promise.all([
+          fetch('/api/projects/analytics'),
+          fetch('/api/projects?status=active')
+        ]);
+
+        let totalBudget = 0;
+        let totalExpenses = 0;
+        let activeProjectsCount = 0;
+        let recentActivity = [];
+
+        if (analyticsRes.ok) {
+          const analyticsData = await analyticsRes.json();
+          totalBudget = analyticsData.totalBudget || 0;
+          totalExpenses = analyticsData.totalExpenses || 0;
+          activeProjectsCount = analyticsData.activeProjectsCount || 0;
         }
+
+        if (projectsRes.ok) {
+          const projectsData = await projectsRes.json();
+          const active = projectsData.items || [];
+          recentActivity = active.slice(0, 5);
+        }
+        
+        setStats({
+          activeProjects: activeProjectsCount,
+          totalBudget: totalBudget,
+          totalExpenses: totalExpenses,
+          recentActivity: recentActivity
+        });
       } catch (e) {
         console.error(e);
       }
