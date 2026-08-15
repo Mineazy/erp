@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Briefcase, Activity, DollarSign, Clock, Users } from 'lucide-react';
 import { format } from 'date-fns';
-
+import Link from 'next/link';
 export default function ProjectsDashboard() {
   const [stats, setStats] = useState<any>({
     activeProjects: 0,
@@ -133,16 +133,16 @@ export default function ProjectsDashboard() {
             ) : (
               <div className="divide-y divide-slate-100">
                 {stats.recentActivity.map((p: any) => (
-                  <div key={p.id} className="p-4 flex justify-between items-center hover:bg-slate-50 transition-colors">
+                  <Link href={`/projects/${p.id}`} key={p.id} className="p-4 flex justify-between items-center hover:bg-slate-50 transition-colors cursor-pointer group">
                     <div>
-                      <p className="font-medium text-slate-900">{p.name}</p>
+                      <p className="font-medium text-slate-900 group-hover:text-mine-blue-600 transition-colors">{p.name}</p>
                       <p className="text-sm text-slate-500">{p.projectNo} • {format(new Date(p.createdAt), 'MMM d, yyyy')}</p>
                     </div>
                     <div className="text-right">
                       <p className="font-medium text-slate-900">${Number(p.budget).toLocaleString()}</p>
                       <p className="text-sm text-emerald-600 capitalize">{p.type}</p>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
