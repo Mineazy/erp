@@ -78,11 +78,16 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
   const handleCreateExpense = async () => {
     if (!newExpense.amount) return alert('Amount required');
     try {
-      await fetch(`/api/projects/${id}/expenses`, {
+      const res = await fetch(`/api/projects/${id}/expenses`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newExpense),
       });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || 'Failed to create expense');
+        return;
+      }
       setIsNewExpenseOpen(false);
       setNewExpense({ category: 'materials', description: '', amount: '', recordedById: '' });
       fetchProject();
@@ -92,11 +97,16 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
   const handleCreateTimeLog = async () => {
     if (!newTimeLog.hours) return alert('Hours required');
     try {
-      await fetch(`/api/projects/${id}/time-logs`, {
+      const res = await fetch(`/api/projects/${id}/time-logs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newTimeLog),
       });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || 'Failed to log time');
+        return;
+      }
       setIsNewTimeLogOpen(false);
       setNewTimeLog({ employeeId: '', hours: '', description: '', taskId: '' });
       fetchProject();

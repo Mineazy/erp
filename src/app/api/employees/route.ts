@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   if (!session) return unauthorized();
 
   try {
-    const employees = await prisma.erpEmployee.findMany({
+    let employees = await prisma.erpEmployee.findMany({
       select: {
         id: true,
         firstName: true,
@@ -17,6 +17,30 @@ export async function GET(request: NextRequest) {
       },
       orderBy: { firstName: 'asc' },
     });
+
+    if (employees.length === 0) {
+      const defaultEmployee = await prisma.erpEmployee.create({
+        data: {
+          employeeNo: 'EMP-0001',
+          firstName: 'System',
+          lastName: 'Admin',
+          department: 'Management',
+          position: 'Administrator',
+          employmentType: 'permanent',
+          dateHired: new Date(),
+          basicSalary: 0,
+          currency: 'USD'
+        }
+      });
+      employees = [{
+        id: defaultEmployee.id,
+        firstName: defaultEmployee.firstName,
+        lastName: defaultEmployee.lastName,
+        department: defaultEmployee.department,
+        position: defaultEmployee.position,
+      }];
+    }
+
     return ok(employees);
   } catch (error: any) {
     console.error('GET Employees Error:', error);
