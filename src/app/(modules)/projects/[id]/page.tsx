@@ -26,10 +26,12 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
   const [newTask, setNewTask] = useState({ title: '', description: '', estimatedHours: '' });
 
   const [isNewExpenseOpen, setIsNewExpenseOpen] = useState(false);
-  const [newExpense, setNewExpense] = useState({ category: 'materials', description: '', amount: '', recordedById: 'SYSTEM_ADMIN' });
+  const [newExpense, setNewExpense] = useState({ category: 'materials', description: '', amount: '', recordedById: '' });
 
   const [isNewTimeLogOpen, setIsNewTimeLogOpen] = useState(false);
-  const [newTimeLog, setNewTimeLog] = useState({ employeeId: 'SYSTEM_ADMIN', hours: '', description: '', taskId: '' });
+  const [newTimeLog, setNewTimeLog] = useState({ employeeId: '', hours: '', description: '', taskId: '' });
+
+  const [employees, setEmployees] = useState<any[]>([]);
 
   const fetchProject = async () => {
     try {
@@ -45,8 +47,18 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
     setIsLoading(false);
   };
 
+  const fetchEmployees = async () => {
+    try {
+      const res = await fetch('/api/employees');
+      if (res.ok) setEmployees(await res.json());
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     fetchProject();
+    fetchEmployees();
   }, [id]);
 
   const handleCreateTask = async () => {
@@ -72,7 +84,7 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
         body: JSON.stringify(newExpense),
       });
       setIsNewExpenseOpen(false);
-      setNewExpense({ category: 'materials', description: '', amount: '', recordedById: 'SYSTEM_ADMIN' });
+      setNewExpense({ category: 'materials', description: '', amount: '', recordedById: '' });
       fetchProject();
     } catch (e) { console.error(e); }
   };
@@ -86,7 +98,7 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
         body: JSON.stringify(newTimeLog),
       });
       setIsNewTimeLogOpen(false);
-      setNewTimeLog({ employeeId: 'SYSTEM_ADMIN', hours: '', description: '', taskId: '' });
+      setNewTimeLog({ employeeId: '', hours: '', description: '', taskId: '' });
       fetchProject();
     } catch (e) { console.error(e); }
   };
@@ -194,6 +206,15 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
               </Select>
             </div>
             <div>
+              <Label>Logged By (Employee)</Label>
+              <Select value={newExpense.recordedById} onChange={e => setNewExpense({...newExpense, recordedById: e.target.value})}>
+                <option value="">Select an employee...</option>
+                {employees.map(emp => (
+                  <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
+                ))}
+              </Select>
+            </div>
+            <div>
               <Label>Description</Label>
               <Input value={newExpense.description} onChange={e => setNewExpense({...newExpense, description: e.target.value})} />
             </div>
@@ -237,6 +258,15 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
         <Button size="sm" onClick={() => setIsNewTimeLogOpen(true)}><Plus className="h-4 w-4 mr-2" /> Log Time</Button>
         <Dialog open={isNewTimeLogOpen} onClose={() => setIsNewTimeLogOpen(false)} title="Log Time">
           <div className="space-y-4">
+            <div>
+              <Label>Employee</Label>
+              <Select value={newTimeLog.employeeId} onChange={e => setNewTimeLog({...newTimeLog, employeeId: e.target.value})}>
+                <option value="">Select an employee...</option>
+                {employees.map(emp => (
+                  <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
+                ))}
+              </Select>
+            </div>
             <div>
               <Label>Hours</Label>
               <Input type="number" step="0.5" value={newTimeLog.hours} onChange={e => setNewTimeLog({...newTimeLog, hours: e.target.value})} />
