@@ -214,12 +214,10 @@ export default function WarehouseBranchOrdersPage() {
                             Process
                           </Button>
                         )}
-                        {(item.status === 'in_transit' || item.status === 'received') && (
-                          <Button variant="ghost" size="sm" onClick={() => printDispatchNote(item)} title="Download Dispatch Note">
-                            <FileText className="h-4 w-4 mr-1 text-emerald-600" />
-                            PDF
-                          </Button>
-                        )}
+                        <Button variant="ghost" size="sm" onClick={() => printDispatchNote(item)} title="Download Dispatch Note">
+                          <FileText className="h-4 w-4 mr-1 text-emerald-600" />
+                          PDF
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
