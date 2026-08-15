@@ -8,7 +8,8 @@ import { Select } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
-import { Search, Receipt, Eye, Calendar } from 'lucide-react';
+import { Search, Receipt, Eye, Calendar, AlertTriangle } from 'lucide-react';
+import { toast } from '@/lib/use-toast';
 
 interface Transaction {
   id: string;
@@ -60,6 +61,28 @@ export default function TransactionHistoryPage() {
   const [dateTo, setDateTo] = useState('');
   const [viewTransaction, setViewTransaction] = useState<Transaction | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [voiding, setVoiding] = useState(false);
+
+  const handleVoidTransaction = async (id: string) => {
+    if (!confirm('Are you sure you want to void this transaction? This action will reverse stock, financial journals, and loyalty points. It cannot be undone.')) return;
+    
+    setVoiding(true);
+    try {
+      const res = await fetch(`/api/pos/transactions/${id}/return`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to void transaction');
+      
+      toast('Transaction voided successfully', 'success');
+      setViewDialogOpen(false);
+      fetchTransactions();
+    } catch (err: any) {
+      toast(err.message, 'error');
+    } finally {
+      setVoiding(false);
+    }
+  };
 
   const fetchTransactions = async () => {
     setLoading(true);
@@ -72,7 +95,7 @@ export default function TransactionHistoryPage() {
       if (dateTo) params.set('dateTo', dateTo);
       const res = await fetch(`/api/pos/transactions?${params.toString()}`);
       const data = await res.json();
-      setTransactions(Array.isArray(data) ? data : data.data || []);
+      setTransactions(Array.isArray(data) ? data : data.items || data.data || []);
     } catch {
       setTransactions([]);
     } finally {
@@ -200,7 +223,7 @@ export default function TransactionHistoryPage() {
                     <TableCell className="font-mono text-xs font-medium">{tx.transactionNumber}</TableCell>
                     <TableCell className="text-sm">{new Date(tx.createdAt).toLocaleString()}</TableCell>
                     <TableCell>{tx.customerName || 'Walk-in'}</TableCell>
-                    <TableCell className="font-mono text-sm">{tx.items?.length ?? 0}</TableCell>
+                    <TableCell className="font-mono text-sm">{tx.lines?.length ?? 0}</TableCell>
                     <TableCell>
                       <Badge variant="outline">
                         {paymentMethodLabels[tx.paymentMethod] || tx.paymentMethod}
@@ -287,7 +310,7 @@ export default function TransactionHistoryPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(viewTransaction.items || []).map((item, idx) => (
+                  {(viewTransaction.lines || []).map((item, idx) => (
                     <tr key={idx} className="border-b last:border-0">
                       <td className="p-2">{item.productName}</td>
                       <td className="text-right p-2 font-mono">{item.quantity}</td>
@@ -331,7 +354,20 @@ export default function TransactionHistoryPage() {
             </div>
           </div>
         )}
-        <DialogFooter>
+        <DialogFooter className="flex justify-between items-center sm:justify-between w-full">
+          <div>
+            {viewTransaction?.status === 'completed' && (
+              <Button
+                variant="destructive"
+                onClick={() => handleVoidTransaction(viewTransaction.id)}
+                disabled={voiding}
+                className="flex items-center gap-2"
+              >
+                <AlertTriangle className="h-4 w-4" />
+                {voiding ? 'Voiding...' : 'Void Transaction'}
+              </Button>
+            )}
+          </div>
           <Button variant="outline" onClick={() => { setViewDialogOpen(false); setViewTransaction(null); }}>
             Close
           </Button>

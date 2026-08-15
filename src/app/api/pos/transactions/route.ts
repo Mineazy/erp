@@ -11,12 +11,32 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const sessionId = searchParams.get('sessionId');
   const status = searchParams.get('status');
+  const search = searchParams.get('search');
+  const paymentMethod = searchParams.get('paymentMethod');
+  const dateFrom = searchParams.get('dateFrom');
+  const dateTo = searchParams.get('dateTo');
 
   const branchFilter = getBranchFilter(session);
-  const where: Record<string, unknown> = {};
+  const where: any = {};
   Object.assign(where, branchFilter);
+  
   if (sessionId) where.sessionId = sessionId;
-  if (status) where.status = status;
+  if (status && status !== 'all') where.status = status;
+  if (paymentMethod && paymentMethod !== 'all') where.paymentMethod = paymentMethod;
+  
+  if (search) {
+    where.transactionNumber = { contains: search, mode: 'insensitive' };
+  }
+
+  if (dateFrom || dateTo) {
+    where.createdAt = {};
+    if (dateFrom) where.createdAt.gte = new Date(dateFrom);
+    if (dateTo) {
+      const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59, 999);
+      where.createdAt.lte = toDate;
+    }
+  }
 
   const [items, total] = await Promise.all([
     prisma.erpPosTransaction.findMany({

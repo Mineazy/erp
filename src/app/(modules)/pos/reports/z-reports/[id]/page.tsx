@@ -139,7 +139,7 @@ export default function ZReportDetailPage() {
                   <span className="font-mono">-${Number(report.totalDiscounts).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-600">Total Refunds</span>
+                  <span className="text-slate-600">Voided Transactions (Refunds)</span>
                   <span className="font-mono">-${Number(report.totalRefunds).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between font-bold text-base pt-2 border-t border-slate-100">
@@ -191,7 +191,7 @@ export default function ZReportDetailPage() {
                   <span className="font-mono">${Number(report.cashSales).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-700">- Cash Refunds</span>
+                  <span className="text-slate-700">- Cash Voided (Refunds)</span>
                   <span className="font-mono">-${Number(report.totalRefunds).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between font-bold text-sm pt-2 border-t border-slate-200">

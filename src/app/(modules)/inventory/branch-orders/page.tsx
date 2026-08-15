@@ -11,8 +11,9 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Store, Plus, Search, Eye, Trash2, CheckCircle, PackageOpen } from 'lucide-react';
+import { Store, Plus, Search, Eye, Trash2, CheckCircle, PackageOpen, FileText } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { jsPDF } from 'jspdf';
 
 interface LineItem {
   productId: string;
@@ -153,6 +154,62 @@ export default function BranchOrdersPage() {
     }
   };
 
+  const fetchImageAsBase64 = async (url: string) => {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    return new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+  };
+
+  const printGoodsReceivedNote = async (t: any) => {
+    const doc = new jsPDF();
+    
+    try {
+      const logoBase64 = await fetchImageAsBase64('/logo.png');
+      doc.addImage(logoBase64, 'PNG', 14, 10, 60, 20);
+    } catch (e) {
+      console.error('Failed to load logo', e);
+    }
+
+    doc.setFontSize(20);
+    doc.text('Goods Received Note (GRN)', 14, 40);
+    
+    doc.setFontSize(12);
+    doc.text(`Order No: ${t.transferNo}`, 14, 50);
+    doc.text(`Status: ${t.status}`, 14, 57);
+    doc.text(`Date Received: ${new Date(t.updatedAt || t.createdAt).toLocaleString()}`, 14, 64);
+    
+    doc.text(`From: ${t.fromWarehouse?.name || 'Warehouse'}`, 14, 77);
+    doc.text(`To: ${t.toBranch?.name || 'Branch'}`, 14, 84);
+    doc.text(`Requested By: ${t.requestedBy || 'N/A'}`, 14, 91);
+
+    doc.setFontSize(14);
+    doc.text('Items Received:', 14, 105);
+    doc.setFontSize(12);
+    
+    let y = 115;
+    t.lines?.forEach((line: any, idx: number) => {
+      const receivedQty = line.receivedQty !== null ? line.receivedQty : line.quantity;
+      doc.text(`${idx + 1}. ${line.productName} - Shipped: ${line.quantity}, Received: ${receivedQty}`, 14, y);
+      y += 8;
+    });
+
+    y += 10;
+    
+    doc.setFontSize(14);
+    doc.text('Signatures:', 14, y);
+    doc.setFontSize(12);
+    y += 10;
+    doc.text('Received By (Branch): _______________________  Sign: _________________  Date: _________', 14, y);
+    y += 15;
+    doc.text('Checked By (Manager): _______________________  Sign: _________________  Date: _________', 14, y);
+
+    doc.save(`GRN_${t.transferNo}.pdf`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -237,6 +294,12 @@ export default function BranchOrdersPage() {
                           <Button variant="ghost" size="sm" onClick={() => handleOpenReceive(item)}>
                             <PackageOpen className="h-4 w-4 mr-1 text-emerald-600" />
                             Receive
+                          </Button>
+                        )}
+                        {item.status === 'received' && (
+                          <Button variant="ghost" size="sm" onClick={() => printGoodsReceivedNote(item)} title="Download GRN">
+                            <FileText className="h-4 w-4 mr-1 text-mine-blue-600" />
+                            GRN
                           </Button>
                         )}
                       </TableCell>

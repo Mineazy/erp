@@ -40,12 +40,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
   // Fetch transactions for the session to compute totals
   const transactions = await prisma.erpPosTransaction.findMany({
-    where: { sessionId: id, status: 'completed' },
+    where: { sessionId: id, status: { in: ['completed', 'voided'] } },
     include: { payments: true }
   });
 
   let totalSales = 0;
-  let totalRefunds = 0; // Add logic for refunds later if needed
+  let totalRefunds = 0; 
   let totalTax = 0;
   let totalDiscounts = 0;
   let cashSales = 0;
@@ -54,6 +54,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   let creditSales = 0;
 
   for (const t of transactions) {
+    if (t.status === 'voided') {
+      totalRefunds += Number(t.total);
+      continue;
+    }
+
     totalSales += Number(t.total);
     totalTax += Number(t.taxAmount);
     totalDiscounts += Number(t.discount);
