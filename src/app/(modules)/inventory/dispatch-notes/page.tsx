@@ -327,26 +327,24 @@ export default function DispatchNotesPage() {
               <div className="col-span-2"><span className="font-medium text-slate-600">Branch:</span> {voucherData.branch || '—'}</div>
             </div>
             <Separator />
-            <table className="w-full mt-4 text-sm">
+            <table className="w-full mt-4 text-sm border-collapse">
               <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="text-left py-2 font-medium text-slate-600">#</th>
-                  <th className="text-left py-2 font-medium text-slate-600">Product</th>
-                  <th className="text-right py-2 font-medium text-slate-600">Quantity</th>
-                  <th className="text-right py-2 font-medium text-slate-600">Unit Price</th>
-                  <th className="text-right py-2 font-medium text-slate-600">Total</th>
-                  <th className="text-center py-2 font-medium text-slate-600">Batch</th>
+                <tr className="border-b-2 border-slate-800">
+                  <th className="text-left py-2 font-bold uppercase text-slate-800">Items</th>
+                  <th className="text-right py-2 font-bold uppercase text-slate-800">Requested Qty</th>
+                  <th className="text-right py-2 font-bold uppercase text-slate-800">Dispatched Qty</th>
+                  <th className="text-center py-2 font-bold uppercase text-slate-800">Security Checkbox</th>
                 </tr>
               </thead>
               <tbody>
                 {voucherData.lines.map((line: any, idx: number) => (
-                  <tr key={idx} className="border-b border-slate-100">
-                    <td className="py-2 text-slate-500">{idx + 1}</td>
-                    <td className="py-2">{line.productName}</td>
-                    <td className="py-2 text-right font-mono">{line.quantity}</td>
-                    <td className="py-2 text-right font-mono">${Number(line.unitPrice).toFixed(2)}</td>
-                    <td className="py-2 text-right font-mono">${Number(line.total).toFixed(2)}</td>
-                    <td className="py-2 text-center text-xs">{line.batchNo || '—'}</td>
+                  <tr key={idx} className="border-b border-slate-200">
+                    <td className="py-3 text-slate-800 font-medium">{line.productName}</td>
+                    <td className="py-3 text-right font-mono">{line.quantity}</td>
+                    <td className="py-3 text-right font-mono">{line.quantity}</td>
+                    <td className="py-3 text-center">
+                      <div className="w-5 h-5 border-2 border-slate-400 mx-auto rounded-sm"></div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

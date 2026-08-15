@@ -214,6 +214,47 @@ export default function BranchOrdersPage() {
     doc.save(`GRN_${t.transferNo}.pdf`);
   };
 
+  const printBranchOrder = async (t: any) => {
+    const doc = new jsPDF();
+    
+    try {
+      const logoBase64 = await fetchImageAsBase64('/logo.png');
+      doc.addImage(logoBase64, 'PNG', 14, 10, 60, 20);
+    } catch (e) {
+      console.error('Failed to load logo', e);
+    }
+
+    doc.setFontSize(20);
+    doc.text('Branch Stock Order', 14, 40);
+    
+    doc.setFontSize(12);
+    doc.text(`Order No: ${t.transferNo}`, 14, 50);
+    doc.text(`Status: ${t.status}`, 14, 57);
+    doc.text(`Date Ordered: ${new Date(t.createdAt).toLocaleString()}`, 14, 64);
+    
+    doc.text(`From: ${t.fromWarehouse?.name || 'Warehouse'}`, 14, 77);
+    doc.text(`To: ${t.toBranch?.name || 'Branch'}`, 14, 84);
+    doc.text(`Requested By: ${t.requestedBy || 'N/A'}`, 14, 91);
+
+    autoTable(doc, {
+      startY: 105,
+      head: [['PRODUCT', 'REQUESTED QTY']],
+      body: (t.lines || []).map((line: any) => [
+        line.productName,
+        line.quantity
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [41, 128, 185] },
+    });
+    
+    let y = (doc as any).lastAutoTable.finalY + 15;
+    
+    doc.setFontSize(12);
+    doc.text('Authorized By (Manager): _______________________  Sign: _________________  Date: _________', 14, y);
+
+    doc.save(`BranchOrder_${t.transferNo}.pdf`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -293,6 +334,10 @@ export default function BranchOrdersPage() {
                         <Button variant="ghost" size="sm" onClick={() => { setSelectedOrder(item); setViewDialogOpen(true); }}>
                           <Eye className="h-4 w-4 mr-1 text-slate-600" />
                           View
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => printBranchOrder(item)} title="Download Order PDF">
+                          <FileText className="h-4 w-4 mr-1 text-purple-600" />
+                          PDF
                         </Button>
                         {item.status === 'in_transit' && (
                           <Button variant="ghost" size="sm" onClick={() => handleOpenReceive(item)}>
