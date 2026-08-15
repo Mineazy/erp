@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { format } from 'date-fns';
 import { ArrowLeft, Plus, Calendar } from 'lucide-react';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 
 import { use } from 'react';
 export default function ProjectDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -147,32 +148,106 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
   const totalExpenses = project.expenses.reduce((s: number, e: any) => s + Number(e.amount), 0);
   const totalHours = project.timeLogs.reduce((s: number, t: any) => s + Number(t.hours), 0);
 
-  const overviewContent = (
-    <Card>
-      <CardHeader>
-        <CardTitle>Project Details</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label className="text-slate-500">Description</Label>
-            <p>{project.description || 'No description provided.'}</p>
-          </div>
-          <div>
-            <Label className="text-slate-500">Type</Label>
-            <p className="capitalize">{project.type}</p>
-          </div>
-          <div>
-            <Label className="text-slate-500">Start Date</Label>
-            <p>{project.startDate ? format(new Date(project.startDate), 'MMM d, yyyy') : '-'}</p>
-          </div>
-          <div>
-            <Label className="text-slate-500">End Date</Label>
-            <p>{project.endDate ? format(new Date(project.endDate), 'MMM d, yyyy') : '-'}</p>
-          </div>
+  const renderProgressChart = () => {
+    if (!project) return null;
+    
+    const totalTasks = project.tasks?.length || 0;
+    const completedTasks = project.tasks?.filter((t: any) => t.status === 'done').length || 0;
+    
+    let actualPercentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+    
+    let expectedPercentage = 0;
+    if (project.startDate && project.endDate) {
+      const start = new Date(project.startDate).getTime();
+      const end = new Date(project.endDate).getTime();
+      const today = new Date().getTime();
+      
+      if (today >= end) expectedPercentage = 100;
+      else if (today <= start) expectedPercentage = 0;
+      else expectedPercentage = ((today - start) / (end - start)) * 100;
+    } else {
+      expectedPercentage = actualPercentage;
+    }
+
+    const difference = expectedPercentage - actualPercentage;
+    let color = '#10b981'; // Green (on course)
+    
+    if (difference > 20 || (expectedPercentage >= 100 && actualPercentage < 100)) {
+      color = '#ef4444'; // Red (off course)
+    } else if (difference > 5) {
+      color = '#f97316'; // Orange (almost off course)
+    }
+
+    const data = [
+      { name: 'Completed', value: actualPercentage },
+      { name: 'Remaining', value: 100 - actualPercentage }
+    ];
+
+    return (
+      <div className="flex flex-col items-center justify-center h-48 relative">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              cx="50%"
+              cy="50%"
+              innerRadius={60}
+              outerRadius={80}
+              startAngle={90}
+              endAngle={-270}
+              dataKey="value"
+              stroke="none"
+              isAnimationActive={false}
+            >
+              <Cell key="cell-0" fill={color} />
+              <Cell key="cell-1" fill="#f1f5f9" />
+            </Pie>
+            <RechartsTooltip formatter={(value: number) => `${value.toFixed(1)}%`} />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mt-1">
+          <span className="text-3xl font-bold" style={{ color }}>{actualPercentage.toFixed(0)}%</span>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    );
+  };
+
+  const overviewContent = (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <Card className="md:col-span-2">
+        <CardHeader>
+          <CardTitle>Project Details</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-slate-500">Description</Label>
+              <p>{project?.description || 'No description provided.'}</p>
+            </div>
+            <div>
+              <Label className="text-slate-500">Type</Label>
+              <p className="capitalize">{project?.type}</p>
+            </div>
+            <div>
+              <Label className="text-slate-500">Start Date</Label>
+              <p>{project?.startDate ? format(new Date(project.startDate), 'MMM d, yyyy') : '-'}</p>
+            </div>
+            <div>
+              <Label className="text-slate-500">End Date</Label>
+              <p>{project?.endDate ? format(new Date(project.endDate), 'MMM d, yyyy') : '-'}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      <Card className="md:col-span-1">
+        <CardHeader>
+          <CardTitle>Progress</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {renderProgressChart()}
+        </CardContent>
+      </Card>
+    </div>
   );
 
   const renderGantt = () => {
