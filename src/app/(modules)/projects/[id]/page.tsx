@@ -23,7 +23,7 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
 
   // Modals state
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
-  const [newTask, setNewTask] = useState({ title: '', description: '', estimatedHours: '' });
+  const [newTask, setNewTask] = useState({ title: '', description: '', estimatedHours: '', startDate: '', dueDate: '' });
 
   const [isNewExpenseOpen, setIsNewExpenseOpen] = useState(false);
   const [newExpense, setNewExpense] = useState({ category: 'materials', description: '', amount: '', recordedById: '' });
@@ -70,7 +70,7 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
         body: JSON.stringify(newTask),
       });
       setIsNewTaskOpen(false);
-      setNewTask({ title: '', description: '', estimatedHours: '' });
+      setNewTask({ title: '', description: '', estimatedHours: '', startDate: '', dueDate: '' });
       fetchProject();
     } catch (e) { console.error(e); }
   };
@@ -173,8 +173,78 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
     </Card>
   );
 
+  const renderGantt = () => {
+    if (!project || project.tasks.length === 0) return null;
+    
+    let minDate = project.startDate ? new Date(project.startDate).getTime() : Infinity;
+    let maxDate = project.endDate ? new Date(project.endDate).getTime() : -Infinity;
+
+    const validTasks = project.tasks.filter((t: any) => t.startDate && t.dueDate);
+    if (validTasks.length === 0) return null; // Nothing to plot
+
+    validTasks.forEach((t: any) => {
+      minDate = Math.min(minDate, new Date(t.startDate).getTime());
+      maxDate = Math.max(maxDate, new Date(t.dueDate).getTime());
+    });
+
+    if (minDate === Infinity || maxDate === -Infinity || maxDate <= minDate) return null;
+
+    const duration = maxDate - minDate;
+    const paddedMin = minDate - duration * 0.05;
+    const paddedMax = maxDate + duration * 0.05;
+    const paddedDuration = paddedMax - paddedMin;
+
+    return (
+      <Card className="mb-6 shadow-sm border border-slate-100">
+        <CardHeader className="pb-2 bg-slate-50 border-b border-slate-100 rounded-t-lg">
+          <CardTitle className="text-sm text-slate-700 flex items-center gap-2"><Calendar className="w-4 h-4" /> Gantt Chart Timeline</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-4">
+          <div className="relative w-full py-2">
+            <div className="absolute top-0 bottom-0 left-0 w-full pointer-events-none">
+               <div className="absolute left-[25%] top-0 bottom-0 border-l border-slate-100 border-dashed" />
+               <div className="absolute left-[50%] top-0 bottom-0 border-l border-slate-100 border-dashed" />
+               <div className="absolute left-[75%] top-0 bottom-0 border-l border-slate-100 border-dashed" />
+            </div>
+
+            {validTasks.map((task: any) => {
+              const start = new Date(task.startDate).getTime();
+              const due = new Date(task.dueDate).getTime();
+              const left = ((start - paddedMin) / paddedDuration) * 100;
+              const width = Math.max(((due - start) / paddedDuration) * 100, 1);
+              
+              let color = 'bg-mine-blue-500';
+              if (task.status === 'done') color = 'bg-emerald-500';
+              if (task.status === 'blocked') color = 'bg-red-500';
+              if (task.status === 'todo') color = 'bg-slate-400';
+
+              return (
+                <div key={task.id} className="relative h-8 mb-2 group">
+                  <div 
+                    className={`absolute h-6 rounded-md shadow-sm ${color} transition-all cursor-pointer flex items-center overflow-hidden`}
+                    style={{ left: `${left}%`, width: `${width}%` }}
+                    title={`${task.title}: ${format(new Date(task.startDate), 'MMM d, yyyy')} - ${format(new Date(task.dueDate), 'MMM d, yyyy')}`}
+                  >
+                    <span className="text-[10px] text-white px-2 truncate block w-full">{task.title}</span>
+                  </div>
+                </div>
+              );
+            })}
+            
+            <div className="flex justify-between mt-2 text-xs text-slate-400 border-t border-slate-200 pt-1">
+              <span>{format(new Date(paddedMin), 'MMM d')}</span>
+              <span>{format(new Date(paddedMin + paddedDuration/2), 'MMM d')}</span>
+              <span>{format(new Date(paddedMax), 'MMM d')}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   const tasksContent = (
     <div className="space-y-4">
+      {renderGantt()}
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Project Tasks</h3>
         <Button size="sm" onClick={() => setIsNewTaskOpen(true)}><Plus className="h-4 w-4 mr-2" /> Add Task</Button>
@@ -187,6 +257,16 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
             <div>
               <Label>Description</Label>
               <Input value={newTask.description} onChange={e => setNewTask({...newTask, description: e.target.value})} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Start Date</Label>
+                <Input type="date" value={newTask.startDate} onChange={e => setNewTask({...newTask, startDate: e.target.value})} />
+              </div>
+              <div>
+                <Label>Due Date</Label>
+                <Input type="date" value={newTask.dueDate} onChange={e => setNewTask({...newTask, dueDate: e.target.value})} />
+              </div>
             </div>
             <div>
               <Label>Estimated Hours</Label>
