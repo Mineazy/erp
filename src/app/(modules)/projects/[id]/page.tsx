@@ -23,6 +23,8 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
 
   // Modals state
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
+  const [isEditingBudget, setIsEditingBudget] = useState(false);
+  const [editBudgetAmount, setEditBudgetAmount] = useState('');
   const [newTask, setNewTask] = useState({ title: '', description: '', estimatedHours: '', startDate: '', dueDate: '' });
 
   const [isNewExpenseOpen, setIsNewExpenseOpen] = useState(false);
@@ -88,12 +90,12 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
     }
   };
 
-  const handleUpdateProjectStatus = async (newStatus: string) => {
+  const handleUpdateProject = async (updates: any) => {
     try {
       const res = await fetch(`/api/projects/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify(updates),
       });
       if (res.ok) fetchProject();
     } catch (e) {
@@ -466,7 +468,7 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
           <div className="flex items-center gap-2 text-slate-500 text-sm mt-1">
             <span>{project.projectNo}</span>
             <span>•</span>
-            <Select value={project.status} onChange={e => handleUpdateProjectStatus(e.target.value)} className="h-7 w-32 capitalize text-xs bg-slate-100 border-none">
+            <Select value={project.status} onChange={e => handleUpdateProject({ status: e.target.value })} className="h-7 w-32 capitalize text-xs bg-slate-100 border-none">
               <option value="planning">Planning</option>
               <option value="active">Active</option>
               <option value="on_hold">On Hold</option>
@@ -479,10 +481,42 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="col-span-1 shadow-sm border-t-4 border-t-mine-blue-500">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-slate-500">Budget</CardTitle>
+            <CardTitle className="text-sm text-slate-500 flex justify-between items-center">
+              Budget
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-slate-900">${Number(project.budget).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+            {isEditingBudget ? (
+              <Input 
+                type="number"
+                step="0.01"
+                autoFocus
+                className="text-xl font-bold h-10 w-full"
+                value={editBudgetAmount}
+                onChange={(e) => setEditBudgetAmount(e.target.value)}
+                onBlur={() => {
+                  setIsEditingBudget(false);
+                  if (editBudgetAmount && editBudgetAmount !== project.budget) {
+                    handleUpdateProject({ budget: editBudgetAmount });
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') e.currentTarget.blur();
+                  if (e.key === 'Escape') setIsEditingBudget(false);
+                }}
+              />
+            ) : (
+              <p 
+                className="text-2xl font-bold text-slate-900 cursor-pointer hover:text-mine-blue-600 transition-colors"
+                onClick={() => {
+                  setEditBudgetAmount(project.budget || '0');
+                  setIsEditingBudget(true);
+                }}
+                title="Click to edit budget"
+              >
+                ${Number(project.budget).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </p>
+            )}
           </CardContent>
         </Card>
         <Card className="col-span-1 shadow-sm border-t-4 border-t-amber-500">
