@@ -11,6 +11,11 @@ export async function GET(request: NextRequest) {
     const where: any = {};
     Object.assign(where, branchFilter);
 
+    // Filter projects where the signed-in user is the manager
+    if ((session.user as any)?.id) {
+      where.managerId = (session.user as any).id;
+    }
+
     const projects = await prisma.erpProject.findMany({
       where,
       include: {
