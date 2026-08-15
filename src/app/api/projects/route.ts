@@ -28,7 +28,8 @@ export async function GET(request: NextRequest) {
       include: {
         manager: { select: { id: true, firstName: true, lastName: true } },
         client: { select: { id: true, name: true } },
-        _count: { select: { tasks: true, timeLogs: true, expenses: true, members: true } }
+        _count: { select: { tasks: true, timeLogs: true, expenses: true, members: true } },
+        tasks: { select: { status: true } },
       },
       orderBy: { createdAt: 'desc' },
     }),

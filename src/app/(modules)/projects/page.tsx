@@ -8,7 +8,7 @@ import { Select } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Briefcase, Search, Plus, ExternalLink, Calendar } from 'lucide-react';
+import { Plus, ExternalLink, Search, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -73,6 +73,24 @@ export default function ProjectsList() {
     } catch (error) {
       console.error(error);
       alert('Error creating project');
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (!confirm('Are you sure you want to delete this project?')) return;
+    
+    try {
+      const res = await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        fetchProjects();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to delete project');
+      }
+    } catch (error) {
+      console.error(error);
+      alert('Error deleting project');
     }
   };
 
@@ -175,53 +193,76 @@ export default function ProjectsList() {
                 <TableHead>Name</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Progress</TableHead>
                 <TableHead className="text-right">Budget</TableHead>
                 <TableHead>Created</TableHead>
-                <TableHead className="w-[80px]"></TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-32 text-center text-slate-500">Loading projects...</TableCell>
+                  <TableCell colSpan={8} className="h-32 text-center text-slate-500">Loading projects...</TableCell>
                 </TableRow>
               ) : projects.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-32 text-center text-slate-500">No projects found.</TableCell>
+                  <TableCell colSpan={8} className="h-32 text-center text-slate-500">No projects found.</TableCell>
                 </TableRow>
               ) : (
-                projects.map((project) => (
-                  <TableRow key={project.id} className="hover:bg-slate-50/50 cursor-pointer transition-colors" onClick={() => router.push(`/projects/${project.id}`)}>
-                    <TableCell className="font-mono text-sm text-slate-500">{project.projectNo}</TableCell>
-                    <TableCell className="font-medium text-slate-900">{project.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="capitalize text-slate-600">
-                        {project.type.replace('_', ' ')}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={
-                        project.status === 'active' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' :
-                        project.status === 'completed' ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' :
-                        project.status === 'on_hold' ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' :
-                        'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                      }>
-                        {project.status.replace('_', ' ')}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-medium text-slate-700">
-                      ${Number(project.budget).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </TableCell>
-                    <TableCell className="text-slate-500 text-sm">
-                      {format(new Date(project.createdAt), 'MMM d, yyyy')}
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-mine-blue-600 hover:bg-mine-blue-50">
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
+                projects.map((project) => {
+                  const totalTasks = project.tasks?.length || 0;
+                  const completedTasks = project.tasks?.filter((t: any) => t.status === 'done' || t.status === 'completed').length || 0;
+                  const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+                  
+                  return (
+                    <TableRow key={project.id} className="hover:bg-slate-50/50 cursor-pointer transition-colors" onClick={() => router.push(`/projects/${project.id}`)}>
+                      <TableCell className="font-mono text-sm text-slate-500">{project.projectNo}</TableCell>
+                      <TableCell className="font-medium text-slate-900">{project.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="capitalize text-slate-600">
+                          {project.type.replace('_', ' ')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={
+                          project.status === 'active' ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' :
+                          project.status === 'completed' ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' :
+                          project.status === 'on_hold' ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' :
+                          'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }>
+                          {project.status.replace('_', ' ')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="w-full max-w-[120px] flex items-center gap-2">
+                          <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-mine-blue-500 rounded-full" style={{ width: `${progress}%` }}></div>
+                          </div>
+                          <span className="text-xs text-slate-500 font-medium">{progress}%</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right font-medium text-slate-700">
+                        ${Number(project.budget).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </TableCell>
+                      <TableCell className="text-slate-500 text-sm">
+                        {format(new Date(project.createdAt), 'MMM d, yyyy')}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-mine-blue-600 hover:bg-mine-blue-50" onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/projects/${project.id}`);
+                          }}>
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50" onClick={(e) => handleDelete(e, project.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
