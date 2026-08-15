@@ -13,6 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { Store, Search, Eye, Send, FileText } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function WarehouseBranchOrdersPage() {
   const router = useRouter();
@@ -98,17 +99,20 @@ export default function WarehouseBranchOrdersPage() {
     doc.text(`To: ${t.toBranch?.name || 'Branch'}`, 14, 84);
     doc.text(`Requested By: ${t.requestedBy || 'N/A'}`, 14, 91);
 
-    doc.setFontSize(14);
-    doc.text('Items:', 14, 105);
-    doc.setFontSize(12);
-    
-    let y = 115;
-    t.lines?.forEach((line: any, idx: number) => {
-      doc.text(`${idx + 1}. ${line.productName} - Qty: ${line.quantity}`, 14, y);
-      y += 8;
+    autoTable(doc, {
+      startY: 105,
+      head: [['ITEMS', 'REQUESTED QTY', 'DISPATCHED QTY', 'SECURITY CHECKBOX']],
+      body: (t.lines || []).map((line: any) => [
+        line.productName,
+        line.quantity,
+        line.quantity,
+        ''
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [41, 128, 185] },
     });
-
-    y += 10;
+    
+    let y = (doc as any).lastAutoTable.finalY + 15;
     
     // Add Security Signatures section
     doc.setFontSize(14);

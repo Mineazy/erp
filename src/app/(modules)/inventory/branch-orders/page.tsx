@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { Store, Plus, Search, Eye, Trash2, CheckCircle, PackageOpen, FileText } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface LineItem {
   productId: string;
@@ -186,18 +187,21 @@ export default function BranchOrdersPage() {
     doc.text(`To: ${t.toBranch?.name || 'Branch'}`, 14, 84);
     doc.text(`Requested By: ${t.requestedBy || 'N/A'}`, 14, 91);
 
-    doc.setFontSize(14);
-    doc.text('Items Received:', 14, 105);
-    doc.setFontSize(12);
-    
-    let y = 115;
-    t.lines?.forEach((line: any, idx: number) => {
-      const receivedQty = line.receivedQty !== null ? line.receivedQty : line.quantity;
-      doc.text(`${idx + 1}. ${line.productName} - Shipped: ${line.quantity}, Received: ${receivedQty}`, 14, y);
-      y += 8;
+    autoTable(doc, {
+      startY: 105,
+      head: [['ITEMS', 'REQUESTED QTY', 'DISPATCHED QTY', 'RECEIVED QTY', 'SECURITY CHECKBOX']],
+      body: (t.lines || []).map((line: any) => [
+        line.productName,
+        line.quantity,
+        line.quantity,
+        line.receivedQty !== null ? line.receivedQty : line.quantity,
+        ''
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [41, 128, 185] },
     });
-
-    y += 10;
+    
+    let y = (doc as any).lastAutoTable.finalY + 15;
     
     doc.setFontSize(14);
     doc.text('Signatures:', 14, y);
