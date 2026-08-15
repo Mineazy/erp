@@ -88,6 +88,19 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
     }
   };
 
+  const handleUpdateProjectStatus = async (newStatus: string) => {
+    try {
+      const res = await fetch(`/api/projects/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) fetchProject();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handleCreateExpense = async () => {
     if (!newExpense.amount) return alert('Amount required');
     try {
@@ -355,7 +368,16 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
         </Button>
         <div>
           <h1 className="text-2xl font-bold text-slate-900">{project.name}</h1>
-          <p className="text-slate-500 text-sm">{project.projectNo} • <Badge variant="secondary" className="capitalize">{project.status}</Badge></p>
+          <div className="flex items-center gap-2 text-slate-500 text-sm mt-1">
+            <span>{project.projectNo}</span>
+            <span>•</span>
+            <Select value={project.status} onChange={e => handleUpdateProjectStatus(e.target.value)} className="h-7 w-32 capitalize text-xs bg-slate-100 border-none">
+              <option value="planning">Planning</option>
+              <option value="active">Active</option>
+              <option value="on_hold">On Hold</option>
+              <option value="completed">Completed</option>
+            </Select>
+          </div>
         </div>
       </div>
 
