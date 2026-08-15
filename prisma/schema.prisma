@@ -14,7 +14,7 @@ model AuditLog {
   action     String
   userId     String   @map("user_id")
   userName   String   @map("user_name")
-  changes    String   
+  changes    String
   ipAddress  String?  @map("ip_address")
   userAgent  String?  @map("user_agent")
   createdAt  DateTime @default(now()) @map("created_at")
@@ -41,7 +41,7 @@ model TaxType {
   category     String
   rate         Decimal          @db.Decimal(5, 2)
   isActive     Boolean          @default(true) @map("is_active")
-  rules        String?          
+  rules        String?
   createdAt    DateTime         @default(now()) @map("created_at")
   updatedAt    DateTime         @updatedAt @map("updated_at")
   transactions TaxTransaction[]
@@ -92,8 +92,8 @@ model FdmsDevice {
   deviceId            String               @unique @map("device_id")
   serialNo            String               @unique @map("serial_no")
   activationKey       String?              @map("activation_key")
-  certificate         String?              
-  privateKey          String?              @map("private_key") 
+  certificate         String?
+  privateKey          String?              @map("private_key")
   status              String               @default("'registered'")
   fiscalDayNo         Int                  @default(0) @map("fiscal_day_no")
   receiptCounter      Int                  @default(0) @map("receipt_counter")
@@ -290,16 +290,16 @@ model ErpProduct {
 }
 
 model ErpBranchStock {
-  id             String      @id @default(uuid())
-  branchId       String      @map("branch_id")
-  productId      String      @map("product_id")
-  quantity       Decimal     @default(0.00) @db.Decimal(15, 2)
-  minQuantity    Decimal     @default(0.00) @map("min_quantity") @db.Decimal(15, 2)
-  maxQuantity    Decimal?    @default(0.00) @map("max_quantity") @db.Decimal(15, 2)
-  branch         ErpBranch   @relation(fields: [branchId], references: [id])
-  product        ErpProduct  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  createdAt      DateTime    @default(now()) @map("created_at")
-  updatedAt      DateTime    @updatedAt @map("updated_at")
+  id          String     @id @default(uuid())
+  branchId    String     @map("branch_id")
+  productId   String     @map("product_id")
+  quantity    Decimal    @default(0.00) @db.Decimal(15, 2)
+  minQuantity Decimal    @default(0.00) @map("min_quantity") @db.Decimal(15, 2)
+  maxQuantity Decimal?   @default(0.00) @map("max_quantity") @db.Decimal(15, 2)
+  branch      ErpBranch  @relation(fields: [branchId], references: [id])
+  product     ErpProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
 
   @@unique([branchId, productId], map: "erp_branch_stocks_branch_product_unique")
   @@index([branchId])
@@ -426,13 +426,13 @@ model ErpGoodsReceipt {
   updatedAt          DateTime              @updatedAt @map("updated_at")
   branchId           String?               @map("branch_id")
   approvedAt         DateTime?             @map("approved_at")
-  attachments        String?               
+  attachments        String?
   capturedBy         String?               @map("captured_by")
   deliveryNoteNumber String?               @map("delivery_note_number")
   insightPoNumber    String?               @map("insight_po_number")
   invoiceNumber      String?               @map("invoice_number")
   reviewedBy         String?               @map("reviewed_by")
-  reviewerSignature  String?               @map("reviewer_signature") 
+  reviewerSignature  String?               @map("reviewer_signature")
   lines              ErpGoodsReceiptLine[]
   branch             ErpBranch?            @relation(fields: [branchId], references: [id])
 
@@ -497,34 +497,35 @@ model ErpPurchaseRequisitionItem {
 }
 
 model ErpCustomer {
-  id                 String     @id @default(uuid())
-  code               String     @unique
+  id                 String       @id @default(uuid())
+  code               String       @unique
   name               String
-  type               String     @default("'company'")
-  segment            String?    @default("'retail'")
-  contactPerson      String?    @map("contact_person")
+  type               String       @default("'company'")
+  segment            String?      @default("'retail'")
+  contactPerson      String?      @map("contact_person")
   email              String?
   phone              String?
   mobile             String?
   address            String?
   city               String?
   country            String?
-  taxId              String?    @map("tax_id")
-  vatNumber          String?    @map("vat_number")
-  tinNumber          String?    @map("tin_number")
-  creditLimit        Decimal    @default(0.00) @map("credit_limit") @db.Decimal(15, 2)
-  balance            Decimal    @default(0.00) @db.Decimal(15, 2)
+  taxId              String?      @map("tax_id")
+  vatNumber          String?      @map("vat_number")
+  tinNumber          String?      @map("tin_number")
+  creditLimit        Decimal      @default(0.00) @map("credit_limit") @db.Decimal(15, 2)
+  balance            Decimal      @default(0.00) @db.Decimal(15, 2)
   notes              String?
-  isActive           Boolean    @default(true) @map("is_active")
-  loyaltyCardBarcode String?    @unique @map("loyalty_card_barcode")
-  loyaltyPoints      Int        @default(0) @map("loyalty_points")
-  totalSpent         Decimal    @default(0.00) @map("total_spent") @db.Decimal(15, 2)
-  cardBalance        Decimal    @default(0.00) @map("card_balance") @db.Decimal(15, 2)
-  createdAt          DateTime   @default(now()) @map("created_at")
-  updatedAt          DateTime   @updatedAt @map("updated_at")
-  resellerDiscount   Decimal    @default(0.00) @map("reseller_discount") @db.Decimal(5, 2)
-  walletBalance      Decimal    @default(0.00) @map("wallet_balance") @db.Decimal(15, 2)
+  isActive           Boolean      @default(true) @map("is_active")
+  loyaltyCardBarcode String?      @unique @map("loyalty_card_barcode")
+  loyaltyPoints      Int          @default(0) @map("loyalty_points")
+  totalSpent         Decimal      @default(0.00) @map("total_spent") @db.Decimal(15, 2)
+  cardBalance        Decimal      @default(0.00) @map("card_balance") @db.Decimal(15, 2)
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+  resellerDiscount   Decimal      @default(0.00) @map("reseller_discount") @db.Decimal(5, 2)
+  walletBalance      Decimal      @default(0.00) @map("wallet_balance") @db.Decimal(15, 2)
   leads              ErpLead[]
+  projects           ErpProject[]
 
   @@map("erp_customers")
 }
@@ -1161,7 +1162,7 @@ model ErpInventoryAuditLog {
   entityType  String     @map("entity_type")
   entityId    String     @map("entity_id")
   description String?
-  changes     String?    
+  changes     String?
   userId      String     @map("user_id")
   userName    String?    @map("user_name")
   ipAddress   String?    @map("ip_address")
@@ -1174,32 +1175,37 @@ model ErpInventoryAuditLog {
 }
 
 model ErpEmployee {
-  id             String            @id @default(uuid())
-  employeeNo     String            @unique @map("employee_no")
-  firstName      String            @map("first_name")
-  lastName       String            @map("last_name")
-  email          String?
-  phone          String?
-  address        String?
-  department     String?
-  position       String?
-  employmentType String            @default("'permanent'") @map("employment_type")
-  dateHired      DateTime          @map("date_hired")
-  tinNumber      String?           @map("tin_number")
-  nssaNumber     String?           @map("nssa_number")
-  necNumber      String?           @map("nec_number")
-  zimdefNumber   String?           @map("zimdef_number")
-  basicSalary    Decimal           @map("basic_salary") @db.Decimal(15, 2)
-  currency       String            @default("'USD'")
-  bankName       String?           @map("bank_name")
-  bankAccount    String?           @map("bank_account")
-  isActive       Boolean           @default(true) @map("is_active")
-  userId         String?           @map("user_id")
-  createdAt      DateTime          @default(now()) @map("created_at")
-  updatedAt      DateTime          @updatedAt @map("updated_at")
-  attendance     ErpAttendance[]
-  leaveRequests  ErpLeaveRequest[]
-  payrollEntries ErpPayrollEntry[]
+  id                 String              @id @default(uuid())
+  employeeNo         String              @unique @map("employee_no")
+  firstName          String              @map("first_name")
+  lastName           String              @map("last_name")
+  email              String?
+  phone              String?
+  address            String?
+  department         String?
+  position           String?
+  employmentType     String              @default("'permanent'") @map("employment_type")
+  dateHired          DateTime            @map("date_hired")
+  tinNumber          String?             @map("tin_number")
+  nssaNumber         String?             @map("nssa_number")
+  necNumber          String?             @map("nec_number")
+  zimdefNumber       String?             @map("zimdef_number")
+  basicSalary        Decimal             @map("basic_salary") @db.Decimal(15, 2)
+  currency           String              @default("'USD'")
+  bankName           String?             @map("bank_name")
+  bankAccount        String?             @map("bank_account")
+  isActive           Boolean             @default(true) @map("is_active")
+  userId             String?             @map("user_id")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+  attendance         ErpAttendance[]
+  leaveRequests      ErpLeaveRequest[]
+  payrollEntries     ErpPayrollEntry[]
+  managedProjects    ErpProject[]        @relation("ProjectManager")
+  assignedTasks      ErpProjectTask[]    @relation("TaskAssignee")
+  recordedExpenses   ErpProjectExpense[] @relation("ExpenseRecorder")
+  timeLogs           ErpProjectTimeLog[] @relation("TimeLogger")
+  projectMemberships ErpProjectMember[]
 
   @@map("erp_employees")
 }
@@ -1448,7 +1454,7 @@ model ErpChatMessage {
   chatId      String   @map("chat_id")
   senderId    String   @map("sender_id")
   content     String
-  attachments String?  
+  attachments String?
   createdAt   DateTime @default(now()) @map("created_at")
   chat        ErpChat  @relation(fields: [chatId], references: [id], onDelete: Cascade)
   sender      ErpUser  @relation(fields: [senderId], references: [id])
@@ -1503,6 +1509,7 @@ model ErpBranch {
   fiscalisedDocuments    FiscalisedDocument[]
   taxTransactions        TaxTransaction[]
   branchStocks           ErpBranchStock[]
+  projects               ErpProject[]
 
   @@map("erp_branches")
 }
@@ -1532,13 +1539,128 @@ model ErpUser {
 model SystemSetting {
   id          String   @id @default(uuid())
   key         String   @unique
-  value       String   
+  value       String
   category    String   @default("'general'")
   description String?
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("system_settings")
+}
+
+model ErpProject {
+  id          String    @id @default(uuid())
+  projectNo   String    @unique @map("project_no")
+  name        String
+  description String?
+  type        String    @default("'construction'")
+  status      String    @default("'planning'")
+  startDate   DateTime? @map("start_date")
+  endDate     DateTime? @map("end_date")
+  budget      Decimal   @default(0.00) @db.Decimal(15, 2)
+  currency    String    @default("'USD'")
+  managerId   String?   @map("manager_id")
+  clientId    String?   @map("client_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  branchId    String?   @map("branch_id")
+
+  branch  ErpBranch?   @relation(fields: [branchId], references: [id])
+  manager ErpEmployee? @relation("ProjectManager", fields: [managerId], references: [id])
+  client  ErpCustomer? @relation(fields: [clientId], references: [id])
+
+  tasks    ErpProjectTask[]
+  expenses ErpProjectExpense[]
+  timeLogs ErpProjectTimeLog[]
+  members  ErpProjectMember[]
+
+  @@index([branchId])
+  @@index([managerId])
+  @@index([clientId])
+  @@map("erp_projects")
+}
+
+model ErpProjectTask {
+  id             String    @id @default(uuid())
+  projectId      String    @map("project_id")
+  title          String
+  description    String?
+  status         String    @default("'todo'")
+  priority       String    @default("'medium'")
+  startDate      DateTime? @map("start_date")
+  dueDate        DateTime? @map("due_date")
+  completedAt    DateTime? @map("completed_at")
+  assignedToId   String?   @map("assigned_to_id")
+  estimatedHours Decimal   @default(0.00) @map("estimated_hours") @db.Decimal(10, 2)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  project  ErpProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee ErpEmployee?        @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  timeLogs ErpProjectTimeLog[]
+
+  @@index([projectId])
+  @@index([assignedToId])
+  @@map("erp_project_tasks")
+}
+
+model ErpProjectExpense {
+  id           String   @id @default(uuid())
+  projectId    String   @map("project_id")
+  expenseDate  DateTime @map("expense_date")
+  category     String
+  description  String
+  amount       Decimal  @db.Decimal(15, 2)
+  currency     String   @default("'USD'")
+  recordedById String   @map("recorded_by_id")
+  receiptUrl   String?  @map("receipt_url")
+  status       String   @default("'pending'")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  project    ErpProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  recordedBy ErpEmployee @relation("ExpenseRecorder", fields: [recordedById], references: [id])
+
+  @@index([projectId])
+  @@index([recordedById])
+  @@map("erp_project_expenses")
+}
+
+model ErpProjectTimeLog {
+  id          String   @id @default(uuid())
+  projectId   String   @map("project_id")
+  taskId      String?  @map("task_id")
+  employeeId  String   @map("employee_id")
+  logDate     DateTime @map("log_date")
+  hours       Decimal  @db.Decimal(10, 2)
+  description String?
+  billable    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  project  ErpProject      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task     ErpProjectTask? @relation(fields: [taskId], references: [id])
+  employee ErpEmployee     @relation("TimeLogger", fields: [employeeId], references: [id])
+
+  @@index([projectId])
+  @@index([taskId])
+  @@index([employeeId])
+  @@map("erp_project_time_logs")
+}
+
+model ErpProjectMember {
+  id         String   @id @default(uuid())
+  projectId  String   @map("project_id")
+  employeeId String   @map("employee_id")
+  role       String   @default("'member'")
+  joinedAt   DateTime @default(now()) @map("joined_at")
+
+  project  ErpProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employee ErpEmployee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, employeeId])
+  @@index([projectId])
+  @@index([employeeId])
+  @@map("erp_project_members")
 }
 
 model FiscalPeriod {
@@ -1558,7 +1680,7 @@ model SavedReport {
   id        String   @id @default(uuid())
   name      String
   type      String
-  config    String   
+  config    String
   createdBy String   @map("created_by")
   isPublic  Boolean  @default(false) @map("is_public")
   createdAt DateTime @default(now()) @map("created_at")
@@ -1785,7 +1907,7 @@ model ErpHaulingTrip {
   destinationBranchId   String?    @map("destination_branch_id")
   destinationBranchName String?    @map("destination_branch_name")
   status                String
-  productDetails        String     @map("product_details") 
+  productDetails        String     @map("product_details")
   departureTime         DateTime?  @map("departure_time")
   arrivalTime           DateTime?  @map("arrival_time")
   createdAt             DateTime   @default(now()) @map("created_at")

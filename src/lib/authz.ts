@@ -101,6 +101,12 @@ const MODULE_PERMISSIONS: Record<string, PermissionSet> = {
     manager: false,
     user: false,
   },
+  projects: {
+    admin: true,
+    accountant: 'readonly',
+    manager: true,
+    user: 'readonly',
+  },
 };
 
 function getModuleAccess(module: string, role: UserRole): AccessLevel {
@@ -173,7 +179,7 @@ export function canAccessModule(module: string, role: string | undefined, depart
 
   // Custom overrides for users registered under the Business Development Department
   if (department && (department.toLowerCase() === 'business' || department.toLowerCase() === 'business development')) {
-    const allowedModules = ['crm', 'pos', 'workshop', 'messaging', 'sales'];
+    const allowedModules = ['crm', 'pos', 'workshop', 'messaging', 'sales', 'projects'];
     if (allowedModules.includes(module.toLowerCase())) {
       return true;
     }
@@ -217,7 +223,7 @@ export function canWriteModule(module: string, role: string | undefined, departm
   }
 
   if (department && (department.toLowerCase() === 'business' || department.toLowerCase() === 'business development')) {
-    const allowedModules = ['crm', 'pos', 'workshop', 'messaging', 'sales'];
+    const allowedModules = ['crm', 'pos', 'workshop', 'messaging', 'sales', 'projects'];
     if (allowedModules.includes(module.toLowerCase())) {
       return true;
     }

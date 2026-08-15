@@ -12,7 +12,7 @@ import {
   LucideIcon, Target, Percent, ClipboardList, Warehouse, ArrowLeftRight,
   ClipboardCheck, Wrench, QrCode, BarChart3, Shield, Settings, FolderTree,
   RotateCcw, MessageCircle, AlertTriangle, TrendingUp, LineChart, Bell,
-  FileBarChart, ScrollText, Award, Crown, Handshake, Store,
+  FileBarChart, ScrollText, Award, Crown, Handshake, Store, Briefcase, ListTodo, DollarSign, Clock,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -21,7 +21,7 @@ const iconMap: Record<string, LucideIcon> = {
   Package, ShoppingCart, Truck, Users, Building2, Target, Percent, ClipboardList,
   Warehouse, ArrowLeftRight, ClipboardCheck, Wrench, QrCode, BarChart3, Shield, Settings,
   RotateCcw, MessageCircle, AlertTriangle, TrendingUp, LineChart, Bell,
-  FileBarChart, ScrollText, FolderTree, Award, Crown, Handshake, Store,
+  FileBarChart, ScrollText, FolderTree, Award, Crown, Handshake, Store, Briefcase, ListTodo, DollarSign, Clock,
 };
 
 const navGroups = [
@@ -182,6 +182,14 @@ const navGroups = [
       { label: 'Branches', href: '/admin/branches', icon: 'Building2' },
       { label: 'Settings', href: '/admin/settings', icon: 'Settings' },
       { label: 'Audit Trail', href: '/admin/audit', icon: 'ScrollText' },
+    ],
+  },
+  {
+    group: 'Projects',
+    module: 'projects',
+    items: [
+      { label: 'Dashboard', href: '/projects/dashboard', icon: 'LayoutDashboard' },
+      { label: 'All Projects', href: '/projects', icon: 'Briefcase' },
     ],
   },
 ];
