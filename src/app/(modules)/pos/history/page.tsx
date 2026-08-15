@@ -16,7 +16,7 @@ interface Transaction {
   transactionNumber: string;
   sessionId: string;
   customerName: string;
-  items: { productName: string; quantity: number; unitPrice: number; lineTotal: number }[];
+  lines: { productName: string; quantity: number; unitPrice: number; lineTotal: number }[];
   subtotal: number;
   tax: number;
   discount: number;
