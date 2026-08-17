@@ -893,8 +893,13 @@ export default function POSTerminalPage() {
         </head>
         <body>
           <div class="text-center border-b">
-            <h2 class="font-bold" style="margin: 0; font-size: 18px;">MINEAZY</h2>
-            <p style="margin: 2px 0 0; font-size: 12px;">TAX INVOICE</p>
+            <h2 class="font-bold" style="margin: 0; font-size: 16px;">Mineazy Mining Solutions</h2>
+            ${lastTransaction?.branch?.name ? `<p class="font-bold" style="margin: 2px 0 0; font-size: 14px;">${lastTransaction.branch.name}</p>` : ''}
+            <p style="margin: 2px 0 0; font-size: 10px;">${lastTransaction?.branch?.address || '15 Plumtree Road, Belmont'}${lastTransaction?.branch?.city ? `, ${lastTransaction.branch.city}` : ', BULAWAYO'}</p>
+            <p style="margin: 2px 0 0; font-size: 10px;">TIN: 2001282270 | VAT No: 220107408</p>
+            <p style="margin: 2px 0 0; font-size: 10px;">Mobile: ${lastTransaction?.branch?.phone || '+263712290046'} | Email: ${lastTransaction?.branch?.email || 'sales@mineazy.co.zw'}</p>
+            
+            <h3 class="font-bold mt-4" style="margin: 10px 0 0; font-size: 14px;">TAX INVOICE</h3>
             <p style="margin: 2px 0 0; font-size: 12px;">Ref: ${lastTransaction.transactionNumber}</p>
             <p style="margin: 2px 0 0; font-size: 12px;">${new Date(lastTransaction.createdAt).toLocaleString()}</p>
           </div>
