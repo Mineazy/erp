@@ -1,0 +1,296 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { FolderPlus, Upload, FileText, Search, Folder, ChevronRight, Download, MoreVertical, FileArchive, FileImage, FileCode2, FileSpreadsheet, Lock } from 'lucide-react';
+import { Dialog, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+
+export default function DocumentsPage() {
+  const [folders, setFolders] = useState<any[]>([]);
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [currentFolder, setCurrentFolder] = useState<any | null>(null);
+  const [folderPath, setFolderPath] = useState<any[]>([]);
+  
+  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  
+  const [newFolderName, setNewFolderName] = useState('');
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [uploadIsRestricted, setUploadIsRestricted] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const fetchData = async (folderId: string | null = null) => {
+    try {
+      const folderQuery = folderId ? `?parentId=${folderId}` : '';
+      const fRes = await fetch(`/api/documents/folders${folderQuery}`);
+      if (fRes.ok) setFolders(await fRes.json());
+
+      const docQuery = folderId ? `?folderId=${folderId}` : '';
+      const dRes = await fetch(`/api/documents${docQuery}`);
+      if (dRes.ok) setDocuments(await dRes.json());
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    fetchData(currentFolder?.id || null);
+  }, [currentFolder]);
+
+  const handleCreateFolder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/documents/folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newFolderName,
+          parentId: currentFolder?.id || null,
+        }),
+      });
+      if (res.ok) {
+        setIsFolderModalOpen(false);
+        setNewFolderName('');
+        fetchData(currentFolder?.id || null);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleUploadFile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadFile || !uploadTitle) return;
+    
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', uploadFile);
+    formData.append('title', uploadTitle);
+    formData.append('isRestricted', String(uploadIsRestricted));
+    if (currentFolder) formData.append('folderId', currentFolder.id);
+
+    try {
+      const res = await fetch('/api/documents/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      if (res.ok) {
+        setIsUploadModalOpen(false);
+        setUploadFile(null);
+        setUploadTitle('');
+        setUploadIsRestricted(false);
+        fetchData(currentFolder?.id || null);
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const navigateToFolder = (folder: any) => {
+    setFolderPath([...folderPath, folder]);
+    setCurrentFolder(folder);
+  };
+
+  const navigateUp = (index: number) => {
+    if (index === -1) {
+      setFolderPath([]);
+      setCurrentFolder(null);
+    } else {
+      const newPath = folderPath.slice(0, index + 1);
+      setFolderPath(newPath);
+      setCurrentFolder(newPath[newPath.length - 1]);
+    }
+  };
+
+  const getFileIcon = (mimeType: string) => {
+    if (mimeType.includes('image')) return <FileImage className="h-10 w-10 text-sky-500" />;
+    if (mimeType.includes('pdf')) return <FileText className="h-10 w-10 text-rose-500" />;
+    if (mimeType.includes('zip') || mimeType.includes('archive')) return <FileArchive className="h-10 w-10 text-amber-500" />;
+    if (mimeType.includes('sheet') || mimeType.includes('excel')) return <FileSpreadsheet className="h-10 w-10 text-emerald-500" />;
+    return <FileText className="h-10 w-10 text-slate-500" />;
+  };
+
+  const formatSize = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900">Document Repository</h2>
+          <p className="text-slate-500">Securely manage and share corporate documents.</p>
+        </div>
+        <div className="flex space-x-3">
+          <Button variant="outline" onClick={() => setIsFolderModalOpen(true)}>
+            <FolderPlus className="mr-2 h-4 w-4" /> New Folder
+          </Button>
+
+          <Dialog open={isFolderModalOpen} onClose={() => setIsFolderModalOpen(false)} title="Create New Folder">
+            <form onSubmit={handleCreateFolder} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Folder Name</Label>
+                <Input 
+                  value={newFolderName} 
+                  onChange={e => setNewFolderName(e.target.value)} 
+                  placeholder="e.g. Q3 Financial Reports" 
+                  required 
+                />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" type="button" onClick={() => setIsFolderModalOpen(false)}>Cancel</Button>
+                <Button type="submit">Create</Button>
+              </DialogFooter>
+            </form>
+          </Dialog>
+
+          <Button className="bg-sky-600 hover:bg-sky-700" onClick={() => setIsUploadModalOpen(true)}>
+            <Upload className="mr-2 h-4 w-4" /> Upload File
+          </Button>
+
+          <Dialog open={isUploadModalOpen} onClose={() => setIsUploadModalOpen(false)} title="Upload Document">
+            <form onSubmit={handleUploadFile} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Document Title</Label>
+                <Input 
+                  value={uploadTitle} 
+                  onChange={e => setUploadTitle(e.target.value)} 
+                  placeholder="Document Title" 
+                  required 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>File</Label>
+                <Input 
+                  type="file" 
+                  onChange={e => setUploadFile(e.target.files?.[0] || null)} 
+                  required 
+                />
+              </div>
+              <div className="flex items-center space-x-2 pt-2">
+                <input 
+                  type="checkbox" 
+                  id="restricted" 
+                  className="rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                  checked={uploadIsRestricted}
+                  onChange={e => setUploadIsRestricted(e.target.checked)}
+                />
+                <Label htmlFor="restricted" className="text-sm font-normal">Mark as Confidential (Restricts access)</Label>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" type="button" onClick={() => setIsUploadModalOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={isUploading}>{isUploading ? 'Uploading...' : 'Upload'}</Button>
+              </DialogFooter>
+            </form>
+          </Dialog>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader className="pb-3 flex flex-row items-center justify-between border-b border-slate-100">
+          <div className="flex items-center space-x-1 text-sm font-medium text-slate-600">
+            <button 
+              onClick={() => navigateUp(-1)} 
+              className={`hover:text-sky-600 hover:underline ${!currentFolder ? 'text-slate-900 font-semibold' : ''}`}
+            >
+              Repository
+            </button>
+            {folderPath.map((folder, idx) => (
+              <div key={folder.id} className="flex items-center space-x-1">
+                <ChevronRight className="h-4 w-4 text-slate-400" />
+                <button 
+                  onClick={() => navigateUp(idx)} 
+                  className={`hover:text-sky-600 hover:underline ${idx === folderPath.length - 1 ? 'text-slate-900 font-semibold' : ''}`}
+                >
+                  {folder.name}
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="relative w-64">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+            <Input type="search" placeholder="Search..." className="pl-9 bg-slate-50 border-none" />
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {folders.length === 0 && documents.length === 0 ? (
+            <div className="py-20 flex flex-col items-center justify-center text-slate-500">
+              <FolderTree className="h-12 w-12 text-slate-200 mb-4" />
+              <p>This folder is empty.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 p-6">
+              {/* Folders */}
+              {folders.map(folder => (
+                <div 
+                  key={folder.id} 
+                  onClick={() => navigateToFolder(folder)}
+                  className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50 cursor-pointer transition-colors group"
+                >
+                  <Folder className="h-12 w-12 text-sky-400 group-hover:text-sky-500 mb-3" />
+                  <span className="text-sm font-medium text-slate-700 text-center line-clamp-2">{folder.name}</span>
+                </div>
+              ))}
+
+              {/* Documents */}
+              {documents.map(doc => (
+                <a 
+                  key={doc.id} 
+                  href={doc.fileUrl}
+                  target="_blank"
+                  className="flex flex-col items-center p-4 rounded-xl border border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm cursor-pointer transition-all relative group"
+                >
+                  {doc.isRestricted && (
+                    <div className="absolute top-2 right-2 bg-rose-100 p-1 rounded-full">
+                      <Lock className="h-3 w-3 text-rose-600" />
+                    </div>
+                  )}
+                  {getFileIcon(doc.mimeType)}
+                  <span className="text-sm font-medium text-slate-700 text-center line-clamp-2 mt-3 mb-1">{doc.title}</span>
+                  <span className="text-xs text-slate-400">{formatSize(doc.size)}</span>
+                  
+                  {/* Hover Actions */}
+                  <div className="absolute inset-0 bg-slate-900/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]">
+                    <div className="bg-white rounded-full p-2 shadow-sm transform translate-y-2 group-hover:translate-y-0 transition-all">
+                      <Download className="h-4 w-4 text-slate-700" />
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Just a fallback icon for the empty state
+function FolderTree(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+    </svg>
+  )
+}

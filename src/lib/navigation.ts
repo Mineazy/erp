@@ -197,4 +197,14 @@ export const navGroups = [
       { label: 'Reports & Analytics', href: '/projects/reports', icon: 'BarChart3' },
     ],
   },
+  {
+    group: 'Documents',
+    module: 'documents',
+    theme: 'sky',
+    icon: 'FolderTree',
+    items: [
+      { label: 'Repository', href: '/documents', icon: 'FolderTree' },
+      { label: 'Recent Files', href: '/documents/recent', icon: 'Clock' },
+    ],
+  },
 ];

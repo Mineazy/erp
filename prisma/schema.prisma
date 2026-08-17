@@ -1581,6 +1581,46 @@ model ErpProject {
   @@map("erp_projects")
 }
 
+model ErpDocumentFolder {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  parentId    String?  @map("parent_id")
+  department  String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  parent    ErpDocumentFolder?  @relation("FolderTree", fields: [parentId], references: [id])
+  children  ErpDocumentFolder[] @relation("FolderTree")
+  documents ErpDocument[]
+
+  @@index([parentId])
+  @@map("erp_document_folders")
+}
+
+model ErpDocument {
+  id           String   @id @default(uuid())
+  title        String
+  description  String?
+  fileName     String   @map("file_name")
+  fileUrl      String   @map("file_url")
+  mimeType     String   @map("mime_type")
+  size         Int
+  folderId     String?  @map("folder_id")
+  uploadedBy   String   @map("uploaded_by")
+  uploaderName String   @map("uploader_name")
+  department   String?
+  isRestricted Boolean  @default(false) @map("is_restricted")
+  tags         String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  folder ErpDocumentFolder? @relation(fields: [folderId], references: [id])
+
+  @@index([folderId])
+  @@map("erp_documents")
+}
+
 model ErpProjectTask {
   id             String    @id @default(uuid())
   projectId      String    @map("project_id")

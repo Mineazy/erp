@@ -113,6 +113,12 @@ const MODULE_PERMISSIONS: Record<string, PermissionSet> = {
     manager: true,
     user: 'readonly',
   },
+  documents: {
+    admin: true,
+    accountant: 'readonly',
+    manager: true,
+    user: 'readonly',
+  },
 };
 
 function getModuleAccess(module: string, role: UserRole): AccessLevel {
