@@ -53,7 +53,8 @@ export async function GET(request: Request) {
     if (user.role === 'user') {
       whereClause.OR = [
         { isRestricted: false },
-        { uploadedBy: user.id }
+        { uploadedBy: user.id },
+        { shares: { some: { userId: user.id } } }
       ];
     }
 

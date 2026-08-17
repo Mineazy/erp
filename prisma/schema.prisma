@@ -1529,9 +1529,11 @@ model ErpUser {
   permissions      Json?
   createdAt        DateTime             @default(now()) @map("created_at")
   updatedAt        DateTime             @updatedAt @map("updated_at")
-  chatMessages     ErpChatMessage[]
-  chatParticipants ErpChatParticipant[]
-  branch           ErpBranch?           @relation(fields: [branchId], references: [id])
+  chatMessages        ErpChatMessage[]
+  chatParticipants    ErpChatParticipant[]
+  branch              ErpBranch?           @relation(fields: [branchId], references: [id])
+  documentShares      ErpDocumentShare[]   @relation("DocumentShares")
+  documentsSharedByMe ErpDocumentShare[]   @relation("DocumentsSharedByMe")
 
   @@index([branchId])
   @@map("erp_users")
@@ -1616,9 +1618,25 @@ model ErpDocument {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   folder ErpDocumentFolder? @relation(fields: [folderId], references: [id])
+  shares ErpDocumentShare[]
 
   @@index([folderId])
   @@map("erp_documents")
+}
+
+model ErpDocumentShare {
+  id         String   @id @default(uuid())
+  documentId String   @map("document_id")
+  userId     String   @map("user_id")
+  sharedBy   String   @map("shared_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  document ErpDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user     ErpUser     @relation("DocumentShares", fields: [userId], references: [id], onDelete: Cascade)
+  sharer   ErpUser     @relation("DocumentsSharedByMe", fields: [sharedBy], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, userId])
+  @@map("erp_document_shares")
 }
 
 model ErpProjectTask {

@@ -7,11 +7,12 @@ import { Input } from '@/components/ui/input';
 import { 
   FolderPlus, Upload, FileText, Search, Folder, ChevronRight, Download, 
   FileArchive, FileImage, FileSpreadsheet, Lock, Grid, List, Filter,
-  ArrowUp, ArrowDown, ChevronLeft, ChevronRight as ChevronRightIcon, ExternalLink
+  ArrowUp, ArrowDown, ChevronLeft, ChevronRight as ChevronRightIcon, ExternalLink, Share2
 } from 'lucide-react';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
 import { Sheet } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
+import { ShareDocumentModal } from './share-modal';
 
 export default function DocumentsPage() {
   const [folders, setFolders] = useState<any[]>([]);
@@ -38,6 +39,7 @@ export default function DocumentsPage() {
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1, limit: 50 });
 
   const [selectedDocument, setSelectedDocument] = useState<any | null>(null);
+  const [shareDocument, setShareDocument] = useState<any | null>(null);
 
   // Debounce search
   useEffect(() => {
@@ -499,14 +501,24 @@ export default function DocumentsPage() {
                 </div>
               </div>
               
-              <a 
-                href={selectedDocument.fileUrl} 
-                download={selectedDocument.fileName}
-                className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-sky-600 text-white hover:bg-sky-700 h-10 px-4 py-2 shrink-0"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download
-              </a>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline"
+                  onClick={() => setShareDocument(selectedDocument)}
+                  className="h-10 px-4 py-2 shrink-0 border-sky-200 text-sky-700 hover:bg-sky-50"
+                >
+                  <Share2 className="mr-2 h-4 w-4" />
+                  Share
+                </Button>
+                <a 
+                  href={selectedDocument.fileUrl} 
+                  download={selectedDocument.fileName}
+                  className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-sky-600 text-white hover:bg-sky-700 h-10 px-4 py-2 shrink-0"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download
+                </a>
+              </div>
             </div>
 
             <div className="flex-1 bg-slate-100 rounded-lg border border-slate-200 overflow-hidden flex flex-col items-center justify-center min-h-[400px]">
@@ -546,6 +558,14 @@ export default function DocumentsPage() {
           </div>
         )}
       </Sheet>
+
+      {/* Share Modal */}
+      {shareDocument && (
+        <ShareDocumentModal 
+          document={shareDocument} 
+          onClose={() => setShareDocument(null)} 
+        />
+      )}
     </div>
   );
 }
