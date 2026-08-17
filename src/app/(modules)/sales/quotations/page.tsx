@@ -455,7 +455,7 @@ export default function QuotationsPage() {
         ) : voucherData ? (
           <div ref={voucherRef} className="print-area p-6">
             <div className="mb-6 flex items-start gap-4">
-              <img src="/logo.png" alt="Mineazy" className="h-32 w-32 object-contain flex-shrink-0" />
+              <img src="/logo.png" alt="Mineazy" className="h-14 w-40 object-contain flex-shrink-0" />
               <div>
                 <h2 className="text-xl font-bold text-slate-900 uppercase tracking-wide">{voucherData.title}</h2>
                 <p className="text-sm text-slate-500 mt-1">#{voucherData.quoteNumber}</p>
@@ -508,9 +508,9 @@ export default function QuotationsPage() {
             {voucherData.notes && (
               <p className="mt-2 text-xs text-slate-500"><span className="font-medium">Notes:</span> {voucherData.notes}</p>
             )}
-            <div className="mt-6 pt-4 border-t border-slate-200 flex justify-between text-xs text-slate-400">
+            <div className="mt-8 pt-4 border-t border-slate-200 text-sm text-slate-500 flex justify-between items-center">
+              <span className="flex items-center gap-1"><img src="/logo.png" alt="" className="h-8 w-auto inline object-contain" /> Mineazy ERP</span>
               <span>Generated: {new Date(voucherData.generatedAt).toLocaleString()}</span>
-              <span className="flex items-center gap-1"><img src="/logo.png" alt="" className="h-8 w-8 inline object-contain" /> Mineazy ERP</span>
             </div>
           </div>
         ) : null}
