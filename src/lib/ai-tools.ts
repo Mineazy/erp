@@ -263,5 +263,34 @@ export function getAiTools(userRole: string) {
         return employees;
       }
     } as any),
+    
+    // === DOCUMENT & RAG TOOLS ===
+    searchDocuments: tool({
+      description: 'Search through uploaded knowledge-base documents using semantic search (RAG) to find relevant snippets of text from files in the repository. Use this to answer policy, procedure, or document-based questions.',
+      parameters: z.object({
+        query: z.string().describe('The search query or question to look up in the documents.')
+      }),
+      execute: async ({ query }: any) => {
+        try {
+          const { vectorStore } = await import('@/lib/vector-store');
+          const results = await vectorStore.search(query, 5); // top 5 chunks
+          
+          if (!results || results.length === 0) {
+            return { message: 'No relevant documents found.' };
+          }
+          
+          return {
+            results: results.map(r => ({
+              fileName: r.metadata?.fileName || 'Unknown File',
+              title: r.metadata?.title || 'Untitled',
+              relevanceScore: r.score.toFixed(2),
+              contentSnippet: r.text
+            }))
+          };
+        } catch (e: any) {
+           return { error: 'Document search failed: ' + e.message };
+        }
+      }
+    } as any),
   };
 }

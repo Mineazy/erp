@@ -129,6 +129,128 @@ export function FloatingAiChatWidget() {
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">
                     {msg.content || (msg as any).parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n') || ''}
                   </p>
+                  
+                  {/* Generative UI for Tool Invocations */}
+                  {msg.toolInvocations && msg.toolInvocations.length > 0 && (
+                    <div className="mt-3 flex flex-col gap-2">
+                      {msg.toolInvocations.map((toolInvocation: any) => {
+                        const { toolName, toolCallId, state, result } = toolInvocation;
+                        
+                        if (state !== 'result') {
+                          return (
+                            <div key={toolCallId} className="flex items-center gap-2 text-xs text-indigo-500 bg-indigo-50/50 p-2 rounded-md">
+                              <div className="w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                              <span>Calling <b>{toolName}</b>...</span>
+                            </div>
+                          );
+                        }
+
+                        if (result?.error) {
+                          return (
+                            <div key={toolCallId} className="text-xs text-red-500 bg-red-50 p-2 rounded-md">
+                              Error: {result.error}
+                            </div>
+                          );
+                        }
+
+                        // Custom UI Rendering based on toolName
+                        if (toolName === 'getInventoryStatus') {
+                          return (
+                            <div key={toolCallId} className="bg-slate-50 border border-slate-100 rounded-lg p-3 text-sm text-slate-700 w-full overflow-hidden">
+                              <h4 className="font-semibold text-slate-800 mb-2">Inventory Status</h4>
+                              <div className="grid grid-cols-2 gap-2 mb-3">
+                                <div className="bg-white p-2 rounded shadow-sm">
+                                  <div className="text-xs text-slate-500">Active Products</div>
+                                  <div className="font-medium text-indigo-600">{result.totalActiveProducts}</div>
+                                </div>
+                                <div className="bg-white p-2 rounded shadow-sm">
+                                  <div className="text-xs text-slate-500">Low Stock</div>
+                                  <div className="font-medium text-amber-600">{result.lowStockCount}</div>
+                                </div>
+                                <div className="bg-white p-2 rounded shadow-sm col-span-2">
+                                  <div className="text-xs text-slate-500">Est. Total Value</div>
+                                  <div className="font-medium">${result.estimatedTotalValue?.toFixed(2) || '0.00'}</div>
+                                </div>
+                              </div>
+                              {result.lowStockItems && result.lowStockItems.length > 0 && (
+                                <div>
+                                  <div className="text-xs font-semibold text-slate-500 mb-1">Items Needing Restock:</div>
+                                  <ul className="text-xs list-disc pl-4 space-y-1">
+                                    {result.lowStockItems.map((item: string, i: number) => (
+                                      <li key={i}>{item}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        if (toolName === 'getSalesOrders' || toolName === 'getPurchaseOrders' || toolName === 'getRecentSales') {
+                           const isSales = toolName === 'getSalesOrders';
+                           const isPO = toolName === 'getPurchaseOrders';
+                           const title = isSales ? 'Sales Orders' : isPO ? 'Purchase Orders' : 'Recent Sales';
+                           const items = result || [];
+                           
+                           return (
+                             <div key={toolCallId} className="bg-slate-50 border border-slate-100 rounded-lg p-3 text-sm w-full overflow-hidden">
+                                <h4 className="font-semibold text-slate-800 mb-2">{title}</h4>
+                                {items.length === 0 ? <p className="text-xs text-slate-500">No records found.</p> : (
+                                  <div className="space-y-2">
+                                    {items.map((item: any, idx: number) => (
+                                      <div key={idx} className="bg-white p-2 rounded shadow-sm flex justify-between items-center text-xs">
+                                        <div>
+                                          <div className="font-medium">{item.orderNumber || item.poNumber || item.transactionNumber}</div>
+                                          <div className="text-slate-500">{item.customerName || item.supplierName || 'System'}</div>
+                                        </div>
+                                        <div className="text-right">
+                                          <div className="font-semibold">${item.total?.toFixed(2)}</div>
+                                          <div className={cn("text-[10px] uppercase font-bold", item.status === 'COMPLETED' ? "text-emerald-500" : "text-amber-500")}>
+                                            {item.status}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                             </div>
+                           );
+                        }
+
+                        if (toolName === 'searchProducts' || toolName === 'searchCustomers' || toolName === 'searchSuppliers' || toolName === 'getEmployees') {
+                           const items = result || [];
+                           return (
+                             <div key={toolCallId} className="bg-slate-50 border border-slate-100 rounded-lg p-3 text-sm w-full overflow-hidden">
+                                <h4 className="font-semibold text-slate-800 mb-2 capitalize">{toolName.replace(/([A-Z])/g, ' $1').trim()} Results</h4>
+                                {items.length === 0 ? <p className="text-xs text-slate-500">No records found.</p> : (
+                                  <div className="space-y-1.5">
+                                    {items.map((item: any, idx: number) => (
+                                      <div key={idx} className="bg-white p-2 rounded shadow-sm text-xs">
+                                        <div className="font-medium">{item.name || item.firstName + ' ' + item.lastName}</div>
+                                        <div className="text-slate-500 flex justify-between">
+                                          <span>{item.email || item.code || item.department || item.category || 'N/A'}</span>
+                                          {item.sellingPrice && <span className="font-medium text-emerald-600">${item.sellingPrice.toFixed(2)}</span>}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                             </div>
+                           )
+                        }
+
+                        // Fallback generic renderer for other tools
+                        return (
+                          <div key={toolCallId} className="bg-slate-50 border border-slate-100 rounded-lg p-2 text-xs w-full overflow-hidden">
+                             <div className="font-medium text-slate-600 mb-1 border-b border-slate-200 pb-1">Data: {toolName}</div>
+                             <pre className="overflow-x-auto max-w-[200px] md:max-w-[250px] whitespace-pre-wrap break-all text-[10px] text-slate-500">
+                               {JSON.stringify(result, null, 2)}
+                             </pre>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
