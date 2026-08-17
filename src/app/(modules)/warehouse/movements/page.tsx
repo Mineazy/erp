@@ -332,7 +332,7 @@ export default function MovementsPage() {
         {voucherLoading ? (
           <div className="p-8 text-center text-slate-500">Generating voucher...</div>
         ) : voucherData ? (
-          <div ref={voucherRef} className="print-area p-6">
+          <div className="print-area p-6">
             <div className="mb-6 flex items-start gap-4">
               <img src="/logo.png" alt="Mineazy" className="h-14 w-40 object-contain flex-shrink-0" />
               <div>
