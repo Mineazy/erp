@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { logAudit } from '@/lib/audit';
 
 export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   try {
@@ -73,6 +74,16 @@ export async function POST(request: NextRequest, props: { params: Promise<{ id: 
             user: { select: { id: true, name: true, email: true, department: true } }
           }
         });
+
+        await logAudit({
+          userId: user.id,
+          userName: user.name || user.email,
+          action: 'CREATE',
+          entityType: 'DocumentShare',
+          entityId: share.id,
+          changes: { documentId, targetUserId }
+        });
+
         createdShares.push(share);
       }
     }

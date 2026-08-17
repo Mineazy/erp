@@ -50,7 +50,10 @@ const MODULES = [
   { value: 'UserSession', label: 'User Sessions' },
   { value: 'StockMovement', label: 'Stock Movements' },
   { value: 'PurchaseOrder', label: 'Purchase Orders' },
-  { value: 'JournalEntry', label: 'Journal Entries' }
+  { value: 'JournalEntry', label: 'Journal Entries' },
+  { value: 'Document', label: 'Documents' },
+  { value: 'DocumentFolder', label: 'Document Folders' },
+  { value: 'DocumentShare', label: 'Document Shares' }
 ];
 
 export default function AuditTrailPage() {

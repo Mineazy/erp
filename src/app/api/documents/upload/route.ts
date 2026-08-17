@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { checkApiAccess } from '@/lib/authz';
+import { logAudit } from '@/lib/audit';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { existsSync } from 'fs';
@@ -114,6 +115,15 @@ export async function POST(request: Request) {
       include: {
         folder: true
       }
+    });
+
+    await logAudit({
+      userId: user.id,
+      userName: user.name || user.email,
+      action: 'CREATE',
+      entityType: 'Document',
+      entityId: document.id,
+      changes: { fileName: document.fileName, title: document.title, size: document.size },
     });
 
     return NextResponse.json(document);

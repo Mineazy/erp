@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { logAudit } from '@/lib/audit';
 
 export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string, userId: string }> }) {
   try {
@@ -27,6 +28,15 @@ export async function DELETE(request: NextRequest, props: { params: Promise<{ id
         documentId,
         userId: targetUserId,
       }
+    });
+
+    await logAudit({
+      userId: user.id,
+      userName: user.name || user.email,
+      action: 'DELETE',
+      entityType: 'DocumentShare',
+      entityId: `${documentId}-${targetUserId}`,
+      changes: { documentId, targetUserId }
     });
 
     return NextResponse.json({ success: true });

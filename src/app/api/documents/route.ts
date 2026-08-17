@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { checkApiAccess } from '@/lib/authz';
+import { logAudit } from '@/lib/audit';
 
 export async function GET(request: Request) {
   try {
@@ -138,6 +139,18 @@ export async function DELETE(request: Request) {
           userId: user.id
         }
       });
+      
+      for (const id of documentIds) {
+        await logAudit({
+          userId: user.id,
+          userName: user.name || user.email,
+          action: 'DELETE',
+          entityType: 'DocumentShare',
+          entityId: id,
+          changes: { documentId: id, action: 'unshare' }
+        });
+      }
+
       return NextResponse.json({ success: true, deletedCount: result.count });
     }
 
@@ -178,6 +191,16 @@ export async function DELETE(request: Request) {
     await prisma.erpDocument.deleteMany({
       where: { id: { in: authorizedIds } }
     });
+
+    for (const id of authorizedIds) {
+      await logAudit({
+        userId: user.id,
+        userName: user.name || user.email,
+        action: 'DELETE',
+        entityType: 'Document',
+        entityId: id,
+      });
+    }
 
     return NextResponse.json({ success: true, deletedCount: authorizedIds.length });
   } catch (error) {
