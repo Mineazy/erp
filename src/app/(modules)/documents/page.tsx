@@ -167,7 +167,9 @@ export default function DocumentsPage() {
     
     setIsDeleting(true);
     try {
-      const res = await fetch('/api/documents', {
+      const isSharedFolder = currentFolder?.id === 'shared-documents';
+      const url = isSharedFolder ? '/api/documents?action=unshare' : '/api/documents';
+      const res = await fetch(url, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ documentIds: ids }),

@@ -123,9 +123,22 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    const { searchParams } = new URL(request.url);
+    const action = searchParams.get('action');
+
     const { documentIds } = await request.json();
     if (!documentIds || !Array.isArray(documentIds)) {
       return NextResponse.json({ error: 'Invalid document IDs' }, { status: 400 });
+    }
+
+    if (action === 'unshare') {
+      const result = await prisma.erpDocumentShare.deleteMany({
+        where: {
+          documentId: { in: documentIds },
+          userId: user.id
+        }
+      });
+      return NextResponse.json({ success: true, deletedCount: result.count });
     }
 
     // Fetch documents to verify ownership and get fileUrls
