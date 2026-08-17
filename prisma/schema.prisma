@@ -1529,11 +1529,12 @@ model ErpUser {
   permissions      Json?
   createdAt        DateTime             @default(now()) @map("created_at")
   updatedAt        DateTime             @updatedAt @map("updated_at")
-  chatMessages        ErpChatMessage[]
+  chatMessages     ErpChatMessage[]
   chatParticipants    ErpChatParticipant[]
   branch              ErpBranch?           @relation(fields: [branchId], references: [id])
   documentShares      ErpDocumentShare[]   @relation("DocumentShares")
   documentsSharedByMe ErpDocumentShare[]   @relation("DocumentsSharedByMe")
+  documentFolders     ErpDocumentFolder[]  @relation("DocumentFolders")
 
   @@index([branchId])
   @@map("erp_users")
@@ -1589,14 +1590,17 @@ model ErpDocumentFolder {
   description String?
   parentId    String?  @map("parent_id")
   department  String?
+  userId      String?  @map("user_id")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   parent    ErpDocumentFolder?  @relation("FolderTree", fields: [parentId], references: [id])
   children  ErpDocumentFolder[] @relation("FolderTree")
   documents ErpDocument[]
+  user      ErpUser?            @relation("DocumentFolders", fields: [userId], references: [id])
 
   @@index([parentId])
+  @@index([userId])
   @@map("erp_document_folders")
 }
 
@@ -1629,6 +1633,7 @@ model ErpDocumentShare {
   documentId String   @map("document_id")
   userId     String   @map("user_id")
   sharedBy   String   @map("shared_by")
+  isViewed   Boolean  @default(false) @map("is_viewed")
   createdAt  DateTime @default(now()) @map("created_at")
 
   document ErpDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)

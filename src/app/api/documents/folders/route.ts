@@ -27,10 +27,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const folders = await prisma.erpDocumentFolder.findMany({
-      where: {
-        parentId: parentId || null,
-      },
+    let whereClause: any = {
+      parentId: parentId || null,
+      userId: user.id
+    };
+
+    const folders: any[] = await prisma.erpDocumentFolder.findMany({
+      where: whereClause,
       include: {
         _count: {
           select: { documents: true, children: true }
@@ -38,6 +41,19 @@ export async function GET(request: Request) {
       },
       orderBy: { name: 'asc' },
     });
+
+    if (!parentId) {
+      const unreadCount = await prisma.erpDocumentShare.count({
+        where: { userId: user.id, isViewed: false }
+      });
+      folders.unshift({
+        id: 'shared-documents',
+        name: 'Shared Documents',
+        isVirtual: true,
+        unreadCount: unreadCount,
+        _count: { documents: 0, children: 0 }
+      });
+    }
 
     return NextResponse.json(folders);
   } catch (error) {
@@ -79,6 +95,7 @@ export async function POST(request: Request) {
         description,
         parentId: parentId || null,
         department: user.department || null,
+        userId: user.id
       },
     });
 

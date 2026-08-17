@@ -365,9 +365,14 @@ export default function DocumentsPage() {
                 <div 
                   key={folder.id} 
                   onClick={() => navigateToFolder(folder)}
-                  className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50 cursor-pointer transition-colors group"
+                  className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50 cursor-pointer transition-colors relative group"
                 >
-                  <Folder className="h-12 w-12 text-sky-400 group-hover:text-sky-500 mb-3" />
+                  <Folder className={`h-12 w-12 mb-3 ${folder.isVirtual ? 'text-indigo-400 group-hover:text-indigo-500' : 'text-sky-400 group-hover:text-sky-500'}`} />
+                  {folder.unreadCount > 0 && (
+                    <div className="absolute top-2 right-2 bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                      {folder.unreadCount}
+                    </div>
+                  )}
                   <span className="text-sm font-medium text-slate-700 text-center line-clamp-2">{folder.name}</span>
                 </div>
               ))}
@@ -407,10 +412,17 @@ export default function DocumentsPage() {
                       <div 
                         key={folder.id} 
                         onClick={() => navigateToFolder(folder)}
-                        className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-100 cursor-pointer"
+                        className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-100 cursor-pointer"
                       >
-                        <Folder className="h-5 w-5 text-sky-400" />
-                        <span className="text-sm font-medium text-slate-700">{folder.name}</span>
+                        <div className="flex items-center space-x-3">
+                          <Folder className={`h-5 w-5 ${folder.isVirtual ? 'text-indigo-400' : 'text-sky-400'}`} />
+                          <span className="text-sm font-medium text-slate-700">{folder.name}</span>
+                        </div>
+                        {folder.unreadCount > 0 && (
+                          <div className="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                            {folder.unreadCount} new
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

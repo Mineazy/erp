@@ -34,7 +34,18 @@ export async function GET(request: Request) {
 
     let whereClause: any = {};
     if (folderId) {
-      whereClause.folderId = folderId;
+      if (folderId === 'shared-documents') {
+        // Force it to only return shared documents for this user
+        whereClause.shares = { some: { userId: user.id } };
+        
+        // Mark shares as viewed
+        await prisma.erpDocumentShare.updateMany({
+          where: { userId: user.id, isViewed: false },
+          data: { isViewed: true }
+        });
+      } else {
+        whereClause.folderId = folderId;
+      }
     } else if (!search && !type) {
       whereClause.folderId = null; // Only show root documents if no folder, no search, no filter
     }
