@@ -748,17 +748,22 @@ export default function POSTerminalPage() {
 
     doc.setFontSize(22);
     doc.setTextColor(15, 23, 42);
-    const branchName = lastTransaction?.branch?.name ? ` - ${lastTransaction.branch.name}` : '';
-    doc.text(`Mineazy Mining Solutions${branchName}`, 14, 34);
+    doc.text('Mineazy Mining Solutions', 14, 34);
+
+    if (lastTransaction?.branch?.name) {
+      doc.setFontSize(14);
+      doc.setTextColor(71, 85, 105);
+      doc.text(lastTransaction.branch.name, 14, 42);
+    }
 
     doc.setFontSize(10);
     doc.setTextColor(100, 116, 139);
     const address = lastTransaction?.branch?.address || '15 Plumtree Road, Belmont';
     const city = lastTransaction?.branch?.city || 'BULAWAYO';
-    doc.text(`${address}, ${city}`, 14, 42);
-    doc.text('TIN: 2001282270 | VAT No: 220107408', 14, 47);
-    doc.text(`Mobile: ${lastTransaction?.branch?.phone || '+263712290046'}`, 14, 52);
-    doc.text(`Email: ${lastTransaction?.branch?.email || 'sales@mineazy.co.zw, accounts@mineazy.co.zw'}`, 14, 57);
+    doc.text(`${address}, ${city}`, 14, 48);
+    doc.text('TIN: 2001282270 | VAT No: 220107408', 14, 53);
+    doc.text(`Mobile: ${lastTransaction?.branch?.phone || '+263712290046'}`, 14, 58);
+    doc.text(`Email: ${lastTransaction?.branch?.email || 'sales@mineazy.co.zw, accounts@mineazy.co.zw'}`, 14, 63);
 
     doc.setFontSize(24);
     doc.setTextColor(79, 70, 229);
@@ -766,26 +771,26 @@ export default function POSTerminalPage() {
 
     doc.setFontSize(10);
     doc.setTextColor(100, 116, 139);
-    doc.text(`Invoice No: ${lastTransaction.transactionNumber}`, 196, 42, { align: 'right' });
-    doc.text(`Date: ${new Date(lastTransaction.createdAt).toLocaleDateString()}`, 196, 47, { align: 'right' });
-    doc.text(`Time: ${new Date(lastTransaction.createdAt).toLocaleTimeString()}`, 196, 52, { align: 'right' });
+    doc.text(`Invoice No: ${lastTransaction.transactionNumber}`, 196, 48, { align: 'right' });
+    doc.text(`Date: ${new Date(lastTransaction.createdAt).toLocaleDateString()}`, 196, 53, { align: 'right' });
+    doc.text(`Time: ${new Date(lastTransaction.createdAt).toLocaleTimeString()}`, 196, 58, { align: 'right' });
 
-    doc.line(14, 62, 196, 62);
+    doc.line(14, 68, 196, 68);
 
     doc.setFontSize(12);
     doc.setTextColor(15, 23, 42);
-    doc.text('Customer Details', 14, 72);
+    doc.text('Customer Details', 14, 78);
     
     doc.setFontSize(10);
     if (receiptCustomer) {
-      doc.text(`Name: ${receiptCustomer.name}`, 14, 79);
-      doc.text(`Loyalty ID: ${receiptCustomer.loyaltyCardBarcode || 'N/A'}`, 14, 84);
+      doc.text(`Name: ${receiptCustomer.name}`, 14, 85);
+      doc.text(`Loyalty ID: ${receiptCustomer.loyaltyCardBarcode || 'N/A'}`, 14, 90);
     } else {
-      doc.text('Walk-in Customer', 14, 79);
+      doc.text('Walk-in Customer', 14, 85);
     }
 
     autoTable(doc, {
-      startY: 94,
+      startY: 100,
       head: [['Description', 'Qty', 'Unit Price', 'Total']],
       body: lastTransaction.lines?.map((item: any) => [
         item.productName,
@@ -1747,8 +1752,13 @@ export default function POSTerminalPage() {
           {/* Header/Company details */}
           <div className="text-center space-y-1 pb-3 border-b border-dashed border-slate-200">
             <h4 className="text-base font-bold tracking-tight text-slate-900">
-              Mineazy Mining Solutions{lastTransaction?.branch?.name ? ` - ${lastTransaction.branch.name}` : ''}
+              Mineazy Mining Solutions
             </h4>
+            {lastTransaction?.branch?.name && (
+              <p className="text-sm font-semibold text-slate-700">
+                {lastTransaction.branch.name}
+              </p>
+            )}
             <p className="text-slate-500 text-[10px]">
               {lastTransaction?.branch?.address || '15 Plumtree Road, Belmont'}
               {lastTransaction?.branch?.city ? `, ${lastTransaction.branch.city}` : ', BULAWAYO'}
