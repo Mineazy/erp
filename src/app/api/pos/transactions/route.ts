@@ -15,6 +15,10 @@ export async function GET(request: NextRequest) {
   const paymentMethod = searchParams.get('paymentMethod');
   const dateFrom = searchParams.get('dateFrom');
   const dateTo = searchParams.get('dateTo');
+  const customerId = searchParams.get('customerId');
+  const branchId = searchParams.get('branchId');
+  const page = parseInt(searchParams.get('page') || '1');
+  const limit = parseInt(searchParams.get('limit') || '50');
 
   const branchFilter = getBranchFilter(session);
   const where: any = {};
@@ -23,6 +27,8 @@ export async function GET(request: NextRequest) {
   if (sessionId) where.sessionId = sessionId;
   if (status && status !== 'all') where.status = status;
   if (paymentMethod && paymentMethod !== 'all') where.paymentMethod = paymentMethod;
+  if (customerId && customerId !== 'all') where.customerId = customerId;
+  if (branchId && branchId !== 'all') where.branchId = branchId;
   
   if (search) {
     where.transactionNumber = { contains: search, mode: 'insensitive' };
@@ -47,11 +53,13 @@ export async function GET(request: NextRequest) {
         branch: { select: { id: true, code: true, name: true, address: true, city: true, country: true, phone: true, email: true } }
       },
       orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
     }),
     prisma.erpPosTransaction.count({ where }),
   ]);
 
-  return ok({ items, total });
+  return ok({ items, total, page, limit });
 }
 
 export async function POST(request: NextRequest) {

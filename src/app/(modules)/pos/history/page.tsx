@@ -10,6 +10,9 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
 import { Search, Receipt, Eye, Calendar, AlertTriangle } from 'lucide-react';
 import { toast } from '@/lib/use-toast';
+import { generateA4Invoice, printPOSReceipt } from '@/lib/pos-print';
+import { useReportExport } from '@/hooks/use-report-export';
+import { Download, Printer } from 'lucide-react';
 
 interface Transaction {
   id: string;
@@ -59,9 +62,28 @@ export default function TransactionHistoryPage() {
   const [paymentFilter, setPaymentFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [customerFilter, setCustomerFilter] = useState('');
+  const [branchFilter, setBranchFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const limit = 50;
+  
+  const [branches, setBranches] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
+
   const [viewTransaction, setViewTransaction] = useState<Transaction | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [voiding, setVoiding] = useState(false);
+  const { triggerExport, ExportDialog } = useReportExport();
+
+  useEffect(() => {
+    fetch('/api/admin/branches').then(r => r.json()).then(d => {
+      setBranches(Array.isArray(d) ? d : d.data || []);
+    });
+    fetch('/api/crm/customers').then(r => r.json()).then(d => {
+      setCustomers(Array.isArray(d) ? d : d.items || d.data || []);
+    });
+  }, []);
 
   const handleVoidTransaction = async (id: string) => {
     if (!confirm('Are you sure you want to void this transaction? This action will reverse stock, financial journals, and loyalty points. It cannot be undone.')) return;
@@ -93,9 +115,16 @@ export default function TransactionHistoryPage() {
       if (paymentFilter) params.set('paymentMethod', paymentFilter);
       if (dateFrom) params.set('dateFrom', dateFrom);
       if (dateTo) params.set('dateTo', dateTo);
+      if (customerFilter) params.set('customerId', customerFilter);
+      if (branchFilter) params.set('branchId', branchFilter);
+      params.set('page', page.toString());
+      params.set('limit', limit.toString());
       const res = await fetch(`/api/pos/transactions?${params.toString()}`);
       const data = await res.json();
       setTransactions(Array.isArray(data) ? data : data.items || data.data || []);
+      if (!Array.isArray(data) && data.total !== undefined) {
+        setTotal(data.total);
+      }
     } catch {
       setTransactions([]);
     } finally {
@@ -105,9 +134,10 @@ export default function TransactionHistoryPage() {
 
   useEffect(() => {
     fetchTransactions();
-  }, [search, statusFilter, paymentFilter, dateFrom, dateTo]);
+  }, [search, statusFilter, paymentFilter, dateFrom, dateTo, customerFilter, branchFilter, page]);
 
   const handleSearch = () => {
+    setPage(1);
     fetchTransactions();
   };
 
@@ -185,6 +215,20 @@ export default function TransactionHistoryPage() {
                 onChange={(e) => setPaymentFilter(e.target.value)}
               />
             </div>
+            <div className="w-36">
+              <Select
+                options={[{value: '', label: 'All Customers'}, ...customers.map(c => ({value: c.id, label: c.name}))]}
+                value={customerFilter}
+                onChange={(e) => { setCustomerFilter(e.target.value); setPage(1); }}
+              />
+            </div>
+            <div className="w-36">
+              <Select
+                options={[{value: '', label: 'All Branches'}, ...branches.map(b => ({value: b.id, label: b.name}))]}
+                value={branchFilter}
+                onChange={(e) => { setBranchFilter(e.target.value); setPage(1); }}
+              />
+            </div>
             <Button variant="outline" size="sm" onClick={handleSearch} className="h-10">
               Filter
             </Button>
@@ -250,10 +294,24 @@ export default function TransactionHistoryPage() {
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => viewDetails(tx)}
-                          className="p-1.5 hover:bg-slate-100 rounded"
+                          className="p-1.5 hover:bg-slate-100 rounded text-slate-500 hover:text-mine-blue-600"
                           title="View Details"
                         >
-                          <Eye className="h-4 w-4 text-slate-400" />
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => printPOSReceipt(tx)}
+                          className="p-1.5 hover:bg-slate-100 rounded text-slate-500 hover:text-mine-blue-600"
+                          title="Print Receipt"
+                        >
+                          <Printer className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => generateA4Invoice(tx, null, triggerExport)}
+                          className="p-1.5 hover:bg-slate-100 rounded text-slate-500 hover:text-mine-blue-600"
+                          title="Download A4 Invoice"
+                        >
+                          <Download className="h-4 w-4" />
                         </button>
                       </div>
                     </TableCell>
@@ -262,6 +320,33 @@ export default function TransactionHistoryPage() {
               )}
             </TableBody>
           </Table>
+          
+          {total > limit && (
+            <div className="flex items-center justify-between mt-4 text-sm text-slate-500 border-t pt-4">
+              <div>
+                Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, total)} of {total} results
+              </div>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  Previous
+                </Button>
+                <div className="px-2 font-medium">Page {page} of {Math.ceil(total / limit)}</div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setPage(p => Math.min(Math.ceil(total / limit), p + 1))}
+                  disabled={page === Math.ceil(total / limit)}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -373,6 +458,7 @@ export default function TransactionHistoryPage() {
           </Button>
         </DialogFooter>
       </Dialog>
+      {ExportDialog}
     </div>
   );
 }
