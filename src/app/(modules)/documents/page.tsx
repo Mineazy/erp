@@ -129,6 +129,13 @@ export default function DocumentsPage() {
     try {
       for (let i = 0; i < uploadFiles.length; i++) {
         const file = uploadFiles[i];
+        
+        // 5MB limit check
+        if (file.size > 5 * 1024 * 1024) {
+          toast(`File ${file.name} exceeds the 5MB limit`, 'error');
+          continue;
+        }
+
         const formData = new FormData();
         formData.append('file', file);
         
