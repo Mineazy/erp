@@ -62,7 +62,12 @@ export async function GET(request: Request) {
       if (type === 'archive') whereClause.mimeType = { contains: 'zip' };
     }
 
-    if (user.role === 'user') {
+    if (user.role === 'admin') {
+      whereClause.OR = [
+        { isRestricted: false },
+        { uploadedBy: user.id }
+      ];
+    } else {
       whereClause.OR = [
         { isRestricted: false },
         { uploadedBy: user.id },

@@ -9,13 +9,15 @@ export function useReportExport() {
   const [isOpen, setIsOpen] = useState(false);
   const [exportUrl, setExportUrl] = useState('');
   const [exportName, setExportName] = useState('');
+  const [isRestricted, setIsRestricted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [folders, setFolders] = useState<any[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState('');
 
-  const triggerExport = (url: string, name: string) => {
+  const triggerExport = (url: string, name: string, options?: { isRestricted?: boolean }) => {
     setExportUrl(url);
     setExportName(name);
+    setIsRestricted(!!options?.isRestricted);
     setIsOpen(true);
   };
 
@@ -73,6 +75,9 @@ export function useReportExport() {
       if (selectedFolderId) {
         formData.append('folderId', selectedFolderId);
       }
+      if (isRestricted) {
+        formData.append('isRestricted', 'true');
+      }
 
       const uploadRes = await fetch('/api/documents/upload', {
         method: 'POST',
@@ -111,13 +116,20 @@ export function useReportExport() {
             <Folder className="h-5 w-5 text-mine-blue-500" />
             <span>Save to Documents Repository</span>
           </div>
-          <Select 
-            label="Select Folder (Optional)"
-            placeholder="Root Directory"
-            options={folderOptions}
-            value={selectedFolderId}
-            onChange={(e) => setSelectedFolderId(e.target.value)}
-          />
+          {!isRestricted && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Save to Folder</label>
+              <Select
+                options={[
+                  { value: '', label: 'Root Folder' },
+                  { value: 'shared-documents', label: 'Shared Documents' },
+                  ...folderOptions
+                ]}
+                value={selectedFolderId}
+                onChange={(e) => setSelectedFolderId(e.target.value)}
+              />
+            </div>
+          )}
           <Button 
             onClick={handleSaveToDocuments} 
             disabled={isProcessing}

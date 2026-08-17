@@ -856,7 +856,7 @@ export default function POSTerminalPage() {
 
     const blob = doc.output('blob');
     const url = URL.createObjectURL(blob);
-    triggerExport(url, `Tax_Invoice_${lastTransaction.transactionNumber}`);
+    triggerExport(url, `Tax_Invoice_${lastTransaction.transactionNumber}`, { isRestricted: true });
   };
 
   const handlePrintToPOSPrinter = () => {
