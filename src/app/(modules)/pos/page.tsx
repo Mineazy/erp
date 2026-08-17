@@ -769,8 +769,8 @@ export default function POSTerminalPage() {
       body: lastTransaction.lines?.map((item: any) => [
         item.productName,
         item.quantity.toString(),
-        `$${Number(item.unitPrice).toFixed(2)}`,
-        `$${(Number(item.unitPrice) * Number(item.quantity)).toFixed(2)}`
+        `$${Number(item.unitPrice || item.price || 0).toFixed(2)}`,
+        `$${Number(item.total || item.lineTotal || (Number(item.quantity) * Number(item.unitPrice || item.price || 0)) || 0).toFixed(2)}`
       ]) || [],
       theme: 'striped',
       headStyles: { fillColor: [79, 70, 229] },
@@ -784,9 +784,9 @@ export default function POSTerminalPage() {
 
     let finalY = (doc as any).lastAutoTable.finalY + 10;
 
-    const subtotal = lastTransaction.total - (lastTransaction.taxAmount || 0);
-    const taxAmount = lastTransaction.taxAmount || 0;
-    const total = lastTransaction.total;
+    const subtotal = Number(lastTransaction.total || 0) - Number(lastTransaction.taxAmount || 0);
+    const taxAmount = Number(lastTransaction.taxAmount || 0);
+    const total = Number(lastTransaction.total || 0);
 
     autoTable(doc, {
       startY: finalY,
@@ -846,7 +846,7 @@ export default function POSTerminalPage() {
     const itemsHtml = lastTransaction.lines?.map((item: any) => `
       <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 2px;">
         <span>${item.productName} x${item.quantity}</span>
-        <span>$${(Number(item.unitPrice) * Number(item.quantity)).toFixed(2)}</span>
+        <span>$${Number(item.total || item.lineTotal || (Number(item.quantity) * Number(item.unitPrice || item.price || 0)) || 0).toFixed(2)}</span>
       </div>
     `).join('') || '';
 
