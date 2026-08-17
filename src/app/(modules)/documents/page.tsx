@@ -63,7 +63,7 @@ export default function DocumentsPage() {
       // Fetch folders only if we are not searching globally
       if (!debouncedSearch && !filterType) {
         const folderQuery = folderId ? `?parentId=${folderId}` : '';
-        const fRes = await fetch(`/api/documents/folders${folderQuery}`);
+        const fRes = await fetch(`/api/documents/folders${folderQuery}`, { cache: 'no-store' });
         if (fRes.ok) setFolders(await fRes.json());
       } else {
         setFolders([]); // Don't show folders during global search/filter
@@ -78,7 +78,7 @@ export default function DocumentsPage() {
       params.append('page', currentPage.toString());
       params.append('limit', pagination.limit.toString());
 
-      const dRes = await fetch(`/api/documents?${params.toString()}`);
+      const dRes = await fetch(`/api/documents?${params.toString()}`, { cache: 'no-store' });
       if (dRes.ok) {
         const data = await dRes.json();
         setDocuments(data.data);

@@ -140,15 +140,16 @@ export async function DELETE(request: Request) {
     const path = await import('path');
 
     for (const doc of documents) {
-      // Only admin or the uploader can delete
-      if (user.role === 'admin' || doc.uploadedBy === user.id) {
+      // Only admin, manager, or the uploader can delete
+      if (user.role === 'admin' || user.role === 'manager' || doc.uploadedBy === user.id) {
         authorizedIds.push(doc.id);
         
         // Delete the physical file
         if (doc.fileUrl) {
           try {
             const relativeUrl = doc.fileUrl.startsWith('/') ? doc.fileUrl.slice(1) : doc.fileUrl;
-            const filePath = path.join(process.cwd(), 'public', relativeUrl.replace(/\//g, path.sep));
+            // The file is stored in uploads/documents/YYYY/MM
+            const filePath = path.join(process.cwd(), relativeUrl.replace(/\//g, path.sep));
             await fs.unlink(filePath);
           } catch (err) {
             console.error(`Failed to delete physical file for doc ${doc.id}:`, err);
@@ -157,11 +158,13 @@ export async function DELETE(request: Request) {
       }
     }
 
-    if (authorizedIds.length > 0) {
-      await prisma.erpDocument.deleteMany({
-        where: { id: { in: authorizedIds } }
-      });
+    if (authorizedIds.length === 0) {
+      return NextResponse.json({ error: 'You do not have permission to delete these documents' }, { status: 403 });
     }
+
+    await prisma.erpDocument.deleteMany({
+      where: { id: { in: authorizedIds } }
+    });
 
     return NextResponse.json({ success: true, deletedCount: authorizedIds.length });
   } catch (error) {
