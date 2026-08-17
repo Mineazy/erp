@@ -62,7 +62,8 @@ export default function ProjectReports() {
       try { logoBase64 = await fetchImageAsBase64('/logo.png'); } catch (e) { console.error('Logo not found', e); }
       
       if (logoBase64) {
-        doc.addImage(logoBase64, 'PNG', 14, 10, 60, 20);
+        // Logo is 182x63 (aspect ratio ~2.89:1)
+        doc.addImage(logoBase64, 'PNG', 14, 10, 58, 20);
       }
       
       doc.setFontSize(22);
