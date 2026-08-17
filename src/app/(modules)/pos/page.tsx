@@ -15,6 +15,17 @@ import { useReportExport } from '@/hooks/use-report-export';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+const fetchImageAsBase64 = async (url: string) => {
+  const response = await fetch(url);
+  const blob = await response.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
+
 interface Product {
   id: string;
   code: string;
@@ -723,48 +734,55 @@ export default function POSTerminalPage() {
     }
   };
 
-  const handleGenerateA4Invoice = () => {
+  const handleGenerateA4Invoice = async () => {
     if (!lastTransaction) return;
 
     const doc = new jsPDF('p', 'mm', 'a4');
     
+    try {
+      const logoBase64 = await fetchImageAsBase64('/logo.png');
+      doc.addImage(logoBase64 as string, 'PNG', 14, 15, 30, 10);
+    } catch (e) {
+      console.error('Failed to load logo', e);
+    }
+
     doc.setFontSize(22);
     doc.setTextColor(15, 23, 42);
-    doc.text('Mineazy Mining Solutions', 14, 20);
+    doc.text('Mineazy Mining Solutions', 14, 34);
 
     doc.setFontSize(10);
     doc.setTextColor(100, 116, 139);
-    doc.text('15 Plumtree Road, Belmont, BULAWAYO', 14, 28);
-    doc.text('TIN: 2001282270 | VAT No: 220107408', 14, 33);
-    doc.text('Mobile: +263712290046', 14, 38);
-    doc.text('Email: sales@mineazy.co.zw, accounts@mineazy.co.zw', 14, 43);
+    doc.text('15 Plumtree Road, Belmont, BULAWAYO', 14, 42);
+    doc.text('TIN: 2001282270 | VAT No: 220107408', 14, 47);
+    doc.text('Mobile: +263712290046', 14, 52);
+    doc.text('Email: sales@mineazy.co.zw, accounts@mineazy.co.zw', 14, 57);
 
     doc.setFontSize(24);
     doc.setTextColor(79, 70, 229);
-    doc.text('FISCAL TAX INVOICE', 196, 20, { align: 'right' });
+    doc.text('FISCAL TAX INVOICE', 196, 34, { align: 'right' });
 
     doc.setFontSize(10);
     doc.setTextColor(100, 116, 139);
-    doc.text(`Invoice No: ${lastTransaction.transactionNumber}`, 196, 28, { align: 'right' });
-    doc.text(`Date: ${new Date(lastTransaction.createdAt).toLocaleDateString()}`, 196, 33, { align: 'right' });
-    doc.text(`Time: ${new Date(lastTransaction.createdAt).toLocaleTimeString()}`, 196, 38, { align: 'right' });
+    doc.text(`Invoice No: ${lastTransaction.transactionNumber}`, 196, 42, { align: 'right' });
+    doc.text(`Date: ${new Date(lastTransaction.createdAt).toLocaleDateString()}`, 196, 47, { align: 'right' });
+    doc.text(`Time: ${new Date(lastTransaction.createdAt).toLocaleTimeString()}`, 196, 52, { align: 'right' });
 
-    doc.line(14, 48, 196, 48);
+    doc.line(14, 62, 196, 62);
 
     doc.setFontSize(12);
     doc.setTextColor(15, 23, 42);
-    doc.text('Customer Details', 14, 58);
+    doc.text('Customer Details', 14, 72);
     
     doc.setFontSize(10);
     if (receiptCustomer) {
-      doc.text(`Name: ${receiptCustomer.name}`, 14, 65);
-      doc.text(`Loyalty ID: ${receiptCustomer.loyaltyCardBarcode || 'N/A'}`, 14, 70);
+      doc.text(`Name: ${receiptCustomer.name}`, 14, 79);
+      doc.text(`Loyalty ID: ${receiptCustomer.loyaltyCardBarcode || 'N/A'}`, 14, 84);
     } else {
-      doc.text('Walk-in Customer', 14, 65);
+      doc.text('Walk-in Customer', 14, 79);
     }
 
     autoTable(doc, {
-      startY: 80,
+      startY: 94,
       head: [['Description', 'Qty', 'Unit Price', 'Total']],
       body: lastTransaction.lines?.map((item: any) => [
         item.productName,
