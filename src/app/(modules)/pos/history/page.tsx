@@ -314,8 +314,8 @@ export default function TransactionHistoryPage() {
                     <tr key={idx} className="border-b last:border-0">
                       <td className="p-2">{item.productName}</td>
                       <td className="text-right p-2 font-mono">{item.quantity}</td>
-                      <td className="text-right p-2 font-mono">${item.unitPrice.toLocaleString()}</td>
-                      <td className="text-right p-2 font-mono font-medium">${item.lineTotal.toLocaleString()}</td>
+                      <td className="text-right p-2 font-mono">${Number(item.unitPrice || item.price || 0).toLocaleString()}</td>
+                      <td className="text-right p-2 font-mono font-medium">${Number(item.total || item.lineTotal || (item.quantity * (item.unitPrice || item.price || 0)) || 0).toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
