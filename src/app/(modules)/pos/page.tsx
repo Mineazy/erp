@@ -748,14 +748,17 @@ export default function POSTerminalPage() {
 
     doc.setFontSize(22);
     doc.setTextColor(15, 23, 42);
-    doc.text('Mineazy Mining Solutions', 14, 34);
+    const branchName = lastTransaction?.branch?.name ? ` - ${lastTransaction.branch.name}` : '';
+    doc.text(`Mineazy Mining Solutions${branchName}`, 14, 34);
 
     doc.setFontSize(10);
     doc.setTextColor(100, 116, 139);
-    doc.text('15 Plumtree Road, Belmont, BULAWAYO', 14, 42);
+    const address = lastTransaction?.branch?.address || '15 Plumtree Road, Belmont';
+    const city = lastTransaction?.branch?.city || 'BULAWAYO';
+    doc.text(`${address}, ${city}`, 14, 42);
     doc.text('TIN: 2001282270 | VAT No: 220107408', 14, 47);
-    doc.text('Mobile: +263712290046', 14, 52);
-    doc.text('Email: sales@mineazy.co.zw, accounts@mineazy.co.zw', 14, 57);
+    doc.text(`Mobile: ${lastTransaction?.branch?.phone || '+263712290046'}`, 14, 52);
+    doc.text(`Email: ${lastTransaction?.branch?.email || 'sales@mineazy.co.zw, accounts@mineazy.co.zw'}`, 14, 57);
 
     doc.setFontSize(24);
     doc.setTextColor(79, 70, 229);
@@ -1744,19 +1747,21 @@ export default function POSTerminalPage() {
           {/* Header/Company details */}
           <div className="text-center space-y-1 pb-3 border-b border-dashed border-slate-200">
             <h4 className="text-base font-bold tracking-tight text-slate-900">
-              {lastTransaction?.branch?.name ? `MINEAZY - ${lastTransaction.branch.name.toUpperCase()}` : 'MINEAZY GROUP LTD'}
+              Mineazy Mining Solutions{lastTransaction?.branch?.name ? ` - ${lastTransaction.branch.name}` : ''}
             </h4>
             <p className="text-slate-500 text-[10px]">
-              {lastTransaction?.branch?.address || 'Suite 400, Innovation Hub'}
-              {lastTransaction?.branch?.city ? `, ${lastTransaction.branch.city}` : ', Harare'}
-              {lastTransaction?.branch?.country ? `, ${lastTransaction.branch.country}` : ', Zimbabwe'}
+              {lastTransaction?.branch?.address || '15 Plumtree Road, Belmont'}
+              {lastTransaction?.branch?.city ? `, ${lastTransaction.branch.city}` : ', BULAWAYO'}
             </p>
             <p className="text-slate-500 text-[10px]">
-              Tel: {lastTransaction?.branch?.phone || '+263 77 123 4567'} | VAT ID: VAT-999888777
+              TIN: 2001282270 | VAT No: 220107408
             </p>
-            {lastTransaction?.branch?.email && (
-              <p className="text-slate-500 text-[10px]">Email: {lastTransaction.branch.email}</p>
-            )}
+            <p className="text-slate-500 text-[10px]">
+              Tel: {lastTransaction?.branch?.phone || '+263712290046'}
+            </p>
+            <p className="text-slate-500 text-[10px]">
+              Email: {lastTransaction?.branch?.email || 'sales@mineazy.co.zw, accounts@mineazy.co.zw'}
+            </p>
             <p className="text-slate-500 font-mono text-[10px] pt-1">
               Receipt: {lastTransaction?.transactionNumber}
             </p>
