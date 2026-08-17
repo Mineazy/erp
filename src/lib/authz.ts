@@ -172,7 +172,7 @@ export function canAccessModule(module: string, role: string | undefined, depart
 
   // Custom overrides for users registered under the Purchasing Department
   if (department && department.toLowerCase() === 'purchasing') {
-    const allowedModules = ['purchasing', 'inventory', 'warehouse', 'fleet', 'messaging'];
+    const allowedModules = ['purchasing', 'inventory', 'warehouse', 'fleet', 'messaging', 'documents', 'dashboard'];
     if (allowedModules.includes(module.toLowerCase())) {
       return true;
     }
@@ -184,7 +184,7 @@ export function canAccessModule(module: string, role: string | undefined, depart
 
   // Custom overrides for users registered under the Finance Department
   if (department && (department.toLowerCase() === 'finance' || department.toLowerCase() === 'financial')) {
-    const allowedModules = ['financial', 'crm', 'pos', 'fleet', 'fdms', 'reports', 'messaging', 'sales'];
+    const allowedModules = ['financial', 'crm', 'pos', 'fleet', 'fdms', 'reports', 'messaging', 'sales', 'documents', 'dashboard'];
     if (allowedModules.includes(module.toLowerCase())) {
       return true;
     }
@@ -196,7 +196,7 @@ export function canAccessModule(module: string, role: string | undefined, depart
 
   // Custom overrides for users registered under the Business Development Department
   if (department && (department.toLowerCase() === 'business' || department.toLowerCase() === 'business development')) {
-    const allowedModules = ['crm', 'pos', 'workshop', 'messaging', 'sales', 'projects'];
+    const allowedModules = ['crm', 'pos', 'workshop', 'messaging', 'sales', 'projects', 'documents', 'dashboard'];
     if (allowedModules.includes(module.toLowerCase())) {
       return true;
     }
@@ -208,7 +208,7 @@ export function canAccessModule(module: string, role: string | undefined, depart
 
   // Custom overrides for users registered under the Warehouse Department
   if (department && (department.toLowerCase() === 'warehouse' || department.toLowerCase() === 'inventory')) {
-    const allowedModules = ['inventory', 'warehouse', 'messaging'];
+    const allowedModules = ['inventory', 'warehouse', 'messaging', 'documents', 'dashboard'];
     if (allowedModules.includes(module.toLowerCase())) {
       return true;
     }
@@ -230,28 +230,28 @@ export function canWriteModule(module: string, role: string | undefined, departm
   }
 
   if (department && department.toLowerCase() === 'purchasing') {
-    const allowedModules = ['purchasing', 'inventory', 'warehouse', 'fleet', 'messaging'];
+    const allowedModules = ['purchasing', 'inventory', 'warehouse', 'fleet', 'messaging', 'documents', 'dashboard'];
     if (allowedModules.includes(module.toLowerCase())) {
       return true;
     }
   }
 
   if (department && (department.toLowerCase() === 'finance' || department.toLowerCase() === 'financial')) {
-    const allowedModules = ['financial', 'crm', 'pos', 'fleet', 'fdms', 'reports', 'messaging', 'sales'];
+    const allowedModules = ['financial', 'crm', 'pos', 'fleet', 'fdms', 'reports', 'messaging', 'sales', 'documents', 'dashboard'];
     if (allowedModules.includes(module.toLowerCase())) {
       return true;
     }
   }
 
   if (department && (department.toLowerCase() === 'business' || department.toLowerCase() === 'business development')) {
-    const allowedModules = ['crm', 'pos', 'workshop', 'messaging', 'sales', 'projects'];
+    const allowedModules = ['crm', 'pos', 'workshop', 'messaging', 'sales', 'projects', 'documents', 'dashboard'];
     if (allowedModules.includes(module.toLowerCase())) {
       return true;
     }
   }
 
   if (department && (department.toLowerCase() === 'warehouse' || department.toLowerCase() === 'inventory')) {
-    const allowedModules = ['inventory', 'warehouse', 'messaging'];
+    const allowedModules = ['inventory', 'warehouse', 'messaging', 'documents', 'dashboard'];
     if (allowedModules.includes(module.toLowerCase())) {
       return true;
     }
