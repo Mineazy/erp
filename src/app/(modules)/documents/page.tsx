@@ -24,10 +24,16 @@ export default function DocumentsPage() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   
   const [newFolderName, setNewFolderName] = useState('');
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadIsRestricted, setUploadIsRestricted] = useState(false);
+  const [uploadMode, setUploadMode] = useState<'files' | 'folder'>('files');
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
+
+  // New states for enhanced functionality
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // New states for enhanced functionality
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -110,31 +116,77 @@ export default function DocumentsPage() {
 
   const handleUploadFile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!uploadFile || !uploadTitle) return;
+    if (!uploadFiles || uploadFiles.length === 0) return;
     
     setIsUploading(true);
-    const formData = new FormData();
-    formData.append('file', uploadFile);
-    formData.append('title', uploadTitle);
-    formData.append('isRestricted', String(uploadIsRestricted));
-    if (currentFolder) formData.append('folderId', currentFolder.id);
+    setUploadProgress({ current: 0, total: uploadFiles.length });
 
     try {
-      const res = await fetch('/api/documents/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      if (res.ok) {
-        setIsUploadModalOpen(false);
-        setUploadFile(null);
-        setUploadTitle('');
-        setUploadIsRestricted(false);
-        fetchData();
+      for (let i = 0; i < uploadFiles.length; i++) {
+        const file = uploadFiles[i];
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        // If uploading multiple, use the file's original name, else use the custom title
+        const titleToUse = uploadFiles.length > 1 ? file.name : (uploadTitle || file.name);
+        formData.append('title', titleToUse);
+        formData.append('isRestricted', String(uploadIsRestricted));
+        
+        if (currentFolder) formData.append('folderId', currentFolder.id);
+        
+        // If it's a folder upload, it will have webkitRelativePath
+        if (file.webkitRelativePath) {
+          formData.append('relativePath', file.webkitRelativePath);
+        }
+
+        const res = await fetch('/api/documents/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (res.ok) {
+          setUploadProgress(prev => ({ ...prev, current: prev.current + 1 }));
+        }
       }
+
+      setIsUploadModalOpen(false);
+      setUploadFiles([]);
+      setUploadTitle('');
+      setUploadIsRestricted(false);
+      setUploadProgress({ current: 0, total: 0 });
+      fetchData();
     } catch (error) {
       console.error(error);
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleDeleteDocuments = async (ids: string[]) => {
+    if (!confirm(`Are you sure you want to delete ${ids.length} document(s)?`)) return;
+    
+    setIsDeleting(true);
+    try {
+      const res = await fetch('/api/documents', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ documentIds: ids }),
+      });
+      if (res.ok) {
+        setSelectedDocumentIds([]);
+        if (selectedDocument && ids.includes(selectedDocument.id)) {
+          setSelectedDocument(null);
+        }
+        fetchData();
+      } else {
+        const err = await res.json();
+        alert(`Failed to delete: ${err.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error(error);
+      alert('An error occurred while deleting documents.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -198,6 +250,16 @@ export default function DocumentsPage() {
           <p className="text-slate-500">Securely manage and share corporate documents.</p>
         </div>
         <div className="flex space-x-3">
+          {selectedDocumentIds.length > 0 && (
+            <Button 
+              variant="destructive" 
+              onClick={() => handleDeleteDocuments(selectedDocumentIds)}
+              disabled={isDeleting}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              {isDeleting ? 'Deleting...' : `Delete Selected (${selectedDocumentIds.length})`}
+            </Button>
+          )}
           {currentFolder?.id !== 'shared-documents' && (
             <>
               <Button variant="outline" onClick={() => setIsFolderModalOpen(true)}>
@@ -229,22 +291,54 @@ export default function DocumentsPage() {
 
           <Dialog open={isUploadModalOpen} onClose={() => setIsUploadModalOpen(false)} title="Upload Document">
             <form onSubmit={handleUploadFile} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Document Title</Label>
-                <Input 
-                  value={uploadTitle} 
-                  onChange={e => setUploadTitle(e.target.value)} 
-                  placeholder="Document Title" 
-                  required 
-                />
+              <div className="flex border-b border-slate-200 mb-4">
+                <button
+                  type="button"
+                  onClick={() => { setUploadMode('files'); setUploadFiles([]); }}
+                  className={`px-4 py-2 font-medium text-sm border-b-2 ${uploadMode === 'files' ? 'border-sky-600 text-sky-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                >
+                  Upload Files
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setUploadMode('folder'); setUploadFiles([]); }}
+                  className={`px-4 py-2 font-medium text-sm border-b-2 ${uploadMode === 'folder' ? 'border-sky-600 text-sky-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                >
+                  Upload Folder
+                </button>
               </div>
+
+              {uploadMode === 'files' && uploadFiles.length <= 1 && (
+                <div className="space-y-2">
+                  <Label>Document Title (Optional)</Label>
+                  <Input 
+                    value={uploadTitle} 
+                    onChange={e => setUploadTitle(e.target.value)} 
+                    placeholder={uploadFiles.length === 1 ? uploadFiles[0].name : "Document Title"} 
+                  />
+                  {uploadFiles.length > 1 && <p className="text-xs text-slate-500">Title is ignored when uploading multiple files.</p>}
+                </div>
+              )}
               <div className="space-y-2">
-                <Label>File</Label>
-                <Input 
-                  type="file" 
-                  onChange={e => setUploadFile(e.target.files?.[0] || null)} 
-                  required 
-                />
+                <Label>{uploadMode === 'folder' ? 'Select Folder' : 'Select File(s)'}</Label>
+                {uploadMode === 'folder' ? (
+                  <Input 
+                    type="file" 
+                    onChange={e => setUploadFiles(e.target.files ? Array.from(e.target.files) : [])} 
+                    required
+                    {...({ webkitdirectory: "", directory: "" } as any)} 
+                  />
+                ) : (
+                  <Input 
+                    type="file" 
+                    onChange={e => setUploadFiles(e.target.files ? Array.from(e.target.files) : [])} 
+                    required
+                    multiple
+                  />
+                )}
+                {uploadFiles.length > 0 && (
+                  <p className="text-sm text-slate-500">{uploadFiles.length} file(s) selected.</p>
+                )}
               </div>
               <div className="flex items-center space-x-2 pt-2">
                 <input 
@@ -256,9 +350,19 @@ export default function DocumentsPage() {
                 />
                 <Label htmlFor="restricted" className="text-sm font-normal">Mark as Confidential (Restricts access)</Label>
               </div>
+              
+              {isUploading && uploadProgress.total > 0 && (
+                <div className="w-full bg-slate-200 rounded-full h-2.5 mt-4">
+                  <div className="bg-sky-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}></div>
+                  <p className="text-xs text-center text-slate-500 mt-2">Uploading {uploadProgress.current} of {uploadProgress.total}...</p>
+                </div>
+              )}
+
               <DialogFooter>
-                <Button variant="outline" type="button" onClick={() => setIsUploadModalOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={isUploading}>{isUploading ? 'Uploading...' : 'Upload'}</Button>
+                <Button variant="outline" type="button" onClick={() => setIsUploadModalOpen(false)} disabled={isUploading}>Cancel</Button>
+                <Button type="submit" disabled={isUploading || uploadFiles.length === 0}>
+                  {isUploading ? 'Uploading...' : 'Upload'}
+                </Button>
               </DialogFooter>
             </form>
           </Dialog>
@@ -354,6 +458,27 @@ export default function DocumentsPage() {
               </div>
             )}
           </div>
+          
+          {documents.length > 0 && (
+            <div className="flex items-center space-x-2 text-sm">
+              <input
+                type="checkbox"
+                id="selectAll"
+                className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500 cursor-pointer"
+                checked={documents.length > 0 && selectedDocumentIds.length === documents.length}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedDocumentIds(documents.map(d => d.id));
+                  } else {
+                    setSelectedDocumentIds([]);
+                  }
+                }}
+              />
+              <label htmlFor="selectAll" className="text-slate-500 cursor-pointer select-none">
+                Select All
+              </label>
+            </div>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           {folders.length === 0 && documents.length === 0 ? (
@@ -384,20 +509,49 @@ export default function DocumentsPage() {
               {documents.map(doc => (
                 <div 
                   key={doc.id} 
-                  onClick={() => setSelectedDocument(doc)}
-                  className="flex flex-col items-center p-4 rounded-xl border border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm cursor-pointer transition-all relative group"
+                  className={`flex flex-col items-center p-4 rounded-xl border transition-all relative group ${selectedDocumentIds.includes(doc.id) ? 'border-sky-500 bg-sky-50 shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm cursor-pointer'}`}
                 >
-                  {doc.isRestricted && (
-                    <div className="absolute top-2 right-2 bg-rose-100 p-1 rounded-full">
-                      <Lock className="h-3 w-3 text-rose-600" />
+                  <div className="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <input 
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500 cursor-pointer"
+                      checked={selectedDocumentIds.includes(doc.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedDocumentIds([...selectedDocumentIds, doc.id]);
+                        } else {
+                          setSelectedDocumentIds(selectedDocumentIds.filter(id => id !== doc.id));
+                        }
+                      }}
+                    />
+                  </div>
+                  {/* Selected state persists checkbox visibility */}
+                  {selectedDocumentIds.includes(doc.id) && (
+                    <div className="absolute top-2 left-2 z-10 flex items-center justify-center">
+                      <input 
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-sky-300 text-sky-600 focus:ring-sky-500 cursor-pointer"
+                        checked={true}
+                        onChange={() => setSelectedDocumentIds(selectedDocumentIds.filter(id => id !== doc.id))}
+                      />
                     </div>
                   )}
-                  {getFileIcon(doc.mimeType)}
-                  <span className="text-sm font-medium text-slate-700 text-center line-clamp-2 mt-3 mb-1" title={doc.title}>{doc.title}</span>
-                  <span className="text-xs text-slate-400">{formatSize(doc.size)}</span>
+
+                  <div onClick={() => setSelectedDocument(doc)} className="flex flex-col items-center w-full mt-2">
+                    {doc.isRestricted && (
+                      <div className="absolute top-2 right-2 bg-rose-100 p-1 rounded-full">
+                        <Lock className="h-3 w-3 text-rose-600" />
+                      </div>
+                    )}
+                    {getFileIcon(doc.mimeType)}
+                    <span className="text-sm font-medium text-slate-700 text-center line-clamp-2 mt-3 mb-1" title={doc.title}>{doc.title}</span>
+                    <span className="text-xs text-slate-400">{formatSize(doc.size)}</span>
+                  </div>
                   
                   {/* Hover Actions */}
-                  <div className="absolute inset-0 bg-slate-900/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]">
+                  <div 
+                    className="absolute inset-0 bg-slate-900/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px] pointer-events-none"
+                  >
                     <div className="bg-white rounded-full p-2 shadow-sm transform translate-y-2 group-hover:translate-y-0 transition-all">
                       <ExternalLink className="h-4 w-4 text-slate-700" />
                     </div>
@@ -439,13 +593,26 @@ export default function DocumentsPage() {
                     {documents.map(doc => (
                       <div 
                         key={doc.id} 
-                        onClick={() => setSelectedDocument(doc)}
-                        className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 group cursor-pointer transition-colors"
+                        className={`flex items-center justify-between p-2 rounded-lg group transition-colors ${selectedDocumentIds.includes(doc.id) ? 'bg-sky-50' : 'hover:bg-slate-50'}`}
                       >
                         <div className="flex items-center space-x-3 min-w-0 flex-1">
-                          {getSmallFileIcon(doc.mimeType)}
-                          <span className="text-sm font-medium text-slate-700 truncate">{doc.title}</span>
-                          {doc.isRestricted && <Lock className="h-3 w-3 text-rose-500 flex-shrink-0" />}
+                          <input 
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500 cursor-pointer"
+                            checked={selectedDocumentIds.includes(doc.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedDocumentIds([...selectedDocumentIds, doc.id]);
+                              } else {
+                                setSelectedDocumentIds(selectedDocumentIds.filter(id => id !== doc.id));
+                              }
+                            }}
+                          />
+                          <div onClick={() => setSelectedDocument(doc)} className="flex items-center space-x-3 min-w-0 flex-1 cursor-pointer">
+                            {getSmallFileIcon(doc.mimeType)}
+                            <span className="text-sm font-medium text-slate-700 truncate">{doc.title}</span>
+                            {doc.isRestricted && <Lock className="h-3 w-3 text-rose-500 flex-shrink-0" />}
+                          </div>
                         </div>
                         <div className="flex items-center space-x-6 text-sm text-slate-500">
                           <span className="hidden md:inline-block w-24">{formatSize(doc.size)}</span>
@@ -516,7 +683,7 @@ export default function DocumentsPage() {
                 </div>
               </div>
               
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button 
                   variant="outline"
                   onClick={() => setShareDocument(selectedDocument)}
@@ -533,6 +700,14 @@ export default function DocumentsPage() {
                   <Download className="mr-2 h-4 w-4" />
                   Download
                 </a>
+                <Button 
+                  variant="outline"
+                  onClick={() => handleDeleteDocuments([selectedDocument.id])}
+                  disabled={isDeleting}
+                  className="h-10 px-4 py-2 shrink-0 border-rose-200 text-rose-700 hover:bg-rose-50"
+                >
+                  {isDeleting ? '...' : 'Delete'}
+                </Button>
               </div>
             </div>
 

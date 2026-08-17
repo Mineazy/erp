@@ -102,3 +102,70 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    const user = session?.user as any;
+    if (!user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const hasAccess = checkApiAccess(
+      '/api/documents',
+      'DELETE',
+      user.role,
+      user.department,
+      user.permissions
+    );
+
+    if (!hasAccess) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const { documentIds } = await request.json();
+    if (!documentIds || !Array.isArray(documentIds)) {
+      return NextResponse.json({ error: 'Invalid document IDs' }, { status: 400 });
+    }
+
+    // Fetch documents to verify ownership and get fileUrls
+    const documents = await prisma.erpDocument.findMany({
+      where: {
+        id: { in: documentIds }
+      }
+    });
+
+    const authorizedIds: string[] = [];
+    const fs = await import('fs/promises');
+    const path = await import('path');
+
+    for (const doc of documents) {
+      // Only admin or the uploader can delete
+      if (user.role === 'admin' || doc.uploadedBy === user.id) {
+        authorizedIds.push(doc.id);
+        
+        // Delete the physical file
+        if (doc.fileUrl) {
+          try {
+            const relativeUrl = doc.fileUrl.startsWith('/') ? doc.fileUrl.slice(1) : doc.fileUrl;
+            const filePath = path.join(process.cwd(), 'public', relativeUrl.replace(/\//g, path.sep));
+            await fs.unlink(filePath);
+          } catch (err) {
+            console.error(`Failed to delete physical file for doc ${doc.id}:`, err);
+          }
+        }
+      }
+    }
+
+    if (authorizedIds.length > 0) {
+      await prisma.erpDocument.deleteMany({
+        where: { id: { in: authorizedIds } }
+      });
+    }
+
+    return NextResponse.json({ success: true, deletedCount: authorizedIds.length });
+  } catch (error) {
+    console.error('Failed to delete documents:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

@@ -43,6 +43,8 @@ export async function POST(request: Request) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
+    const relativePath = formData.get('relativePath') as string;
+
     // Create year/month subdirectories for better organization
     const date = new Date();
     const yearMonth = `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -50,6 +52,40 @@ export async function POST(request: Request) {
 
     if (!existsSync(targetDir)) {
       await mkdir(targetDir, { recursive: true });
+    }
+
+    // Handle virtual shared-documents folder bypass
+    let resolvedFolderId = (folderId === 'shared-documents') ? null : (folderId || null);
+
+    // If a relativePath is provided (e.g. from folder upload), create the necessary folders
+    if (relativePath) {
+      const parts = relativePath.split('/');
+      // The last part is the file name itself, which we don't need for folder creation
+      parts.pop(); 
+      
+      for (const part of parts) {
+        if (!part) continue;
+        // Check if folder exists
+        let folder = await prisma.erpDocumentFolder.findFirst({
+          where: { 
+            name: part, 
+            parentId: resolvedFolderId, 
+            userId: user.id 
+          }
+        });
+        
+        if (!folder) {
+          folder = await prisma.erpDocumentFolder.create({
+            data: {
+              name: part,
+              parentId: resolvedFolderId,
+              userId: user.id,
+              department: user.department || null
+            }
+          });
+        }
+        resolvedFolderId = folder.id;
+      }
     }
 
     // Generate unique filename
@@ -60,9 +96,6 @@ export async function POST(request: Request) {
     const fileUrl = `/uploads/documents/${yearMonth}/${safeName}`;
 
     await writeFile(filePath, buffer);
-
-    // If they try to upload while inside the virtual Shared Documents folder, put it in the root
-    const resolvedFolderId = (folderId === 'shared-documents') ? null : (folderId || null);
 
     const document = await prisma.erpDocument.create({
       data: {
