@@ -3,6 +3,11 @@ const nextConfig = {
   turbopack: {
     root: process.cwd(),
   },
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '10mb'
+    }
+  },
   async rewrites() {
     return [
       {

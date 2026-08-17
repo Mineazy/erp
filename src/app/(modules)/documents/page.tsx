@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { 
   FolderPlus, Upload, FileText, Search, Folder, ChevronRight, Download, 
   FileArchive, FileImage, FileSpreadsheet, Lock, Grid, List, Filter,
-  ArrowUp, ArrowDown, ChevronLeft, ChevronRight as ChevronRightIcon, ExternalLink, Share2
+  ArrowUp, ArrowDown, ChevronLeft, ChevronRight as ChevronRightIcon, ExternalLink, Share2, Edit2
 } from 'lucide-react';
 import { toast } from '@/components/ui/toast';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
@@ -35,6 +35,10 @@ export default function DocumentsPage() {
   // New states for enhanced functionality
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<any>(null);
+  const [renameTitle, setRenameTitle] = useState('');
+  const [isRenaming, setIsRenaming] = useState(false);
 
   // New states for enhanced functionality
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -175,6 +179,36 @@ export default function DocumentsPage() {
       toast('An error occurred during upload', 'error');
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleRename = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!renameTarget || !renameTitle.trim()) return;
+
+    setIsRenaming(true);
+    try {
+      const res = await fetch('/api/documents', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: renameTarget.id, title: renameTitle.trim() }),
+      });
+      if (res.ok) {
+        toast('Document renamed successfully', 'success');
+        setIsRenameModalOpen(false);
+        if (selectedDocument && selectedDocument.id === renameTarget.id) {
+          setSelectedDocument({ ...selectedDocument, title: renameTitle.trim() });
+        }
+        fetchData();
+      } else {
+        const err = await res.json();
+        toast(`Failed to rename: ${err.error || 'Unknown error'}`, 'error');
+      }
+    } catch (error) {
+      console.error(error);
+      toast('An error occurred while renaming', 'error');
+    } finally {
+      setIsRenaming(false);
     }
   };
 
@@ -711,6 +745,18 @@ export default function DocumentsPage() {
                   <Share2 className="mr-2 h-4 w-4" />
                   Share
                 </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    setRenameTarget(selectedDocument);
+                    setRenameTitle(selectedDocument.title);
+                    setIsRenameModalOpen(true);
+                  }}
+                  className="h-10 px-4 py-2 shrink-0 border-slate-200 text-slate-700 hover:bg-slate-50"
+                >
+                  <Edit2 className="mr-2 h-4 w-4" />
+                  Rename
+                </Button>
                 <a 
                   href={selectedDocument.fileUrl} 
                   download={selectedDocument.fileName}
@@ -767,6 +813,28 @@ export default function DocumentsPage() {
           </div>
         )}
       </Sheet>
+
+      {/* Rename Modal */}
+      <Dialog open={isRenameModalOpen} onClose={() => setIsRenameModalOpen(false)} title="Rename Document">
+        <form onSubmit={handleRename} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700">New Document Name</label>
+            <input 
+              type="text" 
+              required
+              className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              value={renameTitle}
+              onChange={(e) => setRenameTitle(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end space-x-3 mt-6">
+            <Button variant="outline" type="button" onClick={() => setIsRenameModalOpen(false)}>Cancel</Button>
+            <Button type="submit" disabled={isRenaming}>
+              {isRenaming ? 'Renaming...' : 'Rename'}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
 
       {/* Share Modal */}
       {shareDocument && (

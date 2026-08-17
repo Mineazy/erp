@@ -208,3 +208,60 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export async function PATCH(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    const user = session?.user as any;
+    if (!user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Checking if user has EDIT access for documents, reusing POST access or generic
+    const hasAccess = checkApiAccess(
+      '/api/documents',
+      'POST',
+      user.role,
+      user.department,
+      user.permissions
+    );
+
+    if (!hasAccess && user.role !== 'admin' && user.role !== 'manager') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const { id, title } = await request.json();
+    if (!id || !title) {
+      return NextResponse.json({ error: 'Document ID and new title are required' }, { status: 400 });
+    }
+
+    const document = await prisma.erpDocument.findUnique({ where: { id } });
+    if (!document) {
+      return NextResponse.json({ error: 'Document not found' }, { status: 404 });
+    }
+
+    if (user.role !== 'admin' && user.role !== 'manager' && document.uploadedBy !== user.id) {
+      return NextResponse.json({ error: 'You do not have permission to rename this document' }, { status: 403 });
+    }
+
+    const updatedDocument = await prisma.erpDocument.update({
+      where: { id },
+      data: { title }
+    });
+
+    await logAudit({
+      userId: user.id,
+      userName: user.name || user.email,
+      action: 'UPDATE',
+      entityType: 'Document',
+      entityId: id,
+      changes: { title }
+    });
+
+    return NextResponse.json(updatedDocument);
+  } catch (error) {
+    console.error('Failed to rename document:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
