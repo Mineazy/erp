@@ -15,6 +15,10 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const folderId = searchParams.get('folderId');
     const search = searchParams.get('search');
+    const type = searchParams.get('type');
+    const sortBy = searchParams.get('sortBy') || 'date_desc';
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '50');
     
     const hasAccess = checkApiAccess(
       '/api/documents',
@@ -31,15 +35,21 @@ export async function GET(request: Request) {
     let whereClause: any = {};
     if (folderId) {
       whereClause.folderId = folderId;
-    } else if (!search) {
-      whereClause.folderId = null; // Only show root documents if no folder and no search
+    } else if (!search && !type) {
+      whereClause.folderId = null; // Only show root documents if no folder, no search, no filter
     }
 
     if (search) {
       whereClause.title = { contains: search };
     }
 
-    // Regular users shouldn't see restricted documents unless they uploaded it or are admin/manager
+    if (type) {
+      if (type === 'image') whereClause.mimeType = { contains: 'image' };
+      if (type === 'pdf') whereClause.mimeType = { contains: 'pdf' };
+      if (type === 'spreadsheet') whereClause.mimeType = { contains: 'sheet' };
+      if (type === 'archive') whereClause.mimeType = { contains: 'zip' };
+    }
+
     if (user.role === 'user') {
       whereClause.OR = [
         { isRestricted: false },
@@ -47,15 +57,34 @@ export async function GET(request: Request) {
       ];
     }
 
+    let orderByClause: any = { createdAt: 'desc' };
+    if (sortBy === 'name_asc') orderByClause = { title: 'asc' };
+    if (sortBy === 'name_desc') orderByClause = { title: 'desc' };
+    if (sortBy === 'size_asc') orderByClause = { size: 'asc' };
+    if (sortBy === 'size_desc') orderByClause = { size: 'desc' };
+    if (sortBy === 'date_asc') orderByClause = { createdAt: 'asc' };
+    if (sortBy === 'date_desc') orderByClause = { createdAt: 'desc' };
+
+    const total = await prisma.erpDocument.count({ where: whereClause });
     const documents = await prisma.erpDocument.findMany({
       where: whereClause,
       include: {
         folder: true
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: orderByClause,
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
-    return NextResponse.json(documents);
+    return NextResponse.json({
+      data: documents,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
   } catch (error) {
     console.error('Failed to fetch documents:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

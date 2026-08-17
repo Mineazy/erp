@@ -1,10 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useState, useEffect, useCallback } from 'react';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { FolderPlus, Upload, FileText, Search, Folder, ChevronRight, Download, MoreVertical, FileArchive, FileImage, FileCode2, FileSpreadsheet, Lock } from 'lucide-react';
+import { 
+  FolderPlus, Upload, FileText, Search, Folder, ChevronRight, Download, 
+  FileArchive, FileImage, FileSpreadsheet, Lock, Grid, List, Filter,
+  ArrowUp, ArrowDown, ChevronLeft, ChevronRight as ChevronRightIcon
+} from 'lucide-react';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 
@@ -23,23 +27,60 @@ export default function DocumentsPage() {
   const [uploadIsRestricted, setUploadIsRestricted] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
-  const fetchData = async (folderId: string | null = null) => {
-    try {
-      const folderQuery = folderId ? `?parentId=${folderId}` : '';
-      const fRes = await fetch(`/api/documents/folders${folderQuery}`);
-      if (fRes.ok) setFolders(await fRes.json());
+  // New states for enhanced functionality
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [filterType, setFilterType] = useState<string>('');
+  const [sortBy, setSortBy] = useState<string>('date_desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState({ total: 0, totalPages: 1, limit: 50 });
 
-      const docQuery = folderId ? `?folderId=${folderId}` : '';
-      const dRes = await fetch(`/api/documents${docQuery}`);
-      if (dRes.ok) setDocuments(await dRes.json());
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(1); // Reset page on new search
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const folderId = currentFolder?.id || '';
+      
+      // Fetch folders only if we are not searching globally
+      if (!debouncedSearch && !filterType) {
+        const folderQuery = folderId ? `?parentId=${folderId}` : '';
+        const fRes = await fetch(`/api/documents/folders${folderQuery}`);
+        if (fRes.ok) setFolders(await fRes.json());
+      } else {
+        setFolders([]); // Don't show folders during global search/filter
+      }
+
+      // Fetch documents with filters
+      const params = new URLSearchParams();
+      if (folderId && !debouncedSearch && !filterType) params.append('folderId', folderId);
+      if (debouncedSearch) params.append('search', debouncedSearch);
+      if (filterType) params.append('type', filterType);
+      params.append('sortBy', sortBy);
+      params.append('page', currentPage.toString());
+      params.append('limit', pagination.limit.toString());
+
+      const dRes = await fetch(`/api/documents?${params.toString()}`);
+      if (dRes.ok) {
+        const data = await dRes.json();
+        setDocuments(data.data);
+        setPagination(data.pagination);
+      }
     } catch (e) {
       console.error(e);
     }
-  };
+  }, [currentFolder, debouncedSearch, filterType, sortBy, currentPage, pagination.limit]);
 
   useEffect(() => {
-    fetchData(currentFolder?.id || null);
-  }, [currentFolder]);
+    fetchData();
+  }, [fetchData]);
 
   const handleCreateFolder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +96,7 @@ export default function DocumentsPage() {
       if (res.ok) {
         setIsFolderModalOpen(false);
         setNewFolderName('');
-        fetchData(currentFolder?.id || null);
+        fetchData();
       }
     } catch (error) {
       console.error(error);
@@ -83,7 +124,7 @@ export default function DocumentsPage() {
         setUploadFile(null);
         setUploadTitle('');
         setUploadIsRestricted(false);
-        fetchData(currentFolder?.id || null);
+        fetchData();
       }
     } catch (error) {
       console.error(error);
@@ -95,6 +136,9 @@ export default function DocumentsPage() {
   const navigateToFolder = (folder: any) => {
     setFolderPath([...folderPath, folder]);
     setCurrentFolder(folder);
+    setSearchQuery('');
+    setFilterType('');
+    setCurrentPage(1);
   };
 
   const navigateUp = (index: number) => {
@@ -106,6 +150,9 @@ export default function DocumentsPage() {
       setFolderPath(newPath);
       setCurrentFolder(newPath[newPath.length - 1]);
     }
+    setSearchQuery('');
+    setFilterType('');
+    setCurrentPage(1);
   };
 
   const getFileIcon = (mimeType: string) => {
@@ -116,12 +163,26 @@ export default function DocumentsPage() {
     return <FileText className="h-10 w-10 text-slate-500" />;
   };
 
+  const getSmallFileIcon = (mimeType: string) => {
+    if (mimeType.includes('image')) return <FileImage className="h-5 w-5 text-sky-500" />;
+    if (mimeType.includes('pdf')) return <FileText className="h-5 w-5 text-rose-500" />;
+    if (mimeType.includes('zip') || mimeType.includes('archive')) return <FileArchive className="h-5 w-5 text-amber-500" />;
+    if (mimeType.includes('sheet') || mimeType.includes('excel')) return <FileSpreadsheet className="h-5 w-5 text-emerald-500" />;
+    return <FileText className="h-5 w-5 text-slate-500" />;
+  };
+
   const formatSize = (bytes: number) => {
     if (bytes === 0) return '0 B';
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString(undefined, {
+      year: 'numeric', month: 'short', day: 'numeric'
+    });
   };
 
   return (
@@ -196,6 +257,68 @@ export default function DocumentsPage() {
         </div>
       </div>
 
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white p-4 rounded-xl border border-slate-200">
+        <div className="flex flex-1 items-center space-x-2 w-full md:w-auto">
+          <div className="relative flex-1 md:max-w-md">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+            <Input 
+              type="search" 
+              placeholder="Search documents..." 
+              className="pl-9 bg-slate-50" 
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+          </div>
+          
+          <div className="relative">
+            <select 
+              className="h-10 pl-3 pr-8 rounded-md border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 appearance-none cursor-pointer"
+              value={filterType}
+              onChange={e => { setFilterType(e.target.value); setCurrentPage(1); }}
+            >
+              <option value="">All Types</option>
+              <option value="pdf">PDFs</option>
+              <option value="image">Images</option>
+              <option value="spreadsheet">Spreadsheets</option>
+              <option value="archive">Archives</option>
+            </select>
+            <Filter className="absolute right-2.5 top-3 h-4 w-4 text-slate-400 pointer-events-none" />
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-2 w-full md:w-auto">
+          <div className="relative">
+            <select 
+              className="h-10 pl-3 pr-8 rounded-md border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 appearance-none cursor-pointer"
+              value={sortBy}
+              onChange={e => { setSortBy(e.target.value); setCurrentPage(1); }}
+            >
+              <option value="date_desc">Newest First</option>
+              <option value="date_asc">Oldest First</option>
+              <option value="name_asc">Name (A-Z)</option>
+              <option value="name_desc">Name (Z-A)</option>
+              <option value="size_desc">Largest First</option>
+              <option value="size_asc">Smallest First</option>
+            </select>
+          </div>
+
+          <div className="flex items-center border border-slate-200 rounded-md p-1 bg-slate-50">
+            <button 
+              onClick={() => setViewMode('grid')}
+              className={`p-1.5 rounded-sm transition-colors ${viewMode === 'grid' ? 'bg-white shadow-sm text-sky-600' : 'text-slate-500 hover:text-slate-900'}`}
+            >
+              <Grid className="h-4 w-4" />
+            </button>
+            <button 
+              onClick={() => setViewMode('list')}
+              className={`p-1.5 rounded-sm transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm text-sky-600' : 'text-slate-500 hover:text-slate-900'}`}
+            >
+              <List className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
       <Card>
         <CardHeader className="pb-3 flex flex-row items-center justify-between border-b border-slate-100">
           <div className="flex items-center space-x-1 text-sm font-medium text-slate-600">
@@ -216,19 +339,21 @@ export default function DocumentsPage() {
                 </button>
               </div>
             ))}
-          </div>
-          <div className="relative w-64">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
-            <Input type="search" placeholder="Search..." className="pl-9 bg-slate-50 border-none" />
+            {(debouncedSearch || filterType) && (
+              <div className="flex items-center space-x-1">
+                <ChevronRight className="h-4 w-4 text-slate-400" />
+                <span className="text-sky-600">Search Results</span>
+              </div>
+            )}
           </div>
         </CardHeader>
         <CardContent className="p-0">
           {folders.length === 0 && documents.length === 0 ? (
             <div className="py-20 flex flex-col items-center justify-center text-slate-500">
               <FolderTree className="h-12 w-12 text-slate-200 mb-4" />
-              <p>This folder is empty.</p>
+              <p>{debouncedSearch || filterType ? 'No documents match your filters.' : 'This folder is empty.'}</p>
             </div>
-          ) : (
+          ) : viewMode === 'grid' ? (
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 p-6">
               {/* Folders */}
               {folders.map(folder => (
@@ -256,7 +381,7 @@ export default function DocumentsPage() {
                     </div>
                   )}
                   {getFileIcon(doc.mimeType)}
-                  <span className="text-sm font-medium text-slate-700 text-center line-clamp-2 mt-3 mb-1">{doc.title}</span>
+                  <span className="text-sm font-medium text-slate-700 text-center line-clamp-2 mt-3 mb-1" title={doc.title}>{doc.title}</span>
                   <span className="text-xs text-slate-400">{formatSize(doc.size)}</span>
                   
                   {/* Hover Actions */}
@@ -267,6 +392,85 @@ export default function DocumentsPage() {
                   </div>
                 </a>
               ))}
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {folders.length > 0 && (
+                <div className="p-4 bg-slate-50/50">
+                  <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Folders</h4>
+                  <div className="space-y-1">
+                    {folders.map(folder => (
+                      <div 
+                        key={folder.id} 
+                        onClick={() => navigateToFolder(folder)}
+                        className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-100 cursor-pointer"
+                      >
+                        <Folder className="h-5 w-5 text-sky-400" />
+                        <span className="text-sm font-medium text-slate-700">{folder.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {documents.length > 0 && (
+                <div className="p-4">
+                  {folders.length > 0 && <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Files</h4>}
+                  <div className="space-y-1">
+                    {documents.map(doc => (
+                      <a 
+                        key={doc.id} 
+                        href={doc.fileUrl}
+                        target="_blank"
+                        className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 group transition-colors"
+                      >
+                        <div className="flex items-center space-x-3 min-w-0 flex-1">
+                          {getSmallFileIcon(doc.mimeType)}
+                          <span className="text-sm font-medium text-slate-700 truncate">{doc.title}</span>
+                          {doc.isRestricted && <Lock className="h-3 w-3 text-rose-500 flex-shrink-0" />}
+                        </div>
+                        <div className="flex items-center space-x-6 text-sm text-slate-500">
+                          <span className="hidden md:inline-block w-24">{formatSize(doc.size)}</span>
+                          <span className="hidden lg:inline-block w-24">{formatDate(doc.createdAt)}</span>
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Download className="h-4 w-4 text-slate-400 hover:text-slate-700" />
+                          </div>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Pagination Controls */}
+          {pagination.totalPages > 1 && (
+            <div className="border-t border-slate-100 p-4 flex items-center justify-between">
+              <span className="text-sm text-slate-500">
+                Showing {((currentPage - 1) * pagination.limit) + 1} to {Math.min(currentPage * pagination.limit, pagination.total)} of {pagination.total} documents
+              </span>
+              <div className="flex items-center space-x-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" /> Prev
+                </Button>
+                <div className="text-sm font-medium text-slate-700 px-2">
+                  Page {currentPage} of {pagination.totalPages}
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  disabled={currentPage === pagination.totalPages}
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, pagination.totalPages))}
+                >
+                  Next <ChevronRightIcon className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
@@ -294,3 +498,4 @@ function FolderTree(props: any) {
     </svg>
   )
 }
+

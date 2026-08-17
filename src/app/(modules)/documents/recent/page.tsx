@@ -16,7 +16,7 @@ export default function RecentDocumentsPage() {
         const res = await fetch('/api/documents');
         if (res.ok) {
           const data = await res.json();
-          setDocuments(data.slice(0, 50)); // Only show top 50 recent
+          setDocuments(data.data.slice(0, 50)); // Only show top 50 recent
         }
       } catch (error) {
         console.error('Failed to fetch recent documents', error);
