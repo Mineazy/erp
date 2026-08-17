@@ -198,9 +198,16 @@ export default function DocumentsPage() {
           <p className="text-slate-500">Securely manage and share corporate documents.</p>
         </div>
         <div className="flex space-x-3">
-          <Button variant="outline" onClick={() => setIsFolderModalOpen(true)}>
-            <FolderPlus className="mr-2 h-4 w-4" /> New Folder
-          </Button>
+          {currentFolder?.id !== 'shared-documents' && (
+            <>
+              <Button variant="outline" onClick={() => setIsFolderModalOpen(true)}>
+                <FolderPlus className="mr-2 h-4 w-4" /> New Folder
+              </Button>
+              <Button className="bg-sky-600 hover:bg-sky-700" onClick={() => setIsUploadModalOpen(true)}>
+                <Upload className="mr-2 h-4 w-4" /> Upload File
+              </Button>
+            </>
+          )}
 
           <Dialog open={isFolderModalOpen} onClose={() => setIsFolderModalOpen(false)} title="Create New Folder">
             <form onSubmit={handleCreateFolder} className="space-y-4">
@@ -219,10 +226,6 @@ export default function DocumentsPage() {
               </DialogFooter>
             </form>
           </Dialog>
-
-          <Button className="bg-sky-600 hover:bg-sky-700" onClick={() => setIsUploadModalOpen(true)}>
-            <Upload className="mr-2 h-4 w-4" /> Upload File
-          </Button>
 
           <Dialog open={isUploadModalOpen} onClose={() => setIsUploadModalOpen(false)} title="Upload Document">
             <form onSubmit={handleUploadFile} className="space-y-4">

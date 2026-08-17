@@ -61,6 +61,9 @@ export async function POST(request: Request) {
 
     await writeFile(filePath, buffer);
 
+    // If they try to upload while inside the virtual Shared Documents folder, put it in the root
+    const resolvedFolderId = (folderId === 'shared-documents') ? null : (folderId || null);
+
     const document = await prisma.erpDocument.create({
       data: {
         title,
@@ -69,7 +72,7 @@ export async function POST(request: Request) {
         fileUrl,
         mimeType: file.type || 'application/octet-stream',
         size: file.size,
-        folderId: folderId || null,
+        folderId: resolvedFolderId,
         uploadedBy: user.id,
         uploaderName: user.name || 'Unknown',
         department: user.department || null,
