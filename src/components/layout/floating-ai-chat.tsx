@@ -10,17 +10,42 @@ export function FloatingAiChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [input, setInput] = useState('');
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
   
-  const { messages: chatMessages, sendMessage, status } = useChat({
+  const { messages: chatMessages, setMessages, append, status } = useChat({
     api: '/api/chat',
-    initialMessages: [
-      {
-        id: 'initial-msg',
-        role: 'assistant',
-        content: 'Hi! I am Ezzie, your AI assistant. How can I help you with your ERP tasks today?'
-      }
-    ]
+    body: { sessionId },
   } as any) as any;
+
+  useEffect(() => {
+    async function fetchHistory() {
+      try {
+        const res = await fetch('/api/chat/history');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.sessionId) setSessionId(data.sessionId);
+          if (data.messages && data.messages.length > 0) {
+            setMessages(data.messages);
+          } else {
+            setMessages([
+              {
+                id: 'initial-msg',
+                role: 'assistant',
+                content: 'Hi! I am Ezzie, your AI assistant. How can I help you with your ERP tasks today?'
+              }
+            ]);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load chat history', error);
+      } finally {
+        setIsInitializing(false);
+      }
+    }
+    fetchHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -127,10 +152,10 @@ export function FloatingAiChatWidget() {
             <form 
               onSubmit={(e) => {
                 e.preventDefault();
-                if ((input || '').trim() && !isLoading) {
+                if ((input || '').trim() && !isLoading && !isInitializing) {
                   const messageText = input;
                   setInput('');
-                  sendMessage({ id: Date.now().toString(), role: 'user', content: messageText });
+                  append({ role: 'user', content: messageText });
                 }
               }}
               className="flex items-end gap-2"
@@ -145,10 +170,10 @@ export function FloatingAiChatWidget() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
-                      if ((input || '').trim() && !isLoading) {
+                      if ((input || '').trim() && !isLoading && !isInitializing) {
                          const messageText = input;
                          setInput('');
-                         sendMessage({ id: Date.now().toString(), role: 'user', content: messageText });
+                         append({ role: 'user', content: messageText });
                       }
                     }
                   }}
@@ -158,7 +183,7 @@ export function FloatingAiChatWidget() {
                 type="submit" 
                 size="icon" 
                 className="rounded-xl flex-shrink-0 h-[38px] w-[38px] bg-indigo-600 hover:bg-indigo-700"
-                disabled={!(input || '').trim() || isLoading}
+                disabled={!(input || '').trim() || isLoading || isInitializing}
               >
                 <Send className="h-4 w-4 text-white ml-0.5" />
               </Button>
