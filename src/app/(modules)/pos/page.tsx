@@ -2008,7 +2008,7 @@ export default function POSTerminalPage() {
           <Button onClick={closeSession} disabled={!actualCashInput}>Confirm & Close</Button>
         </DialogFooter>
       </Dialog>
-      <ExportDialog />
+      {ExportDialog}
     </div>
   );
 }
