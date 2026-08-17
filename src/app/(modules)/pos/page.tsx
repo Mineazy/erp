@@ -1330,7 +1330,7 @@ export default function POSTerminalPage() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-slate-900 truncate">{item.product.name}</p>
                           <p className="text-xs text-slate-400">
-                            ${item.product.sellingPrice.toLocaleString()} / {item.product.unit}
+                            ${Number(item.product.sellingPrice || 0).toLocaleString()} / {item.product.unit}
                           </p>
                         </div>
                         <div className="flex items-center gap-1">
@@ -1351,7 +1351,7 @@ export default function POSTerminalPage() {
                         </div>
                         <div className="text-right w-20">
                           <p className="text-sm font-mono font-semibold">
-                            ${(item.product.sellingPrice * item.quantity).toLocaleString()}
+                            ${(Number(item.product.sellingPrice || 0) * item.quantity).toLocaleString()}
                           </p>
                         </div>
                         <button
@@ -1446,7 +1446,7 @@ export default function POSTerminalPage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-slate-900 truncate">{item.product.name}</p>
                     <p className="text-[10px] text-slate-400">
-                      ${item.product.sellingPrice.toLocaleString()} / {item.product.unit}
+                      ${Number(item.product.sellingPrice || 0).toLocaleString()} / {item.product.unit}
                     </p>
                   </div>
                   {/* Quantity edit controls */}
@@ -1468,7 +1468,7 @@ export default function POSTerminalPage() {
                   </div>
                   {/* Line total and Delete button */}
                   <div className="text-right w-16">
-                    <span className="font-mono font-semibold">${(item.product.sellingPrice * item.quantity).toFixed(2)}</span>
+                    <span className="font-mono font-semibold">${(Number(item.product.sellingPrice || 0) * item.quantity).toFixed(2)}</span>
                   </div>
                   <button
                     onClick={() => removeFromCart(item.product.id)}
