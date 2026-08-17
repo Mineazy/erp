@@ -2,12 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { FileText, Download, Lock, FileArchive, FileImage, FileCode2, FileSpreadsheet, Clock } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { FileText, Download, Lock, FileArchive, FileImage, FileCode2, FileSpreadsheet, Clock, ExternalLink } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { Sheet } from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
 
 export default function RecentDocumentsPage() {
   const [documents, setDocuments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedDocument, setSelectedDocument] = useState<any | null>(null);
 
   useEffect(() => {
     const fetchRecent = async () => {
@@ -36,12 +41,26 @@ export default function RecentDocumentsPage() {
     return <FileText className="h-6 w-6 text-slate-500" />;
   };
 
+  const getLargeFileIcon = (mimeType: string) => {
+    if (mimeType.includes('image')) return <FileImage className="h-10 w-10 text-sky-500" />;
+    if (mimeType.includes('pdf')) return <FileText className="h-10 w-10 text-rose-500" />;
+    if (mimeType.includes('zip') || mimeType.includes('archive')) return <FileArchive className="h-10 w-10 text-amber-500" />;
+    if (mimeType.includes('sheet') || mimeType.includes('excel')) return <FileSpreadsheet className="h-10 w-10 text-emerald-500" />;
+    return <FileText className="h-10 w-10 text-slate-500" />;
+  };
+
   const formatSize = (bytes: number) => {
     if (bytes === 0) return '0 B';
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString(undefined, {
+      year: 'numeric', month: 'short', day: 'numeric'
+    });
   };
 
   return (
@@ -66,16 +85,20 @@ export default function RecentDocumentsPage() {
               </div>
             ) : (
               documents.map(doc => (
-                <div key={doc.id} className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors group">
+                <div 
+                  key={doc.id} 
+                  onClick={() => setSelectedDocument(doc)}
+                  className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors group cursor-pointer"
+                >
                   <div className="flex items-center space-x-4">
                     <div className="p-2 bg-slate-100 rounded-lg">
                       {getFileIcon(doc.mimeType)}
                     </div>
                     <div>
                       <div className="flex items-center space-x-2">
-                        <a href={doc.fileUrl} target="_blank" className="font-medium text-slate-900 hover:text-sky-600 hover:underline">
+                        <span className="font-medium text-slate-900 group-hover:text-sky-600 transition-colors">
                           {doc.title}
-                        </a>
+                        </span>
                         {doc.isRestricted && <Lock className="h-3 w-3 text-rose-500" />}
                       </div>
                       <div className="flex items-center space-x-3 text-xs text-slate-500 mt-1">
@@ -94,9 +117,9 @@ export default function RecentDocumentsPage() {
                     </div>
                   </div>
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                    <a href={doc.fileUrl} target="_blank" download className="p-2 bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 flex text-slate-600">
-                      <Download className="h-4 w-4" />
-                    </a>
+                    <div className="p-2 bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 flex text-slate-600">
+                      <ExternalLink className="h-4 w-4" />
+                    </div>
                   </div>
                 </div>
               ))
@@ -104,6 +127,76 @@ export default function RecentDocumentsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Preview Sheet */}
+      <Sheet 
+        open={!!selectedDocument} 
+        onClose={() => setSelectedDocument(null)} 
+        title="Document Preview" 
+        className="w-full sm:max-w-2xl"
+      >
+        {selectedDocument && (
+          <div className="flex flex-col h-full space-y-6 pb-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-xl font-semibold text-slate-900 break-words">{selectedDocument.title}</h3>
+                <div className="flex items-center space-x-3 mt-2 text-sm text-slate-500">
+                  <span>{formatSize(selectedDocument.size)}</span>
+                  <span>•</span>
+                  <span>{formatDate(selectedDocument.createdAt)}</span>
+                </div>
+                <div className="mt-1 text-sm text-slate-500">
+                  Uploaded by: <span className="font-medium text-slate-700">{selectedDocument.uploaderName}</span>
+                </div>
+              </div>
+              
+              <a 
+                href={selectedDocument.fileUrl} 
+                download={selectedDocument.fileName}
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-sky-600 text-white hover:bg-sky-700 h-10 px-4 py-2 shrink-0"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Download
+              </a>
+            </div>
+
+            <div className="flex-1 bg-slate-100 rounded-lg border border-slate-200 overflow-hidden flex flex-col items-center justify-center min-h-[400px]">
+              {selectedDocument.mimeType.includes('image') ? (
+                <img 
+                  src={selectedDocument.fileUrl} 
+                  alt={selectedDocument.title} 
+                  className="max-w-full max-h-full object-contain"
+                />
+              ) : selectedDocument.mimeType.includes('pdf') ? (
+                <iframe 
+                  src={`${selectedDocument.fileUrl}#view=FitH`} 
+                  className="w-full h-full border-0"
+                  title={selectedDocument.title}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center text-slate-400 space-y-4 p-8 text-center">
+                  {getLargeFileIcon(selectedDocument.mimeType)}
+                  <p className="text-sm">Preview not available for this file type.</p>
+                  <a 
+                    href={selectedDocument.fileUrl} 
+                    download={selectedDocument.fileName}
+                    className="text-sky-600 hover:underline text-sm font-medium"
+                  >
+                    Download to view
+                  </a>
+                </div>
+              )}
+            </div>
+            
+            {selectedDocument.description && (
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Description</h4>
+                <p className="text-sm text-slate-700">{selectedDocument.description}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </Sheet>
     </div>
   );
 }

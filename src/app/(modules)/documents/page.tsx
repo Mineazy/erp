@@ -7,9 +7,10 @@ import { Input } from '@/components/ui/input';
 import { 
   FolderPlus, Upload, FileText, Search, Folder, ChevronRight, Download, 
   FileArchive, FileImage, FileSpreadsheet, Lock, Grid, List, Filter,
-  ArrowUp, ArrowDown, ChevronLeft, ChevronRight as ChevronRightIcon
+  ArrowUp, ArrowDown, ChevronLeft, ChevronRight as ChevronRightIcon, ExternalLink
 } from 'lucide-react';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
+import { Sheet } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
 
 export default function DocumentsPage() {
@@ -35,6 +36,8 @@ export default function DocumentsPage() {
   const [sortBy, setSortBy] = useState<string>('date_desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1, limit: 50 });
+
+  const [selectedDocument, setSelectedDocument] = useState<any | null>(null);
 
   // Debounce search
   useEffect(() => {
@@ -369,10 +372,9 @@ export default function DocumentsPage() {
 
               {/* Documents */}
               {documents.map(doc => (
-                <a 
+                <div 
                   key={doc.id} 
-                  href={doc.fileUrl}
-                  target="_blank"
+                  onClick={() => setSelectedDocument(doc)}
                   className="flex flex-col items-center p-4 rounded-xl border border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm cursor-pointer transition-all relative group"
                 >
                   {doc.isRestricted && (
@@ -387,10 +389,10 @@ export default function DocumentsPage() {
                   {/* Hover Actions */}
                   <div className="absolute inset-0 bg-slate-900/5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]">
                     <div className="bg-white rounded-full p-2 shadow-sm transform translate-y-2 group-hover:translate-y-0 transition-all">
-                      <Download className="h-4 w-4 text-slate-700" />
+                      <ExternalLink className="h-4 w-4 text-slate-700" />
                     </div>
                   </div>
-                </a>
+                </div>
               ))}
             </div>
           ) : (
@@ -418,11 +420,10 @@ export default function DocumentsPage() {
                   {folders.length > 0 && <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Files</h4>}
                   <div className="space-y-1">
                     {documents.map(doc => (
-                      <a 
+                      <div 
                         key={doc.id} 
-                        href={doc.fileUrl}
-                        target="_blank"
-                        className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 group transition-colors"
+                        onClick={() => setSelectedDocument(doc)}
+                        className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 group cursor-pointer transition-colors"
                       >
                         <div className="flex items-center space-x-3 min-w-0 flex-1">
                           {getSmallFileIcon(doc.mimeType)}
@@ -433,10 +434,10 @@ export default function DocumentsPage() {
                           <span className="hidden md:inline-block w-24">{formatSize(doc.size)}</span>
                           <span className="hidden lg:inline-block w-24">{formatDate(doc.createdAt)}</span>
                           <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Download className="h-4 w-4 text-slate-400 hover:text-slate-700" />
+                            <ExternalLink className="h-4 w-4 text-slate-400 hover:text-slate-700" />
                           </div>
                         </div>
-                      </a>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -475,6 +476,76 @@ export default function DocumentsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Preview Sheet */}
+      <Sheet 
+        open={!!selectedDocument} 
+        onClose={() => setSelectedDocument(null)} 
+        title="Document Preview" 
+        className="w-full sm:max-w-2xl"
+      >
+        {selectedDocument && (
+          <div className="flex flex-col h-full space-y-6 pb-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-xl font-semibold text-slate-900 break-words">{selectedDocument.title}</h3>
+                <div className="flex items-center space-x-3 mt-2 text-sm text-slate-500">
+                  <span>{formatSize(selectedDocument.size)}</span>
+                  <span>•</span>
+                  <span>{formatDate(selectedDocument.createdAt)}</span>
+                </div>
+                <div className="mt-1 text-sm text-slate-500">
+                  Uploaded by: <span className="font-medium text-slate-700">{selectedDocument.uploaderName}</span>
+                </div>
+              </div>
+              
+              <a 
+                href={selectedDocument.fileUrl} 
+                download={selectedDocument.fileName}
+                className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-sky-600 text-white hover:bg-sky-700 h-10 px-4 py-2 shrink-0"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Download
+              </a>
+            </div>
+
+            <div className="flex-1 bg-slate-100 rounded-lg border border-slate-200 overflow-hidden flex flex-col items-center justify-center min-h-[400px]">
+              {selectedDocument.mimeType.includes('image') ? (
+                <img 
+                  src={selectedDocument.fileUrl} 
+                  alt={selectedDocument.title} 
+                  className="max-w-full max-h-full object-contain"
+                />
+              ) : selectedDocument.mimeType.includes('pdf') ? (
+                <iframe 
+                  src={`${selectedDocument.fileUrl}#view=FitH`} 
+                  className="w-full h-full border-0"
+                  title={selectedDocument.title}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center text-slate-400 space-y-4 p-8 text-center">
+                  {getFileIcon(selectedDocument.mimeType)}
+                  <p className="text-sm">Preview not available for this file type.</p>
+                  <a 
+                    href={selectedDocument.fileUrl} 
+                    download={selectedDocument.fileName}
+                    className="text-sky-600 hover:underline text-sm font-medium"
+                  >
+                    Download to view
+                  </a>
+                </div>
+              )}
+            </div>
+            
+            {selectedDocument.description && (
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Description</h4>
+                <p className="text-sm text-slate-700">{selectedDocument.description}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </Sheet>
     </div>
   );
 }
