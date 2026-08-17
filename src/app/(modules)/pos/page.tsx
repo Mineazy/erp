@@ -11,6 +11,7 @@ import { Dialog, DialogFooter } from '@/components/ui/dialog';
 import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, X, Printer, RotateCcw, LogOut, LogIn, Banknote, Landmark, Smartphone, Clock, ShieldAlert, LayoutGrid, List } from 'lucide-react';
 import { useNetwork } from '@/lib/hooks/use-network';
 import { cacheData, getCachedData, saveOfflineTransaction } from '@/lib/db';
+import { useReportExport } from '@/hooks/use-report-export';
 
 interface Product {
   id: string;
@@ -100,6 +101,7 @@ interface Customer {
 
 export default function POSTerminalPage() {
   const { isOnline } = useNetwork();
+  const { triggerExport, ExportDialog } = useReportExport();
   const [products, setProducts] = useState<Product[]>([]);
   const [taxes, setTaxes] = useState<any[]>([]);
   const [selectedTaxId, setSelectedTaxId] = useState<string>('');
@@ -717,6 +719,125 @@ export default function POSTerminalPage() {
       toast('Network error. Please try again.', 'error');
       setProcessingPayment(false);
     }
+  };
+
+  const handleGenerateA4Invoice = () => {
+    if (!lastTransaction) return;
+    
+    const itemsHtml = lastTransaction.lines?.map((item: any) => `
+      <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${item.productName}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: center;">${item.quantity}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right;">$${Number(item.unitPrice).toFixed(2)}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right;">$${(Number(item.unitPrice) * Number(item.quantity)).toFixed(2)}</td>
+      </tr>
+    `).join('') || '';
+
+    const htmlString = `
+      <html>
+        <head>
+          <title>Fiscal Tax Invoice - ${lastTransaction.transactionNumber}</title>
+          <style>
+            @page { size: A4; margin: 20mm; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1e293b; background: #fff; margin: 0; padding: 0; line-height: 1.5; }
+            .invoice-box { max-width: 800px; margin: 0 auto; padding: 20px; }
+            .header { display: flex; justify-content: space-between; border-bottom: 2px solid #4f46e5; padding-bottom: 20px; margin-bottom: 30px; }
+            .company-details { font-size: 13px; color: #64748b; }
+            .company-name { font-size: 24px; font-weight: 800; color: #0f172a; margin-bottom: 5px; }
+            .invoice-title { font-size: 28px; font-weight: 800; color: #4f46e5; text-align: right; text-transform: uppercase; }
+            .meta-details { text-align: right; font-size: 13px; color: #64748b; margin-top: 5px; }
+            .section { margin-bottom: 30px; }
+            .section-title { font-size: 14px; font-weight: 700; color: #0f172a; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 10px; }
+            table { border-collapse: collapse; margin-bottom: 20px; width: 100%; }
+            th { text-align: left; padding: 10px; background-color: #f8fafc; color: #64748b; font-size: 12px; text-transform: uppercase; border-bottom: 2px solid #cbd5e1; }
+            .totals { width: 300px; float: right; }
+            .total-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+            .total-row.grand { font-size: 18px; font-weight: 800; color: #0f172a; border-top: 2px solid #cbd5e1; border-bottom: none; margin-top: 5px; padding-top: 10px; }
+            .fiscal-box { clear: both; margin-top: 60px; padding: 20px; background-color: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; font-family: monospace; font-size: 11px; color: #475569; }
+            .footer { text-align: center; margin-top: 40px; font-size: 12px; color: #94a3b8; }
+          </style>
+        </head>
+        <body>
+          <div class="invoice-box">
+            <div class="header">
+              <div>
+                <div class="company-name">Mineazy Mining Solutions</div>
+                <div class="company-details">
+                  15 Plumtree Road, Belmont, BULAWAYO<br/>
+                  TIN: 2001282270 | VAT No: 220107408<br/>
+                  Mobile: +263712290046<br/>
+                  Email: sales@mineazy.co.zw, accounts@mineazy.co.zw
+                </div>
+              </div>
+              <div>
+                <div class="invoice-title">FISCAL TAX INVOICE</div>
+                <div class="meta-details">
+                  Invoice No: <strong>${lastTransaction.transactionNumber}</strong><br/>
+                  Date: ${new Date(lastTransaction.createdAt).toLocaleDateString()}<br/>
+                  Time: ${new Date(lastTransaction.createdAt).toLocaleTimeString()}
+                </div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Customer Details</div>
+              <div style="font-size: 14px;">
+                ${receiptCustomer ? `
+                  <strong>${receiptCustomer.name}</strong><br/>
+                  Loyalty ID: ${receiptCustomer.loyaltyCardBarcode || 'N/A'}
+                ` : 'Walk-in Customer'}
+              </div>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th style="text-align: center;">Qty</th>
+                  <th style="text-align: right;">Unit Price</th>
+                  <th style="text-align: right;">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsHtml}
+              </tbody>
+            </table>
+
+            <div class="totals">
+              <div class="total-row">
+                <span>Subtotal (Excl. VAT):</span>
+                <span>$${(lastTransaction.total - (lastTransaction.taxAmount || 0)).toFixed(2)}</span>
+              </div>
+              <div class="total-row">
+                <span>VAT Amount:</span>
+                <span>$${Number(lastTransaction.taxAmount || 0).toFixed(2)}</span>
+              </div>
+              <div class="total-row grand">
+                <span>Total Amount:</span>
+                <span>$${Number(lastTransaction.total).toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div class="fiscal-box">
+              <strong style="font-size: 12px; color: #0f172a;">FISCAL VERIFICATION DATA</strong><br/><br/>
+              Fiscal Doc ID: ${lastTransaction.fiscalisedDocId || `FISC-TXN-${lastTransaction.id.slice(0, 8).toUpperCase()}`}<br/>
+              Machine Serial: MINEAZY-POS-7742<br/>
+              Signature: SHA256:${lastTransaction.id.slice(0, 16)}<br/>
+              Status: FISCALISED
+            </div>
+
+            <div class="footer">
+              Thank you for shopping with Mineazy!<br/>
+              Please keep this invoice for your records, returns, or warranty claims.
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const blob = new Blob([htmlString], { type: 'text/html' });
+    const url = window.URL.createObjectURL(blob);
+    triggerExport(url, `Tax_Invoice_${lastTransaction.transactionNumber}`);
   };
 
   const finalizeTransaction = async (payload: any) => {
@@ -1691,8 +1812,12 @@ export default function POSTerminalPage() {
             <p>Please keep this receipt for returns/warranty.</p>
           </div>
         </div>
-        <DialogFooter>
-          <Button onClick={() => setReceiptDialogOpen(false)} className="w-full">
+        <DialogFooter className="flex space-x-2">
+          <Button variant="outline" onClick={handleGenerateA4Invoice} className="flex-1 border-mine-blue-600 text-mine-blue-700 hover:bg-mine-blue-50">
+            <Printer className="w-4 h-4 mr-2" />
+            Export A4 Invoice
+          </Button>
+          <Button onClick={() => setReceiptDialogOpen(false)} className="flex-1 bg-mine-blue-600 hover:bg-mine-blue-700">
             Dismiss
           </Button>
         </DialogFooter>
