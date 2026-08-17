@@ -9,6 +9,7 @@ import {
   FileArchive, FileImage, FileSpreadsheet, Lock, Grid, List, Filter,
   ArrowUp, ArrowDown, ChevronLeft, ChevronRight as ChevronRightIcon, ExternalLink, Share2
 } from 'lucide-react';
+import { toast } from '@/components/ui/toast';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
 import { Sheet } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
@@ -108,9 +109,13 @@ export default function DocumentsPage() {
         setIsFolderModalOpen(false);
         setNewFolderName('');
         fetchData();
+        toast('Folder created successfully', 'success');
+      } else {
+        toast('Failed to create folder', 'error');
       }
     } catch (error) {
       console.error(error);
+      toast('An error occurred while creating folder', 'error');
     }
   };
 
@@ -146,6 +151,8 @@ export default function DocumentsPage() {
 
         if (res.ok) {
           setUploadProgress(prev => ({ ...prev, current: prev.current + 1 }));
+        } else {
+          toast(`Failed to upload ${file.name}`, 'error');
         }
       }
 
@@ -155,8 +162,10 @@ export default function DocumentsPage() {
       setUploadIsRestricted(false);
       setUploadProgress({ current: 0, total: 0 });
       fetchData();
+      toast('Upload completed successfully', 'success');
     } catch (error) {
       console.error(error);
+      toast('An error occurred during upload', 'error');
     } finally {
       setIsUploading(false);
     }
@@ -180,13 +189,14 @@ export default function DocumentsPage() {
           setSelectedDocument(null);
         }
         fetchData();
+        toast(`Successfully deleted ${ids.length} document(s)`, 'success');
       } else {
         const err = await res.json();
-        alert(`Failed to delete: ${err.error || 'Unknown error'}`);
+        toast(`Failed to delete: ${err.error || 'Unknown error'}`, 'error');
       }
     } catch (error) {
       console.error(error);
-      alert('An error occurred while deleting documents.');
+      toast('An error occurred while deleting documents', 'error');
     } finally {
       setIsDeleting(false);
     }
