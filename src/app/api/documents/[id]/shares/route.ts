@@ -3,8 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   try {
+    const params = await props.params;
     const session = await getServerSession(authOptions);
     const user = session?.user as any;
     if (!user?.id) {
@@ -33,8 +34,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   try {
+    const params = await props.params;
     const session = await getServerSession(authOptions);
     const user = session?.user as any;
     if (!user?.id) {
