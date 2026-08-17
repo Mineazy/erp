@@ -125,22 +125,26 @@ export async function POST(request: Request) {
     });
 
     // Extract text for RAG (non-blocking)
-    if (file.type === 'application/pdf') {
-      const pdfParse = require('pdf-parse');
-      pdfParse(buffer).then((data: any) => {
-        const text = data.text;
-        if (text && text.trim().length > 0) {
-          // Simple chunking strategy (1000 chars)
-          const chunks = text.match(/[\s\S]{1,1000}/g) || [];
+    try {
+      if (file.type === 'application/pdf') {
+        const pdfParse = require('pdf-parse');
+        pdfParse(buffer).then((data: any) => {
+          const text = data.text;
+          if (text && text.trim().length > 0) {
+            // Simple chunking strategy (1000 chars)
+            const chunks = text.match(/[\s\S]{1,1000}/g) || [];
+            vectorStore.addDocuments(document.id, chunks, { title: document.title, fileName: document.fileName }).catch(e => console.error('Vector store add error:', e));
+          }
+        }).catch((e: any) => console.error('Failed to parse PDF for vector store:', e));
+      } else if (file.type === 'text/plain' || document.fileName.endsWith('.txt')) {
+        const text = buffer.toString('utf-8');
+        const chunks = text.match(/[\s\S]{1,1000}/g) || [];
+        if (chunks.length > 0) {
           vectorStore.addDocuments(document.id, chunks, { title: document.title, fileName: document.fileName }).catch(e => console.error('Vector store add error:', e));
         }
-      }).catch((e: any) => console.error('Failed to parse PDF for vector store:', e));
-    } else if (file.type === 'text/plain' || document.fileName.endsWith('.txt')) {
-      const text = buffer.toString('utf-8');
-      const chunks = text.match(/[\s\S]{1,1000}/g) || [];
-      if (chunks.length > 0) {
-        vectorStore.addDocuments(document.id, chunks, { title: document.title, fileName: document.fileName }).catch(e => console.error('Vector store add error:', e));
       }
+    } catch (parseError) {
+      console.error('Vector store indexing initialization failed:', parseError);
     }
 
     await logAudit({

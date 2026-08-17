@@ -43,7 +43,7 @@ export async function logAudit({
         action,
         userId,
         userName,
-        changes: changes || {},
+        changes: typeof changes === 'string' ? changes : JSON.stringify(changes || {}),
         ipAddress: cleanIp,
         userAgent: resolvedUserAgent,
       },
