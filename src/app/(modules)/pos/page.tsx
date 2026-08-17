@@ -8,10 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
-import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, X, Printer, RotateCcw, LogOut, LogIn, Banknote, Landmark, Smartphone, Clock, ShieldAlert, LayoutGrid, List } from 'lucide-react';
+import { Search, ShoppingCart, Plus, Minus, Trash2, CreditCard, X, Printer, RotateCcw, LogOut, LogIn, Banknote, Landmark, Smartphone, Clock, ShieldAlert, LayoutGrid, List, Download } from 'lucide-react';
 import { useNetwork } from '@/lib/hooks/use-network';
 import { cacheData, getCachedData, saveOfflineTransaction } from '@/lib/db';
 import { useReportExport } from '@/hooks/use-report-export';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface Product {
   id: string;
@@ -723,121 +725,187 @@ export default function POSTerminalPage() {
 
   const handleGenerateA4Invoice = () => {
     if (!lastTransaction) return;
+
+    const doc = new jsPDF('p', 'mm', 'a4');
     
+    doc.setFontSize(22);
+    doc.setTextColor(15, 23, 42);
+    doc.text('Mineazy Mining Solutions', 14, 20);
+
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    doc.text('15 Plumtree Road, Belmont, BULAWAYO', 14, 28);
+    doc.text('TIN: 2001282270 | VAT No: 220107408', 14, 33);
+    doc.text('Mobile: +263712290046', 14, 38);
+    doc.text('Email: sales@mineazy.co.zw, accounts@mineazy.co.zw', 14, 43);
+
+    doc.setFontSize(24);
+    doc.setTextColor(79, 70, 229);
+    doc.text('FISCAL TAX INVOICE', 196, 20, { align: 'right' });
+
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Invoice No: ${lastTransaction.transactionNumber}`, 196, 28, { align: 'right' });
+    doc.text(`Date: ${new Date(lastTransaction.createdAt).toLocaleDateString()}`, 196, 33, { align: 'right' });
+    doc.text(`Time: ${new Date(lastTransaction.createdAt).toLocaleTimeString()}`, 196, 38, { align: 'right' });
+
+    doc.line(14, 48, 196, 48);
+
+    doc.setFontSize(12);
+    doc.setTextColor(15, 23, 42);
+    doc.text('Customer Details', 14, 58);
+    
+    doc.setFontSize(10);
+    if (receiptCustomer) {
+      doc.text(`Name: ${receiptCustomer.name}`, 14, 65);
+      doc.text(`Loyalty ID: ${receiptCustomer.loyaltyCardBarcode || 'N/A'}`, 14, 70);
+    } else {
+      doc.text('Walk-in Customer', 14, 65);
+    }
+
+    autoTable(doc, {
+      startY: 80,
+      head: [['Description', 'Qty', 'Unit Price', 'Total']],
+      body: lastTransaction.lines?.map((item: any) => [
+        item.productName,
+        item.quantity.toString(),
+        `$${Number(item.unitPrice).toFixed(2)}`,
+        `$${(Number(item.unitPrice) * Number(item.quantity)).toFixed(2)}`
+      ]) || [],
+      theme: 'striped',
+      headStyles: { fillColor: [79, 70, 229] },
+      styles: { fontSize: 10 },
+      columnStyles: {
+        1: { halign: 'center' },
+        2: { halign: 'right' },
+        3: { halign: 'right' }
+      }
+    });
+
+    let finalY = (doc as any).lastAutoTable.finalY + 10;
+
+    const subtotal = lastTransaction.total - (lastTransaction.taxAmount || 0);
+    const taxAmount = lastTransaction.taxAmount || 0;
+    const total = lastTransaction.total;
+
+    autoTable(doc, {
+      startY: finalY,
+      margin: { left: 120 },
+      body: [
+        ['Subtotal (Excl. VAT):', `$${subtotal.toFixed(2)}`],
+        ['VAT Amount:', `$${taxAmount.toFixed(2)}`],
+        ['Total Amount:', `$${total.toFixed(2)}`]
+      ],
+      theme: 'plain',
+      styles: { fontSize: 11, halign: 'right' },
+      columnStyles: {
+        0: { fontStyle: 'bold' }
+      },
+      didParseCell: (data) => {
+        if (data.row.index === 2) {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.fontSize = 14;
+        }
+      }
+    });
+
+    finalY = (doc as any).lastAutoTable.finalY + 20;
+
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineDashPattern([3, 3], 0);
+    doc.setFillColor(248, 250, 252);
+    doc.rect(14, finalY, 182, 35, 'FD');
+    
+    doc.setFontSize(10);
+    doc.setFont('courier', 'bold');
+    doc.setTextColor(15, 23, 42);
+    doc.text('FISCAL VERIFICATION DATA', 18, finalY + 8);
+    
+    doc.setFont('courier', 'normal');
+    doc.text(`Fiscal Doc ID: ${lastTransaction.fiscalisedDocId || `FISC-TXN-${lastTransaction.id.slice(0, 8).toUpperCase()}`}`, 18, finalY + 15);
+    doc.text(`Machine Serial: MINEAZY-POS-7742`, 18, finalY + 20);
+    doc.text(`Signature: SHA256:${lastTransaction.id.slice(0, 16)}`, 18, finalY + 25);
+    doc.text(`Status: FISCALISED`, 18, finalY + 30);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(148, 163, 184);
+    doc.text('Thank you for shopping with Mineazy!', 105, 280, { align: 'center' });
+    doc.text('Please keep this invoice for your records, returns, or warranty claims.', 105, 285, { align: 'center' });
+
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    triggerExport(url, `Tax_Invoice_${lastTransaction.transactionNumber}`);
+  };
+
+  const handlePrintToPOSPrinter = () => {
+    if (!lastTransaction) return;
+    const printWindow = window.open('', '_blank', 'width=400,height=600');
+    if (!printWindow) return;
+
     const itemsHtml = lastTransaction.lines?.map((item: any) => `
-      <tr>
-        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${item.productName}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: center;">${item.quantity}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right;">$${Number(item.unitPrice).toFixed(2)}</td>
-        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: right;">$${(Number(item.unitPrice) * Number(item.quantity)).toFixed(2)}</td>
-      </tr>
+      <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 2px;">
+        <span>${item.productName} x${item.quantity}</span>
+        <span>$${(Number(item.unitPrice) * Number(item.quantity)).toFixed(2)}</span>
+      </div>
     `).join('') || '';
 
-    const htmlString = `
+    printWindow.document.write(`
       <html>
         <head>
-          <title>Fiscal Tax Invoice - ${lastTransaction.transactionNumber}</title>
+          <title>Receipt - ${lastTransaction.transactionNumber}</title>
           <style>
-            @page { size: A4; margin: 20mm; }
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1e293b; background: #fff; margin: 0; padding: 0; line-height: 1.5; }
-            .invoice-box { max-width: 800px; margin: 0 auto; padding: 20px; }
-            .header { display: flex; justify-content: space-between; border-bottom: 2px solid #4f46e5; padding-bottom: 20px; margin-bottom: 30px; }
-            .company-details { font-size: 13px; color: #64748b; }
-            .company-name { font-size: 24px; font-weight: 800; color: #0f172a; margin-bottom: 5px; }
-            .invoice-title { font-size: 28px; font-weight: 800; color: #4f46e5; text-align: right; text-transform: uppercase; }
-            .meta-details { text-align: right; font-size: 13px; color: #64748b; margin-top: 5px; }
-            .section { margin-bottom: 30px; }
-            .section-title { font-size: 14px; font-weight: 700; color: #0f172a; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 10px; }
-            table { border-collapse: collapse; margin-bottom: 20px; width: 100%; }
-            th { text-align: left; padding: 10px; background-color: #f8fafc; color: #64748b; font-size: 12px; text-transform: uppercase; border-bottom: 2px solid #cbd5e1; }
-            .totals { width: 300px; float: right; }
-            .total-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
-            .total-row.grand { font-size: 18px; font-weight: 800; color: #0f172a; border-top: 2px solid #cbd5e1; border-bottom: none; margin-top: 5px; padding-top: 10px; }
-            .fiscal-box { clear: both; margin-top: 60px; padding: 20px; background-color: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; font-family: monospace; font-size: 11px; color: #475569; }
-            .footer { text-align: center; margin-top: 40px; font-size: 12px; color: #94a3b8; }
+            @page { margin: 0; }
+            body { font-family: monospace; width: 300px; margin: 0 auto; padding: 10px; color: #000; }
+            .text-center { text-align: center; }
+            .font-bold { font-weight: bold; }
+            .border-b { border-bottom: 1px dashed #000; margin: 10px 0; padding-bottom: 10px; }
+            .flex-between { display: flex; justify-content: space-between; }
+            .mb-2 { margin-bottom: 8px; }
+            .mt-4 { margin-top: 16px; }
           </style>
         </head>
         <body>
-          <div class="invoice-box">
-            <div class="header">
-              <div>
-                <div class="company-name">Mineazy Mining Solutions</div>
-                <div class="company-details">
-                  15 Plumtree Road, Belmont, BULAWAYO<br/>
-                  TIN: 2001282270 | VAT No: 220107408<br/>
-                  Mobile: +263712290046<br/>
-                  Email: sales@mineazy.co.zw, accounts@mineazy.co.zw
-                </div>
-              </div>
-              <div>
-                <div class="invoice-title">FISCAL TAX INVOICE</div>
-                <div class="meta-details">
-                  Invoice No: <strong>${lastTransaction.transactionNumber}</strong><br/>
-                  Date: ${new Date(lastTransaction.createdAt).toLocaleDateString()}<br/>
-                  Time: ${new Date(lastTransaction.createdAt).toLocaleTimeString()}
-                </div>
-              </div>
+          <div class="text-center border-b">
+            <h2 class="font-bold" style="margin: 0; font-size: 18px;">MINEAZY</h2>
+            <p style="margin: 2px 0 0; font-size: 12px;">TAX INVOICE</p>
+            <p style="margin: 2px 0 0; font-size: 12px;">Ref: ${lastTransaction.transactionNumber}</p>
+            <p style="margin: 2px 0 0; font-size: 12px;">${new Date(lastTransaction.createdAt).toLocaleString()}</p>
+          </div>
+          <div class="border-b">${itemsHtml}</div>
+          <div class="border-b">
+            <div class="flex-between">
+              <span>Subtotal:</span>
+              <span>$${(lastTransaction.total - (lastTransaction.taxAmount || 0)).toFixed(2)}</span>
             </div>
-
-            <div class="section">
-              <div class="section-title">Customer Details</div>
-              <div style="font-size: 14px;">
-                ${receiptCustomer ? `
-                  <strong>${receiptCustomer.name}</strong><br/>
-                  Loyalty ID: ${receiptCustomer.loyaltyCardBarcode || 'N/A'}
-                ` : 'Walk-in Customer'}
-              </div>
+            <div class="flex-between">
+              <span>Tax:</span>
+              <span>$${Number(lastTransaction.taxAmount || 0).toFixed(2)}</span>
             </div>
-
-            <table>
-              <thead>
-                <tr>
-                  <th>Description</th>
-                  <th style="text-align: center;">Qty</th>
-                  <th style="text-align: right;">Unit Price</th>
-                  <th style="text-align: right;">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${itemsHtml}
-              </tbody>
-            </table>
-
-            <div class="totals">
-              <div class="total-row">
-                <span>Subtotal (Excl. VAT):</span>
-                <span>$${(lastTransaction.total - (lastTransaction.taxAmount || 0)).toFixed(2)}</span>
-              </div>
-              <div class="total-row">
-                <span>VAT Amount:</span>
-                <span>$${Number(lastTransaction.taxAmount || 0).toFixed(2)}</span>
-              </div>
-              <div class="total-row grand">
-                <span>Total Amount:</span>
-                <span>$${Number(lastTransaction.total).toFixed(2)}</span>
-              </div>
-            </div>
-
-            <div class="fiscal-box">
-              <strong style="font-size: 12px; color: #0f172a;">FISCAL VERIFICATION DATA</strong><br/><br/>
-              Fiscal Doc ID: ${lastTransaction.fiscalisedDocId || `FISC-TXN-${lastTransaction.id.slice(0, 8).toUpperCase()}`}<br/>
-              Machine Serial: MINEAZY-POS-7742<br/>
-              Signature: SHA256:${lastTransaction.id.slice(0, 16)}<br/>
-              Status: FISCALISED
-            </div>
-
-            <div class="footer">
-              Thank you for shopping with Mineazy!<br/>
-              Please keep this invoice for your records, returns, or warranty claims.
+            <div class="flex-between font-bold mt-4" style="font-size: 16px;">
+              <span>TOTAL:</span>
+              <span>$${Number(lastTransaction.total).toFixed(2)}</span>
             </div>
           </div>
+          <div class="border-b" style="font-size: 10px;">
+            <p class="text-center font-bold" style="margin: 0 0 4px;">FISCAL DATA</p>
+            <p style="margin: 0;">FISC-ID: ${lastTransaction.fiscalisedDocId || 'FISC-TXN'}</p>
+            <p style="margin: 0;">SIG: SHA256:${lastTransaction.id.slice(0, 16)}</p>
+          </div>
+          <div class="text-center mt-4">
+            <p style="font-size: 12px; margin: 0;">Thank you for shopping!</p>
+          </div>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(function() { window.close(); }, 500);
+            }
+          </script>
         </body>
       </html>
-    `;
-
-    const blob = new Blob([htmlString], { type: 'text/html' });
-    const url = window.URL.createObjectURL(blob);
-    triggerExport(url, `Tax_Invoice_${lastTransaction.transactionNumber}`);
+    `);
+    printWindow.document.close();
+    setReceiptDialogOpen(false);
   };
 
   const finalizeTransaction = async (payload: any) => {
@@ -1814,11 +1882,15 @@ export default function POSTerminalPage() {
         </div>
         <DialogFooter className="flex space-x-2">
           <Button variant="outline" onClick={handleGenerateA4Invoice} className="flex-1 border-mine-blue-600 text-mine-blue-700 hover:bg-mine-blue-50">
-            <Printer className="w-4 h-4 mr-2" />
+            <Download className="w-4 h-4 mr-2" />
             Export A4 Invoice
           </Button>
-          <Button onClick={() => setReceiptDialogOpen(false)} className="flex-1 bg-mine-blue-600 hover:bg-mine-blue-700">
-            Dismiss
+          <Button onClick={handlePrintToPOSPrinter} className="flex-1 bg-mine-blue-600 hover:bg-mine-blue-700">
+            <Printer className="w-4 h-4 mr-2" />
+            Print to POS Printer
+          </Button>
+          <Button variant="ghost" onClick={() => setReceiptDialogOpen(false)}>
+            Close
           </Button>
         </DialogFooter>
       </Dialog>
