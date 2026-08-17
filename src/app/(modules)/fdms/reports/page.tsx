@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { FileText, Download, Search, QrCode, ClipboardCheck, Calendar, ShieldCheck } from 'lucide-react';
+import { useReportExport } from '@/hooks/use-report-export';
 
 interface ReportOption {
   name: string;
@@ -17,6 +18,7 @@ interface ReportOption {
 }
 
 export default function FDMSReportsPage() {
+  const { triggerExport, ExportDialog } = useReportExport();
   const [search, setSearch] = useState('');
   const [dateFrom, setDateFrom] = useState('2026-01-01');
   const [dateTo, setDateTo] = useState('2026-12-31');
@@ -55,7 +57,7 @@ export default function FDMSReportsPage() {
     if (dateFrom) url.searchParams.set('dateFrom', dateFrom);
     if (dateTo) url.searchParams.set('dateTo', dateTo);
     
-    window.open(url.toString(), '_blank');
+    triggerExport(url.toString(), reportName);
     toast(`Generating "${reportName}"...`, 'success');
   };
 
@@ -200,6 +202,7 @@ export default function FDMSReportsPage() {
           </Table>
         </CardContent>
       </Card>
-    </div>
+      {ExportDialog}
+      </div>
   );
 }

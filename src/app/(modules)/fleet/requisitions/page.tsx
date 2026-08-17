@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { toast } from '@/components/ui/toast';
 import { Dialog } from '@/components/ui/dialog';
+import { useReportExport } from '@/hooks/use-report-export';
 
 import { ClipboardList, Plus, Check, X, QrCode, Printer, Download, Eye, Fuel, CheckCircle, Clock, Search, Filter, MoreVertical, Building, MapPin, CheckSquare, Settings2, Trash2 } from 'lucide-react';
 import { useNetwork } from '@/lib/hooks/use-network';
@@ -98,8 +99,9 @@ function getBarcodeSvg(value: string) {
   return `<svg width="240" height="60" style="margin: 0 auto; display: block;">${rects}</svg>`;
 }
 
-export default function FuelRequisitionsPage() {
+export default function FleetRequisitionsPage() {
   const { isOnline } = useNetwork();
+  const { triggerExport, ExportDialog } = useReportExport();
   const [requisitions, setRequisitions] = useState<Requisition[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
@@ -252,9 +254,7 @@ export default function FuelRequisitionsPage() {
   };
 
   const handleDownloadPDF = (req: Requisition) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-    printWindow.document.write(`
+    const htmlString = `
       <html>
         <head>
           <title>Fuel Voucher - ${req.id.slice(0, 8)}</title>
@@ -323,17 +323,12 @@ export default function FuelRequisitionsPage() {
               Approved corporate haulage fuel voucher. Bring this printout or mobile PDF token to the station operator to authorize fuel dispensing.
             </div>
           </div>
-          <script>
-            window.onload = function() {
-              window.print();
-              setTimeout(function() { window.close(); }, 500);
-            }
-          </script>
         </body>
       </html>
-    `);
-    printWindow.document.close();
-    toast('PDF Slip sent to browser print printer queues', 'success');
+    `;
+    const blob = new Blob([htmlString], { type: 'text/html' });
+    const url = window.URL.createObjectURL(blob);
+    triggerExport(url, `Fuel_Voucher_REF-${req.id.slice(0, 8).toUpperCase()}`);
   };
 
   const getStatusBadge = (status: string) => {
@@ -626,6 +621,7 @@ export default function FuelRequisitionsPage() {
           </div>
         )}
       </Dialog>
+      {ExportDialog}
     </div>
   );
 }

@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
 import { BarChart3, Plus, Search, Edit2, Trash2, FileText, Download, Eye, BookOpen, Receipt, Users, Package, TrendingUp } from 'lucide-react';
+import { useReportExport } from '@/hooks/use-report-export';
 
 interface SavedReport {
   id: string;
@@ -53,6 +54,7 @@ const standardReports = [
 ];
 
 export default function ReportsPage() {
+  const { triggerExport, ExportDialog } = useReportExport();
   const [data, setData] = useState<SavedReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -171,11 +173,7 @@ export default function ReportsPage() {
       }
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${name.replace(/\s+/g, '_').toLowerCase()}.html`;
-      a.click();
-      window.URL.revokeObjectURL(url);
+      triggerExport(url, name);
     } catch (e) {
       toast('Network error. Please try again.', 'error');
     }
@@ -326,6 +324,7 @@ export default function ReportsPage() {
           <Button onClick={() => { setFilterDialogOpen(false); runReport(filterType, filterName, dateFrom, dateTo); }}>Generate</Button>
         </DialogFooter>
       </Dialog>
+      {ExportDialog}
     </div>
   );
 }

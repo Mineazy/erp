@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { useReportExport } from '@/hooks/use-report-export';
 import { FileBarChart, Download, Package, DollarSign, TrendingUp, TrendingDown, AlertTriangle, Scale, Calendar, Landmark } from 'lucide-react';
 
 interface Branch {
@@ -41,6 +42,7 @@ const columns: Record<string, string[]> = {
 };
 
 export default function InventoryReportsPage() {
+  const { triggerExport, ExportDialog } = useReportExport();
   const [reportType, setReportType] = useState('stock-on-hand');
   const [data, setData] = useState<any[]>([]);
   const [summary, setSummary] = useState({ totalProducts: 0, totalValue: 0, lowStock: 0, outOfStock: 0 });
@@ -127,11 +129,7 @@ export default function InventoryReportsPage() {
     const csv = [cols.join(','), ...rows].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${reportType}-report.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    triggerExport(url, `${reportType}-report`);
   };
 
   const renderValue = (row: any, col: string, idx: number) => {
@@ -303,6 +301,7 @@ export default function InventoryReportsPage() {
           )}
         </CardContent>
       </Card>
+      {ExportDialog}
     </div>
   );
 }

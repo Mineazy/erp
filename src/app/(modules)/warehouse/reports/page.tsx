@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { FileText, Download, Search, Warehouse, ArrowLeftRight, ClipboardCheck, Calendar, ShieldAlert } from 'lucide-react';
+import { useReportExport } from '@/hooks/use-report-export';
 
 interface ReportOption {
   name: string;
@@ -17,6 +18,7 @@ interface ReportOption {
 }
 
 export default function WarehouseReportsPage() {
+  const { triggerExport, ExportDialog } = useReportExport();
   const [search, setSearch] = useState('');
   
   // Default to current year
@@ -59,7 +61,7 @@ export default function WarehouseReportsPage() {
     if (dateFrom) url.searchParams.set('dateFrom', dateFrom);
     if (dateTo) url.searchParams.set('dateTo', dateTo);
     
-    window.open(url.toString(), '_blank');
+    triggerExport(url.toString(), reportName);
     toast(`Generating "${reportName}"...`, 'success');
   };
 
@@ -196,6 +198,7 @@ export default function WarehouseReportsPage() {
           </Table>
         </CardContent>
       </Card>
-    </div>
+      {ExportDialog}
+      </div>
   );
 }

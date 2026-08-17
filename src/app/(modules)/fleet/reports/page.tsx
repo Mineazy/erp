@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { FileText, Download, Truck, CreditCard, Wrench, ShieldAlert, Calendar, Scale } from 'lucide-react';
+import { useReportExport } from '@/hooks/use-report-export';
 
 interface FleetMetrics {
   totalVehicles: number;
@@ -22,6 +23,7 @@ interface FleetMetrics {
 }
 
 export default function FleetReportsPage() {
+  const { triggerExport, ExportDialog } = useReportExport();
   const [metrics, setMetrics] = useState<FleetMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [dateFrom, setDateFrom] = useState('2026-01-01');
@@ -56,7 +58,7 @@ export default function FleetReportsPage() {
     if (dateFrom) url.searchParams.set('dateFrom', dateFrom);
     if (dateTo) url.searchParams.set('dateTo', dateTo);
     
-    window.open(url.toString(), '_blank');
+    triggerExport(url.toString(), reportName);
     toast(`Generating "${reportName}"...`, 'success');
   };
 
@@ -161,6 +163,7 @@ export default function FleetReportsPage() {
           </Table>
         </CardContent>
       </Card>
-    </div>
+      {ExportDialog}
+      </div>
   );
 }

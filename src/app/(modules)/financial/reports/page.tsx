@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Download, FileText, Search, TrendingUp, Calendar, ArrowRightLeft, Percent, Scale, BookOpen } from 'lucide-react';
+import { useReportExport } from '@/hooks/use-report-export';
 
 interface ReportOption {
   name: string;
@@ -17,6 +18,7 @@ interface ReportOption {
 }
 
 export default function FinancialReportsPage() {
+  const { triggerExport, ExportDialog } = useReportExport();
   const [search, setSearch] = useState('');
   
   // Default to current year
@@ -66,7 +68,7 @@ export default function FinancialReportsPage() {
     if (dateTo) url.searchParams.set('dateTo', dateTo);
     
     // Open the backend HTML generator in a new tab which can then be printed to PDF
-    window.open(url.toString(), '_blank');
+    triggerExport(url.toString(), reportName);
     toast(`Generating "${reportName}"...`, 'success');
   };
 
@@ -203,6 +205,7 @@ export default function FinancialReportsPage() {
           </Table>
         </CardContent>
       </Card>
-    </div>
+      {ExportDialog}
+      </div>
   );
 }
