@@ -43,10 +43,12 @@ const statusBadge: Record<string, { variant: 'default' | 'secondary' | 'success'
 
 function ProductSearch({ 
   selectedName, 
-  onSelect 
+  onSelect, 
+  className 
 }: { 
   selectedName: string, 
-  onSelect: (product: Product | null) => void 
+  onSelect: (product: Product | null) => void, 
+  className?: string 
 }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Product[]>([]);
@@ -90,7 +92,7 @@ function ProductSearch({
   }
 
   return (
-    <div className="relative" ref={wrapperRef}>
+      <div className={className ? `${className} relative` : "relative"} ref={wrapperRef}>
       <Input 
         value={query} 
         onChange={e => setQuery(e.target.value)} 
@@ -130,7 +132,7 @@ export default function QuotationsPage() {
   const [validUntil, setValidUntil] = useState('');
   const [notes, setNotes] = useState('');
   const [terms, setTerms] = useState('');
-  const [taxAmount, setTaxAmount] = useState('0');
+  const [taxPercentage, setTaxPercentage] = useState('0');
   const [discount, setDiscount] = useState('0');
   const [lines, setLines] = useState<LineItem[]>([emptyLine()]);
 
@@ -160,7 +162,7 @@ export default function QuotationsPage() {
   const openCreate = () => {
     setEditing(null);
     setCustomerName(''); setCustomerEmail(''); setQuoteDate(''); setValidUntil('');
-    setNotes(''); setTerms(''); setTaxAmount('0'); setDiscount('0');
+    setNotes(''); setTerms(''); setTaxPercentage('0'); setDiscount('0');
     setLines([emptyLine()]);
     setDialogOpen(true);
   };
@@ -170,7 +172,7 @@ export default function QuotationsPage() {
     setCustomerName(q.customerName); setCustomerEmail(q.customerEmail || '');
     setQuoteDate(q.quoteDate?.split('T')[0] || ''); setValidUntil(q.validUntil?.split('T')[0] || '');
     setNotes(q.notes || ''); setTerms(q.terms || '');
-    setTaxAmount(String(q.taxAmount)); setDiscount(String(q.discount));
+    setTaxPercentage(String(q.taxAmount)); setDiscount(String(q.discount));
     setLines((q.lines || []).map(l => ({
       productId: l.productId, productName: l.productName,
       quantity: String(l.quantity), unitPrice: String(l.unitPrice),
@@ -221,7 +223,7 @@ export default function QuotationsPage() {
         customerName, customerEmail,
         quoteDate: quoteDate || undefined,
         validUntil: validUntil || undefined,
-        notes, terms, taxAmount, discount,
+        notes, terms, taxPercentage, discount,
         lines: nonEmpty.map(l => ({
           productId: l.productId, productName: l.productName,
           quantity: parseFloat(l.quantity) || 0, unitPrice: parseFloat(l.unitPrice) || 0,
@@ -273,7 +275,11 @@ export default function QuotationsPage() {
   const printVoucher = () => window.print();
 
   const calcSubtotal = () => lines.reduce((s, l) => s + (parseFloat(l.quantity) || 0) * (parseFloat(l.unitPrice) || 0), 0);
-  const calcTotal = () => calcSubtotal() + (parseFloat(taxAmount) || 0) - (parseFloat(discount) || 0);
+  const calcTotal = () => {
+    const subtotal = calcSubtotal();
+    const tax = subtotal * ((parseFloat(taxPercentage) || 0) / 100);
+    return subtotal + tax - (parseFloat(discount) || 0);
+  };
 
   if (loading) return <div className="p-6 text-slate-500">Loading...</div>;
 
@@ -381,7 +387,7 @@ export default function QuotationsPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Quotation' : 'New Quotation'} size="xl" className="max-w-4xl">
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} title={editing ? 'Edit Quotation' : 'New Quotation'} size="5xl">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Input label="Customer Name" value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Customer name" />
@@ -398,9 +404,9 @@ export default function QuotationsPage() {
           </div>
           {lines.map((line, idx) => (
             <div key={idx} className="grid grid-cols-5 gap-2 items-end">
-              <div className="col-span-2">
+              <div className="col-span-3">
                 {idx === 0 && <Label className="block text-sm font-medium text-slate-700 mb-1">Product</Label>}
-                <ProductSearch 
+                <div className="w-full"><ProductSearch className="w-full" 
                   selectedName={line.productName} 
                   onSelect={p => {
                     if (p) {
@@ -427,11 +433,12 @@ export default function QuotationsPage() {
                 )}
               </div>
             </div>
+          </div>
           ))}
           <Separator />
           <div className="grid grid-cols-2 gap-4">
             <Input label="Discount" type="number" value={discount} onChange={e => setDiscount(e.target.value)} placeholder="0.00" />
-            <Input label="Tax Amount" type="number" value={taxAmount} onChange={e => setTaxAmount(e.target.value)} placeholder="0.00" />
+            <Input label="Tax Percentage" type="number" value={taxPercentage} onChange={e => setTaxPercentage(e.target.value)} placeholder="0" suffix="%" />
           </div>
           <div className="text-right text-sm">
             <span className="text-slate-500">Subtotal: </span>

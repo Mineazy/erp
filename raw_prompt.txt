@@ -1,6 +1,0 @@
-<USER_REQUEST>
-Use the Item No field, in the attached inventory list, to identify product items and update their respective Category and Selling price fields with the data in the corresponding category and Selling price fields in the attached inventory list
-</USER_REQUEST>
-<ADDITIONAL_METADATA>
-The current local time is: 2026-08-07T14:28:36+02:00.
-</ADDITIONAL_METADATA>

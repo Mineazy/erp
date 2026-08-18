@@ -9,7 +9,7 @@ interface DialogProps {
   description?: string;
   children: React.ReactNode;
   className?: string;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | 'full';
 }
 
 export function Dialog({ open, onClose, title, description, children, className, size = 'md' }: DialogProps) {
@@ -39,11 +39,16 @@ export function Dialog({ open, onClose, title, description, children, className,
 
   if (!open) return null;
 
-  const sizeClasses = {
+  const sizeClasses: Record<string, string> = {
     sm: 'max-w-sm',
     md: 'max-w-md',
     lg: 'max-w-lg',
     xl: 'max-w-xl',
+    '2xl': 'max-w-2xl',
+    '3xl': 'max-w-3xl',
+    '4xl': 'max-w-4xl',
+    '5xl': 'max-w-5xl',
+    full: 'max-w-full',
   };
 
   return (
