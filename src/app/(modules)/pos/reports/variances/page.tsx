@@ -69,49 +69,69 @@ export default function VariancesPage() {
     }
   };
 
-  const downloadPDF = (v: any) => {
+  const downloadPDF = async (v: any) => {
     try {
       const doc = new jsPDF();
       
+      let logoBase64: string | null = null;
+      try {
+        const response = await fetch('/logo.png');
+        if (response.ok) {
+          const blob = await response.blob();
+          logoBase64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        }
+      } catch (err) {
+        console.error("Failed to load logo", err);
+      }
+
+      if (logoBase64) {
+        doc.addImage(logoBase64, 'PNG', 14, 10, 40, 15);
+      }
+      
       doc.setFontSize(22);
-      doc.text('Variance Report', 14, 22);
+      doc.text('Variance Report', 14, 35);
       
       doc.setFontSize(12);
-      doc.text(`Report Date: ${new Date().toLocaleString()}`, 14, 32);
-      doc.text(`Z-Report Number: ${v.reportNumber}`, 14, 40);
+      doc.text(`Report Date: ${new Date().toLocaleString()}`, 14, 45);
+      doc.text(`Z-Report Number: ${v.reportNumber}`, 14, 53);
       
       doc.setLineWidth(0.5);
-      doc.line(14, 45, 196, 45);
+      doc.line(14, 58, 196, 58);
       
       doc.setFontSize(14);
-      doc.text('Session Details', 14, 55);
+      doc.text('Session Details', 14, 68);
       
       doc.setFontSize(11);
-      doc.text(`Date Closed: ${new Date(v.closedAt).toLocaleString()}`, 14, 65);
-      doc.text(`Cashier: ${v.session?.openedBy || 'N/A'}`, 14, 72);
-      doc.text(`Supervisor: ${v.generatedBy || 'N/A'}`, 14, 79);
-      doc.text(`Branch: ${v.branch?.name || 'Main'}`, 14, 86);
+      doc.text(`Date Closed: ${new Date(v.closedAt).toLocaleString()}`, 14, 78);
+      doc.text(`Cashier: ${v.session?.openedBy || 'N/A'}`, 14, 85);
+      doc.text(`Supervisor: ${v.generatedBy || 'N/A'}`, 14, 92);
+      doc.text(`Branch: ${v.branch?.name || 'Main'}`, 14, 99);
       
       doc.setLineWidth(0.5);
-      doc.line(14, 91, 196, 91);
+      doc.line(14, 104, 196, 104);
       
       doc.setFontSize(14);
-      doc.text('Financial Summary', 14, 101);
+      doc.text('Financial Summary', 14, 114);
       
       doc.setFontSize(11);
-      doc.text(`Total Sales: $${Number(v.totalSales).toFixed(2)}`, 14, 111);
-      doc.text(`Expected Cash in Drawer: $${Number(v.expectedCash).toFixed(2)}`, 14, 118);
-      doc.text(`Actual Cash Counted: $${Number(v.actualCash).toFixed(2)}`, 14, 125);
+      doc.text(`Total Sales: $${Number(v.totalSales).toFixed(2)}`, 14, 124);
+      doc.text(`Expected Cash in Drawer: $${Number(v.expectedCash).toFixed(2)}`, 14, 131);
+      doc.text(`Actual Cash Counted: $${Number(v.actualCash).toFixed(2)}`, 14, 138);
       
       const isShortage = Number(v.cashDifference) < 0;
       doc.setFontSize(12);
       doc.setTextColor(isShortage ? 220 : 0, isShortage ? 38 : 128, isShortage ? 38 : 0); // Red for shortage, green for overage
-      doc.text(`Variance Amount: $${Number(Math.abs(v.cashDifference)).toFixed(2)} ${isShortage ? '(Shortage)' : '(Overage)'}`, 14, 135);
+      doc.text(`Variance Amount: $${Number(Math.abs(v.cashDifference)).toFixed(2)} ${isShortage ? '(Shortage)' : '(Overage)'}`, 14, 148);
       
       doc.setTextColor(0, 0, 0); // Reset color
       
       if (v.notes) {
-        doc.text(`Notes: ${v.notes}`, 14, 145);
+        doc.text(`Notes: ${v.notes}`, 14, 158);
       }
       
       doc.save(`Variance_Report_${v.reportNumber}.pdf`);
