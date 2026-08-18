@@ -77,15 +77,20 @@ export default function ZReportDetailPage() {
         {/* Printable Area */}
         <div ref={printRef} className="bg-white p-8 sm:p-12 text-slate-800 rounded-lg">
           {/* Header */}
-          <div className="text-center space-y-2 border-b border-dashed border-slate-300 pb-6 mb-6">
-            <h1 className="text-3xl font-bold tracking-tighter uppercase">Z-Report</h1>
-            <p className="text-sm font-mono text-slate-500 tracking-widest">{report.reportNumber}</p>
-            {report.branch && (
-              <div className="flex items-center justify-center text-sm font-medium text-slate-600 mt-2">
-                <Building2 className="mr-1.5 h-4 w-4" />
-                {report.branch.name}
-              </div>
-            )}
+          <div className="relative text-center border-b border-dashed border-slate-300 pb-6 mb-6">
+            <div className="absolute top-0 left-0">
+              <img src="/logo.png" alt="Mineazy Logo" className="h-12 object-contain" />
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold tracking-tighter uppercase">Z-Report</h1>
+              <p className="text-sm font-mono text-slate-500 tracking-widest">{report.reportNumber}</p>
+              {report.branch && (
+                <div className="flex items-center justify-center text-sm font-medium text-slate-600 mt-2">
+                  <Building2 className="mr-1.5 h-4 w-4" />
+                  {report.branch.name}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Meta Info Grid */}
@@ -128,7 +133,7 @@ export default function ZReportDetailPage() {
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-600">Total Sales (Gross)</span>
-                  <span className="font-mono">${Number(report.totalSales).toFixed(2)}</span>
+                  <span className="font-mono">${(Number(report.totalSales) + Number(report.totalDiscounts)).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-600">Total Tax Collected</span>
@@ -144,7 +149,7 @@ export default function ZReportDetailPage() {
                 </div>
                 <div className="flex justify-between font-bold text-base pt-2 border-t border-slate-100">
                   <span>Net Sales</span>
-                  <span className="font-mono">${(Number(report.totalSales) - Number(report.totalRefunds) - Number(report.totalDiscounts)).toFixed(2)}</span>
+                  <span className="font-mono">${Number(report.totalSales).toFixed(2)}</span>
                 </div>
               </div>
             </div>

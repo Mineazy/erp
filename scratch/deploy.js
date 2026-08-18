@@ -24,7 +24,7 @@ conn.on('ready', () => {
         console.log('Found project dir: ' + projectDir);
       }
       
-      const deployCmd = `cd ${projectDir} && git stash && git pull && npm install && npm run build && pm2 restart all`;
+      const deployCmd = `cd ${projectDir} && git stash && git pull && npm install && npm run build && (pm2 restart all || pm2 start npm --name "erp" -- start)`;
       console.log('Running: ' + deployCmd);
       
       conn.exec(deployCmd, (err, stream) => {

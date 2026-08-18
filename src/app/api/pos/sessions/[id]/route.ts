@@ -70,16 +70,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       else if (p.method === 'mobile' || p.method === 'mobile_wallet' || p.method.startsWith('paynow_')) mobileSales += amt;
       else if (p.method === 'credit' || p.method.startsWith('loyalty_')) creditSales += amt;
     }
-  }
 
-  // Adjust cash sales for change given out
-  for (const t of transactions) {
+    // Adjust cash sales for change given out
     if (Number(t.changeAmount) > 0) {
        cashSales -= (Number(t.changeAmount) / Number(t.exchangeRate));
     }
   }
 
-  const expectedCash = Number(existing.openingBalance) + cashSales - totalRefunds;
+  const expectedCash = Number(existing.openingBalance) + cashSales;
   const cashDifference = actualCash - expectedCash;
 
   const closedAt = new Date();
