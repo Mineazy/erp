@@ -27,7 +27,8 @@ export default function ZReportsPage() {
   // Filters
   const [search, setSearch] = useState('');
   const [branchId, setBranchId] = useState('');
-  const [date, setDate] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [branches, setBranches] = useState<{value: string, label: string}[]>([]);
   
   // Pagination
@@ -42,7 +43,7 @@ export default function ZReportsPage() {
 
   useEffect(() => {
     fetchReports();
-  }, [page, branchId, date]);
+  }, [page, branchId, dateFrom, dateTo]);
 
   const fetchBranches = async () => {
     try {
@@ -66,7 +67,8 @@ export default function ZReportsPage() {
         page: page.toString(),
         limit: limit.toString(),
         ...(branchId && { branchId }),
-        ...(date && { dateFrom: date, dateTo: date })
+        ...(dateFrom && { dateFrom }),
+        ...(dateTo && { dateTo })
       });
       const res = await fetch(`/api/pos/reports/z-reports?${params.toString()}`);
       if (res.ok) {
@@ -119,12 +121,23 @@ export default function ZReportsPage() {
                   className="w-full"
                 />
               </div>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => { setDate(e.target.value); setPage(1); }}
-                className="px-3 py-2 border rounded-lg text-sm bg-white border-slate-200 focus:outline-none focus:ring-2 focus:ring-mine-blue-500"
-              />
+               <div className="flex space-x-2 items-center">
+                 <input
+                   type="date"
+                   placeholder="From"
+                   value={dateFrom}
+                   onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+                   className="px-2 py-1 border rounded text-sm bg-white border-slate-200 focus:outline-none focus:ring-2 focus:ring-mine-blue-500"
+                 />
+                 <span className="text-sm text-slate-600">to</span>
+                 <input
+                   type="date"
+                   placeholder="To"
+                   value={dateTo}
+                   onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+                   className="px-2 py-1 border rounded text-sm bg-white border-slate-200 focus:outline-none focus:ring-2 focus:ring-mine-blue-500"
+                 />
+               </div>
               <form onSubmit={handleSearch} className="flex gap-2 flex-1">
                 <div className="relative flex-1 sm:w-64">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
@@ -137,16 +150,16 @@ export default function ZReportsPage() {
                   />
                 </div>
                 <Button type="submit" variant="secondary">Search</Button>
-                {(branchId || date || search) && (
-                  <Button 
-                    type="button"
-                    variant="ghost" 
-                    onClick={() => { setBranchId(''); setDate(''); setSearch(''); setPage(1); }}
-                    className="text-slate-500"
-                  >
-                    Clear
-                  </Button>
-                )}
+                 {(branchId || dateFrom || dateTo || search) && (
+                   <Button 
+                     type="button"
+                     variant="ghost" 
+                     onClick={() => { setBranchId(''); setDateFrom(''); setDateTo(''); setSearch(''); setPage(1); }}
+                     className="text-slate-500"
+                   >
+                     Clear
+                   </Button>
+                 )}
               </form>
             </div>
           </div>
