@@ -49,7 +49,8 @@ export default function ZReportsPage() {
       const res = await fetch('/api/admin/branches');
       if (res.ok) {
         const data = await res.json();
-        const opts = data.items ? data.items.map((b: any) => ({ value: b.id, label: b.name })) : [];
+        const branchArray = Array.isArray(data) ? data : data.items || data.data || [];
+        const opts = branchArray.map((b: any) => ({ value: b.id, label: b.name }));
         setBranches([{ value: '', label: 'All Branches' }, ...opts]);
       }
     } catch (e) {
