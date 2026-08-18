@@ -12,6 +12,8 @@ export async function GET(request: NextRequest) {
   const page = parseInt(url.searchParams.get('page') || '1');
   const limit = parseInt(url.searchParams.get('limit') || '20');
   const branchId = url.searchParams.get('branchId') || '';
+  const dateFrom = url.searchParams.get('dateFrom');
+  const dateTo = url.searchParams.get('dateTo');
   
   const where: any = {
     ...branchFilter,
@@ -23,6 +25,16 @@ export async function GET(request: NextRequest) {
       ],
     }),
   };
+
+  if (dateFrom || dateTo) {
+    where.generatedAt = {};
+    if (dateFrom) where.generatedAt.gte = new Date(dateFrom);
+    if (dateTo) {
+      const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59, 999);
+      where.generatedAt.lte = toDate;
+    }
+  }
 
   const skip = (page - 1) * limit;
 
