@@ -12,6 +12,7 @@ import { useReportExport } from '@/hooks/use-report-export';
 import { ClipboardList, Plus, Check, X, QrCode, Printer, Download, Eye, Fuel, CheckCircle, Clock, Search, Filter, MoreVertical, Building, MapPin, CheckSquare, Settings2, Trash2 } from 'lucide-react';
 import { useNetwork } from '@/lib/hooks/use-network';
 import { cacheData, getCachedData, saveOfflineTransaction } from '@/lib/db';
+import jsPDF from 'jspdf';
 
 interface Vehicle {
   id: string;
@@ -36,6 +37,10 @@ interface Requisition {
   qrCodeUrl: string | null;
   redeemToken: string | null;
   gasStation: string | null;
+  driverName?: string | null;
+  branch?: string | null;
+  destination?: string | null;
+  currentOdometer?: number | string | null;
   createdAt: string;
 }
 
@@ -99,6 +104,42 @@ function getBarcodeSvg(value: string) {
   return `<svg width="240" height="60" style="margin: 0 auto; display: block;">${rects}</svg>`;
 }
 
+const fetchImageAsBase64 = async (url: string): Promise<string | null> => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+};
+
+const drawTokenBarcode = (doc: jsPDF, value: string, x: number, y: number, unit: number, height: number) => {
+  const charPatterns: Record<string, string> = {
+    '0': '10100110101', '1': '110100101011', '2': '101100101011',
+    '3': '110110010101', '4': '101001101011', '5': '110100110101',
+    '6': '101100110101', '7': '101001101101', '8': '110100110110',
+    '9': '101100110110'
+  };
+  const startStop = '10010110';
+  let binaryString = startStop;
+  for (const char of value) {
+    binaryString += (charPatterns[char] || '10101') + '0';
+  }
+  binaryString += startStop;
+
+  let cx = x;
+  for (const bit of binaryString) {
+    if (bit === '1') doc.rect(cx, y, unit, height, 'F');
+    cx += unit;
+  }
+};
+
 export default function FleetRequisitionsPage() {
   const { isOnline } = useNetwork();
   const { triggerExport, ExportDialog } = useReportExport();
@@ -106,6 +147,7 @@ export default function FleetRequisitionsPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeVoucher, setActiveVoucher] = useState<Requisition | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id?: string; email?: string; role?: string; name?: string } | null>(null);
 
   // Form states
   const [selectedVehicle, setSelectedVehicle] = useState('');
@@ -150,6 +192,13 @@ export default function FleetRequisitionsPage() {
 
   useEffect(() => {
     fetchData();
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/auth/session')
+      .then((r) => r.json())
+      .then((s) => setCurrentUser(s?.user || null))
+      .catch(() => setCurrentUser(null));
   }, []);
 
   const handleCreateRequisition = async (e: React.FormEvent) => {
@@ -269,82 +318,87 @@ export default function FleetRequisitionsPage() {
     }
   };
 
-  const handleDownloadPDF = (req: Requisition) => {
-    const htmlString = `
-      <html>
-        <head>
-          <title>Fuel Voucher - ${req.id.slice(0, 8)}</title>
-          <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #1e293b; background-color: #f8fafc; }
-            .voucher { border: 2px dashed #4f46e5; border-radius: 16px; padding: 30px; max-width: 500px; margin: 0 auto; background: #ffffff; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
-            .header { text-align: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 20px; }
-            .logo { font-size: 24px; font-weight: 800; color: #4f46e5; letter-spacing: 1px; }
-            .title { font-size: 13px; text-transform: uppercase; color: #64748b; margin-top: 5px; font-weight: 700; letter-spacing: 0.5px; }
-            .row { display: flex; justify-content: space-between; margin-bottom: 14px; font-size: 14px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; }
-            .label { color: #64748b; font-weight: 500; }
-            .value { color: #0f172a; font-weight: 700; }
-            .token-box { background: #f1f5f9; border: 2px solid #cbd5e1; border-radius: 12px; padding: 18px; text-align: center; margin: 25px 0; }
-            .barcode { font-size: 32px; letter-spacing: 4px; font-weight: 400; color: #000000; margin-bottom: 8px; font-family: 'Libre Barcode 39', 'Courier New', monospace; line-height: 1; }
-            .token { font-size: 18px; font-weight: 800; color: #4f46e5; font-family: monospace; letter-spacing: 1px; }
-            .qr-container { display: flex; justify-content: center; margin: 20px 0; }
-            .qr-code { width: 140px; height: 140px; border: 1px solid #e2e8f0; padding: 6px; bg: #fff; border-radius: 8px; }
-            .footer { text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 15px; margin-top: 25px; line-height: 1.5; }
-          </style>
-        </head>
-        <body>
-          <div class="voucher">
-            <div class="header">
-              <div class="logo">MINEAZY LOGISTICS</div>
-              <div class="title">Corporate Fuel Voucher</div>
-            </div>
-            <div class="row">
-              <span class="label">Voucher Reference:</span>
-              <span class="value">REF-${req.id.slice(0, 8).toUpperCase()}</span>
-            </div>
-            <div class="row">
-              <span class="label">Vehicle Plate:</span>
-              <span class="value">${req.vehicle.plateNumber}</span>
-            </div>
-            <div class="row">
-              <span class="label">Fuel Type:</span>
-              <span class="value">${req.fuelType}</span>
-            </div>
-            <div class="row">
-              <span class="label">Volume to Redeem:</span>
-              <span class="value">${req.litersRequested} Liters</span>
-            </div>
-            <div class="row">
-              <span class="label">Gas Station:</span>
-              <span class="value">${req.gasStation}</span>
-            </div>
-            <div class="row">
-              <span class="label">Treasurer Approval:</span>
-              <span class="value">${req.treasurerApprovedBy || 'Verified'}</span>
-            </div>
-            <div class="row">
-              <span class="label">Finance Manager:</span>
-              <span class="value">${req.financeManagerApprovedBy || 'Verified'}</span>
-            </div>
-            
-            <div class="token-box">
-              <div style="margin-bottom: 8px;">${getBarcodeSvg(req.redeemToken || '000000')}</div>
-              <div class="token">REDEEM CODE: ${req.redeemToken}</div>
-            </div>
+  const canDownload = (req: Requisition) => {
+    if (!currentUser) return false;
+    const isRequestor = req.userId === currentUser.id || req.userId === currentUser.email;
+    const isTreasurer = currentUser.role === 'treasurer';
+    return isRequestor || isTreasurer;
+  };
 
-            <div class="qr-container">
-              <img class="qr-code" src="${req.qrCodeUrl || 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=FuelSlip'}" />
-            </div>
+  const handleDownloadPDF = async (req: Requisition) => {
+    try {
+      const doc = new jsPDF('p', 'mm', 'a4');
 
-            <div class="footer">
-              Approved corporate haulage fuel voucher. Bring this printout or mobile PDF token to the station operator to authorize fuel dispensing.
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
-    const blob = new Blob([htmlString], { type: 'text/html' });
-    const url = window.URL.createObjectURL(blob);
-    triggerExport(url, `Fuel_Voucher_REF-${req.id.slice(0, 8).toUpperCase()}`);
+      // Logo + header
+      const logoBase64 = await fetchImageAsBase64('/logo.png');
+      if (logoBase64) doc.addImage(logoBase64, 'PNG', 14, 15, 26, 10);
+      doc.setFontSize(18);
+      doc.setTextColor(15, 23, 42);
+      doc.text('Mineazy Logistics', 14, 32);
+      doc.setFontSize(12);
+      doc.setTextColor(79, 70, 229);
+      doc.text('CORPORATE FUEL VOUCHER', 196, 32, { align: 'right' });
+      doc.line(14, 40, 196, 40);
+
+      // Voucher details
+      const rows: [string, string][] = [
+        ['Voucher Reference', `REF-${req.id.slice(0, 8).toUpperCase()}`],
+        ['Vehicle Plate', req.vehicle.plateNumber],
+        ['Driver Name', req.driverName || '-'],
+        ['Branch', req.branch || '-'],
+        ['Destination', req.destination || '-'],
+        ['Fuel Type', req.fuelType],
+        ['Volume to Redeem', `${req.litersRequested} Liters`],
+        ['Odometer Reading', req.currentOdometer ? `${req.currentOdometer} km` : '-'],
+        ['Redeem Gas Station', req.gasStation || '-'],
+        ['Treasurer Approval', req.treasurerApprovedBy || 'Verified'],
+        ['Finance Manager', req.financeManagerApprovedBy || 'Verified'],
+      ];
+
+      let y = 52;
+      doc.setFontSize(12);
+      for (const [label, value] of rows) {
+        doc.setTextColor(100, 116, 139);
+        doc.text(label, 14, y);
+        doc.setTextColor(15, 23, 42);
+        doc.text(value, 95, y);
+        y += 8.5;
+      }
+
+      // Token box with barcode
+      y += 4;
+      doc.setDrawColor(203, 213, 225);
+      doc.setFillColor(241, 245, 249);
+      doc.roundedRect(14, y, 182, 32, 3, 3, 'FD');
+      doc.setFillColor(15, 23, 42);
+      drawTokenBarcode(doc, req.redeemToken || '000000', 30, y + 7, 0.45, 14);
+      doc.setFontSize(13);
+      doc.setTextColor(79, 70, 229);
+      doc.text(`REDEEM CODE: ${req.redeemToken}`, 105, y + 26, { align: 'center' });
+
+      // QR code
+      if (req.qrCodeUrl) {
+        const qrBase64 = await fetchImageAsBase64(req.qrCodeUrl);
+        if (qrBase64) doc.addImage(qrBase64, 'PNG', 177, y + 4, 16, 16);
+      }
+
+      // Footer
+      doc.setFontSize(9);
+      doc.setTextColor(148, 163, 184);
+      doc.text(
+        'Approved corporate haulage fuel voucher. Present this printout to the station operator to authorize fuel dispensing.',
+        105,
+        282,
+        { align: 'center' }
+      );
+      doc.text('*** End of Voucher ***', 105, 289, { align: 'center' });
+
+      const url = window.URL.createObjectURL(doc.output('blob'));
+      triggerExport(url, `Fuel_Voucher_REF-${req.id.slice(0, 8).toUpperCase()}`);
+    } catch (e) {
+      console.error('Failed to generate voucher PDF:', e);
+      toast('Failed to generate voucher PDF', 'error');
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -471,15 +525,17 @@ export default function FleetRequisitionsPage() {
                                 <Eye className="h-3 w-3" />
                                 View Voucher
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleDownloadPDF(r)}
-                                className="text-xs h-8 p-1.5 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
-                                title="Download Fuel Slip PDF"
-                              >
-                                <Printer className="h-4 w-4" />
-                              </Button>
+                              {canDownload(r) && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleDownloadPDF(r)}
+                                  className="text-xs h-8 p-1.5 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                                  title="Download Fuel Slip PDF"
+                                >
+                                  <Printer className="h-4 w-4" />
+                                </Button>
+                              )}
                             </>
                           )}
 
@@ -635,6 +691,14 @@ export default function FleetRequisitionsPage() {
           <div className="space-y-4 py-4 flex flex-col items-center">
             {/* Voucher Specs */}
             <div className="w-full bg-slate-50 p-4 rounded-lg border border-slate-100 text-sm space-y-2">
+              <div className="flex items-center gap-3 border-b border-slate-200 pb-3 mb-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/logo.png" alt="Mineazy Logo" className="h-10 object-contain" />
+                <div>
+                  <p className="font-bold text-indigo-700">Fuel Voucher</p>
+                  <p className="text-[11px] text-slate-500">REF-{activeVoucher.id.slice(0, 8).toUpperCase()}</p>
+                </div>
+              </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Plate Number:</span>
                 <span className="font-bold text-slate-800">{activeVoucher.vehicle.plateNumber}</span>
@@ -676,13 +740,15 @@ export default function FleetRequisitionsPage() {
             )}
 
             {/* PDF Slip Download trigger */}
-            <Button
-              onClick={() => handleDownloadPDF(activeVoucher)}
-              className="w-full font-bold gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
-            >
-              <Download className="h-4 w-4" />
-              Download Slip (PDF)
-            </Button>
+            {canDownload(activeVoucher) && (
+              <Button
+                onClick={() => handleDownloadPDF(activeVoucher)}
+                className="w-full font-bold gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                <Download className="h-4 w-4" />
+                Download Slip (PDF)
+              </Button>
+            )}
           </div>
         )}
       </Dialog>
