@@ -396,6 +396,24 @@ export default function FleetRequisitionsPage() {
       doc.text('Scan to Verify', 185.5, y + 26, { align: 'center' });
       doc.text('Authenticity', 185.5, y + 30, { align: 'center' });
 
+      // Security Clearance sign-off section
+      const secY = 214;
+      doc.setDrawColor(203, 213, 225);
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(14, secY, 182, 48, 3, 3, 'FD');
+      doc.setFontSize(10);
+      doc.setTextColor(15, 23, 42);
+      doc.text('SECURITY CLEARANCE', 22, secY + 9);
+      doc.setFontSize(7.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Station Security Officer sign-off before fuel is dispensed', 22, secY + 16);
+      doc.setFontSize(9);
+      doc.setTextColor(15, 23, 42);
+      doc.text('Security Officer Signature:', 22, secY + 30);
+      doc.line(78, secY + 26, 105, secY + 26);
+      doc.text('Date:', 116, secY + 30);
+      doc.line(131, secY + 26, 196, secY + 26);
+
       // Footer
       doc.setFontSize(9);
       doc.setTextColor(148, 163, 184);
