@@ -348,14 +348,14 @@ export default function FleetRequisitionsPage() {
         ['Approval Status', statusLabel(req.status)],
         [
           'Treasurer Approval',
-          req.treasurerApprovedAt
-            ? `Approved by ${req.treasurerApprovedBy} on ${formatApprovalDate(req.treasurerApprovedAt)}`
+          req.treasurerApprovedBy
+            ? `Approved by ${req.treasurerApprovedBy}${req.treasurerApprovedAt ? ` on ${formatApprovalDate(req.treasurerApprovedAt)}` : ''}`
             : 'Pending',
         ],
         [
           'Finance Manager',
-          req.financeManagerApprovedAt
-            ? `Approved by ${req.financeManagerApprovedBy} on ${formatApprovalDate(req.financeManagerApprovedAt)}`
+          req.financeManagerApprovedBy
+            ? `Approved by ${req.financeManagerApprovedBy}${req.financeManagerApprovedAt ? ` on ${formatApprovalDate(req.financeManagerApprovedAt)}` : ''}`
             : 'Pending',
         ],
       ];
@@ -727,11 +727,17 @@ export default function FleetRequisitionsPage() {
               </div>
               <div className="flex justify-between text-xs pt-1.5 border-t border-slate-200">
                 <span className="text-slate-500">1st (Treasurer):</span>
-                <span className="font-medium text-emerald-600">Approved ({activeVoucher.treasurerApprovedBy})</span>
+                <span className="font-medium text-emerald-600">
+                  Approved ({activeVoucher.treasurerApprovedBy}
+                  {activeVoucher.treasurerApprovedAt ? ` - ${formatApprovalDate(activeVoucher.treasurerApprovedAt)}` : ''})
+                </span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-slate-500">Final (Finance Mgr):</span>
-                <span className="font-medium text-emerald-600">Approved ({activeVoucher.financeManagerApprovedBy})</span>
+                <span className="font-medium text-emerald-600">
+                  Approved ({activeVoucher.financeManagerApprovedBy}
+                  {activeVoucher.financeManagerApprovedAt ? ` - ${formatApprovalDate(activeVoucher.financeManagerApprovedAt)}` : ''})
+                </span>
               </div>
             </div>
 
