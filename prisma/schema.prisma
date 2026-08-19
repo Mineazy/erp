@@ -1980,6 +1980,10 @@ model ErpFuelRequisition {
   qrCodeUrl                String?    @map("qr_code_url")
   redeemToken              String?    @map("redeem_token")
   gasStation               String?    @map("gas_station")
+  currentOdometer          Decimal?   @map("current_odometer") @db.Decimal(15, 2)
+  driverName               String?    @map("driver_name")
+  branch                   String?
+  destination              String?
   createdAt                DateTime   @default(now()) @map("created_at")
   updatedAt                DateTime   @updatedAt @map("updated_at")
   vehicle                  ErpVehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)

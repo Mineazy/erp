@@ -24,9 +24,12 @@ export async function POST(request: NextRequest) {
   const currentUserName = session.user?.name || 'Administrator';
 
   if (action === 'create') {
-    const { fuelType, gasStation } = body;
+    const { fuelType, gasStation, currentOdometer, driverName, branch, destination } = body;
     if (!vehicleId || !litersRequested || !purpose || !fuelType) {
       return badRequest('Vehicle, liters requested, purpose, and fuel type are required');
+    }
+    if (!currentOdometer || !driverName || !branch || !destination) {
+      return badRequest('Driver name, branch, destination, and current odometer reading are required');
     }
 
     const vehicle = await prisma.erpVehicle.findUnique({ where: { id: vehicleId } });
@@ -41,7 +44,11 @@ export async function POST(request: NextRequest) {
         gasStation: gasStation || 'Zuva Petroleum Harare',
         litersRequested: Number(litersRequested),
         status: 'PENDING',
-        purpose
+        purpose,
+        currentOdometer: Number(currentOdometer),
+        driverName,
+        branch,
+        destination
       }
     });
 

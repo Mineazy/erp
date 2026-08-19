@@ -113,6 +113,10 @@ export default function FleetRequisitionsPage() {
   const [gasStation, setGasStation] = useState('Zuva Petroleum Harare');
   const [requestedLiters, setRequestedLiters] = useState('');
   const [reqPurpose, setReqPurpose] = useState('');
+  const [currentOdometer, setCurrentOdometer] = useState('');
+  const [driverName, setDriverName] = useState('');
+  const [branch, setBranch] = useState('');
+  const [destination, setDestination] = useState('');
 
   const fetchData = async () => {
     try {
@@ -150,7 +154,7 @@ export default function FleetRequisitionsPage() {
 
   const handleCreateRequisition = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedVehicle || !requestedLiters || !reqPurpose || !fuelType) {
+    if (!selectedVehicle || !requestedLiters || !reqPurpose || !fuelType || !currentOdometer || !driverName || !branch || !destination) {
       toast('Please complete all form fields', 'warning');
       return;
     }
@@ -161,7 +165,11 @@ export default function FleetRequisitionsPage() {
       fuelType,
       gasStation,
       litersRequested: Number(requestedLiters),
-      purpose: reqPurpose
+      purpose: reqPurpose,
+      currentOdometer: Number(currentOdometer),
+      driverName,
+      branch,
+      destination
     };
 
     if (!isOnline) {
@@ -198,6 +206,10 @@ export default function FleetRequisitionsPage() {
         setSelectedVehicle('');
         setRequestedLiters('');
         setReqPurpose('');
+        setCurrentOdometer('');
+        setDriverName('');
+        setBranch('');
+        setDestination('');
       } catch {
         toast('Failed to save offline requisition', 'error');
       }
@@ -215,6 +227,10 @@ export default function FleetRequisitionsPage() {
         setSelectedVehicle('');
         setRequestedLiters('');
         setReqPurpose('');
+        setCurrentOdometer('');
+        setDriverName('');
+        setBranch('');
+        setDestination('');
         fetchData();
       } else {
         toast('Failed to submit requisition', 'error');
@@ -509,6 +525,54 @@ export default function FleetRequisitionsPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Driver Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. John Moyo"
+                    value={driverName}
+                    onChange={(e) => setDriverName(e.target.value)}
+                    className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Branch *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Harare Branch"
+                    value={branch}
+                    onChange={(e) => setBranch(e.target.value)}
+                    className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Current Odometer Reading (km) *</label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    placeholder="e.g. 125000"
+                    value={currentOdometer}
+                    onChange={(e) => setCurrentOdometer(e.target.value)}
+                    className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Requested Liters (L)</label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 50"
+                    value={requestedLiters}
+                    onChange={(e) => setRequestedLiters(e.target.value)}
+                    className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Fuel Type</label>
                   <select
                     value={fuelType}
@@ -534,17 +598,18 @@ export default function FleetRequisitionsPage() {
                 </div>
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Requested Liters (L)</label>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Destination *</label>
                 <input
-                  type="number"
-                  placeholder="e.g. 50"
-                  value={requestedLiters}
-                  onChange={(e) => setRequestedLiters(e.target.value)}
+                  type="text"
+                  required
+                  placeholder="e.g. Branch Harare"
+                  value={destination}
+                  onChange={(e) => setDestination(e.target.value)}
                   className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Purpose / Destination Details</label>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Purpose / Notes</label>
                 <textarea
                   rows={3}
                   placeholder="e.g. Hauling ore from WH-EAST to Branch Harare"
