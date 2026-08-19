@@ -50,7 +50,12 @@ export async function GET(request: NextRequest) {
     include: { _count: { select: { transactions: true } }, branch: { select: { id: true, code: true, name: true } } },
   });
 
-  return ok(sessions);
+  return ok(
+    sessions.map((s) => ({
+      ...s,
+      transactionCount: s._count.transactions,
+    }))
+  );
 }
 
 export async function POST(request: NextRequest) {
