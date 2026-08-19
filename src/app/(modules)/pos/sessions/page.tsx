@@ -8,7 +8,7 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Search, Plus, Eye, LogIn, Clock, DollarSign } from 'lucide-react';
+import { Search, Plus, Eye, LogIn, Clock, DollarSign, Receipt } from 'lucide-react';
 
 interface Session {
   id: string;
@@ -21,12 +21,51 @@ interface Session {
   branch?: { id: string; code: string; name: string } | null;
 }
 
+interface SessionTransaction {
+  id: string;
+  transactionNumber: string;
+  createdAt: string;
+  customerName: string | null;
+  status: string;
+  total: number;
+  subtotal: number;
+  taxAmount: number;
+  discount: number;
+  paidAmount: number;
+  changeAmount: number;
+  paymentMethod: string;
+  lines: { id: string; productName: string; quantity: number; unitPrice: number; total: number }[];
+  payments: { method: string; amount: number; currency: string; exchangeRate: number }[];
+}
+
+const paymentLabels: Record<string, string> = {
+  cash: 'Cash',
+  card: 'Card',
+  debit_card: 'Card',
+  credit_card: 'Card',
+  bank_transfer: 'Bank Transfer',
+  mobile_wallet: 'Mobile Money',
+  mobile_money: 'Mobile Money',
+  credit: 'Credit',
+  loyalty_points: 'Loyalty Pts',
+  loyalty_card_balance: 'Card Balance',
+};
+
+const paymentLabel = (tx: SessionTransaction) => {
+  if (tx.payments?.length) {
+    return tx.payments.map((p) => paymentLabels[p.method] || p.method).join(', ');
+  }
+  return paymentLabels[tx.paymentMethod] || tx.paymentMethod || '—';
+};
+
 export default function SessionsPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [viewSession, setViewSession] = useState<Session | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [sessionTransactions, setSessionTransactions] = useState<SessionTransaction[]>([]);
+  const [txLoading, setTxLoading] = useState(false);
 
   const fetchSessions = async () => {
     setLoading(true);
@@ -72,9 +111,23 @@ export default function SessionsPage() {
     }
   };
 
-  const viewDetails = (session: Session) => {
+  const viewDetails = async (session: Session) => {
     setViewSession(session);
     setViewDialogOpen(true);
+    setSessionTransactions([]);
+    setTxLoading(true);
+    try {
+      const res = await fetch(`/api/pos/sessions/${session.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        const detail = data?.data ?? data;
+        setSessionTransactions(Array.isArray(detail?.transactions) ? detail.transactions : []);
+      }
+    } catch {
+      setSessionTransactions([]);
+    } finally {
+      setTxLoading(false);
+    }
   };
 
   const filtered = sessions.filter(
@@ -184,7 +237,7 @@ export default function SessionsPage() {
 
       <Dialog
         open={viewDialogOpen}
-        onClose={() => { setViewDialogOpen(false); setViewSession(null); }}
+        onClose={() => { setViewDialogOpen(false); setViewSession(null); setSessionTransactions([]); setTxLoading(false); }}
         title="Session Details"
         size="lg"
       >
@@ -226,10 +279,58 @@ export default function SessionsPage() {
                 <p className="text-xs text-slate-500">Branch</p>
                 <p className="text-sm">{viewSession.branch?.name || '—'}</p>
               </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2 mb-2">
+                <Receipt className="h-4 w-4 text-mine-blue-800" />
+                Transactions
+                <span className="text-xs font-normal text-slate-400">
+                  ({viewSession.transactionCount ?? sessionTransactions.length})
+                </span>
+              </h3>
+              {txLoading ? (
+                <div className="text-center py-6 text-sm text-slate-400">Loading transactions...</div>
+              ) : sessionTransactions.length === 0 ? (
+                <div className="text-center py-6 text-sm text-slate-400">No transactions for this session</div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>#</TableHead>
+                      <TableHead>Time</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead className="text-right">Items</TableHead>
+                      <TableHead>Payment</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sessionTransactions.map((tx) => (
+                      <TableRow key={tx.id}>
+                        <TableCell className="font-mono text-xs">{tx.transactionNumber}</TableCell>
+                        <TableCell className="text-xs">{new Date(tx.createdAt).toLocaleString()}</TableCell>
+                        <TableCell className="text-sm">{tx.customerName || 'Walk-in'}</TableCell>
+                        <TableCell className="text-right text-xs">{tx.lines?.length ?? 0}</TableCell>
+                        <TableCell className="text-xs">{paymentLabel(tx)}</TableCell>
+                        <TableCell className="text-right font-mono text-xs">
+                          ${(tx.total ?? 0).toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={tx.status === 'completed' ? 'success' : 'secondary'}>
+                            {tx.status ? tx.status.charAt(0).toUpperCase() + tx.status.slice(1) : 'Completed'}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
             </div>
         )}
         <DialogFooter>
-          <Button variant="outline" onClick={() => { setViewDialogOpen(false); setViewSession(null); }}>
+          <Button variant="outline" onClick={() => { setViewDialogOpen(false); setViewSession(null); setSessionTransactions([]); setTxLoading(false); }}>
             Close
           </Button>
         </DialogFooter>
