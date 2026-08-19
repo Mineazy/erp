@@ -1,5 +1,5 @@
 const DB_NAME = 'mineazy_erp_db';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 export interface OfflineTransaction {
   id: string; // uuid generated locally
@@ -34,6 +34,9 @@ export const initDB = (): Promise<IDBDatabase> => {
       }
       if (!db.objectStoreNames.contains('taxes_cache')) {
         db.createObjectStore('taxes_cache', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('fleet_vehicles_cache')) {
+        db.createObjectStore('fleet_vehicles_cache', { keyPath: 'id' });
       }
     };
 
