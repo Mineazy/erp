@@ -21,6 +21,7 @@ interface Voucher {
 function VerifyFuelContent() {
   const searchParams = useSearchParams();
   const id = searchParams.get('id');
+  const token = searchParams.get('token');
   
   const [loading, setLoading] = useState(true);
   const [verified, setVerified] = useState(false);
@@ -36,7 +37,10 @@ function VerifyFuelContent() {
 
     const checkVerification = async () => {
       try {
-        const res = await fetch(`/api/verify/fuel?id=${id}`);
+        const qs = new URLSearchParams();
+        if (id) qs.set('id', id);
+        if (token) qs.set('token', token);
+        const res = await fetch(`/api/verify/fuel?${qs.toString()}`);
         const data = await res.json();
         if (res.ok && data.verified) {
           setVerified(true);
@@ -55,33 +59,34 @@ function VerifyFuelContent() {
     checkVerification();
   }, [id]);
 
-  // Barcode SVG helper for display
+  // Barcode SVG helper (Code 39) for display
   const getBarcodeSvg = (value: string) => {
     const charPatterns: Record<string, string> = {
-      '0': '10100110101', '1': '110100101011', '2': '101100101011',
-      '3': '110110010101', '4': '101001101011', '5': '110100110101',
-      '6': '101100110101', '7': '101001101101', '8': '110100110110',
-      '9': '101100110110'
+      '0': '101000111011101', '1': '111010001010111', '2': '101110001010111',
+      '3': '111011100010101', '4': '101000111010111', '5': '111010001110101',
+      '6': '101110001110101', '7': '101000101110111', '8': '111010001011101',
+      '9': '101110001011101'
     };
-    const startStop = '10010110';
+    const startStop = '100010111011101';
     let binaryString = startStop;
     for (const char of value) {
-      binaryString += (charPatterns[char] || '10101') + '0';
+      binaryString += '0' + (charPatterns[char] || charPatterns['0']);
     }
-    binaryString += startStop;
+    binaryString += '0' + startStop;
 
+    const moduleW = 1.5;
     return (
-      <svg width="240" height="60" className="mx-auto">
+      <svg width={binaryString.length * moduleW} height="54" className="mx-auto">
         <g fill="#000">
           {binaryString.split('').map((bit, index) => {
             if (bit === '1') {
               return (
                 <rect
                   key={index}
-                  x={index * 2.5}
+                  x={index * moduleW}
                   y="0"
-                  width={2}
-                  height="60"
+                  width={moduleW}
+                  height="54"
                 />
               );
             }

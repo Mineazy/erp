@@ -33,7 +33,9 @@ interface Requisition {
   purpose: string;
   approvedBy: string | null;
   treasurerApprovedBy: string | null;
+  treasurerApprovedAt?: string | null;
   financeManagerApprovedBy: string | null;
+  financeManagerApprovedAt?: string | null;
   qrCodeUrl: string | null;
   redeemToken: string | null;
   gasStation: string | null;
@@ -44,32 +46,45 @@ interface Requisition {
   createdAt: string;
 }
 
-function Barcode({ value }: { value: string }) {
-  const charPatterns: Record<string, string> = {
-    '0': '10100110101', '1': '110100101011', '2': '101100101011',
-    '3': '110110010101', '4': '101001101011', '5': '110100110101',
-    '6': '101100110101', '7': '101001101101', '8': '110100110110',
-    '9': '101100110110'
-  };
-  const startStop = '10010110';
-  let binaryString = startStop;
+const CODE39_PATTERNS: Record<string, string> = {
+  '0': '101000111011101',
+  '1': '111010001010111',
+  '2': '101110001010111',
+  '3': '111011100010101',
+  '4': '101000111010111',
+  '5': '111010001110101',
+  '6': '101110001110101',
+  '7': '101000101110111',
+  '8': '111010001011101',
+  '9': '101110001011101',
+};
+const CODE39_START_STOP = '100010111011101';
+
+const code39Binary = (value: string) => {
+  let binaryString = CODE39_START_STOP;
   for (const char of value) {
-    binaryString += (charPatterns[char] || '10101') + '0';
+    binaryString += '0' + (CODE39_PATTERNS[char] || CODE39_PATTERNS['0']);
   }
-  binaryString += startStop;
+  binaryString += '0' + CODE39_START_STOP;
+  return binaryString;
+};
+
+function Barcode({ value }: { value: string }) {
+  const binaryString = code39Binary(value);
+  const moduleW = 1.5;
 
   return (
-    <svg width="240" height="60" className="mx-auto">
+    <svg width={binaryString.length * moduleW} height="54" className="mx-auto block">
       <g fill="#000">
         {binaryString.split('').map((bit, index) => {
           if (bit === '1') {
             return (
               <rect
                 key={index}
-                x={index * 2.5}
+                x={index * moduleW}
                 y="0"
-                width={2}
-                height="60"
+                width={moduleW}
+                height="54"
               />
             );
           }
@@ -80,29 +95,15 @@ function Barcode({ value }: { value: string }) {
   );
 }
 
-function getBarcodeSvg(value: string) {
-  const charPatterns: Record<string, string> = {
-    '0': '10100110101', '1': '110100101011', '2': '101100101011',
-    '3': '110110010101', '4': '101001101011', '5': '110100110101',
-    '6': '101100110101', '7': '101001101101', '8': '110100110110',
-    '9': '101100110110'
-  };
-  const startStop = '10010110';
-  let binaryString = startStop;
-  for (const char of value) {
-    binaryString += (charPatterns[char] || '10101') + '0';
-  }
-  binaryString += startStop;
+const statusLabel = (status: string) =>
+  status.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 
-  let rects = '';
-  binaryString.split('').forEach((bit, index) => {
-    if (bit === '1') {
-      rects += `<rect x="${index * 2.5}" y="0" width="2" height="60" fill="#000" />`;
-    }
-  });
-
-  return `<svg width="240" height="60" style="margin: 0 auto; display: block;">${rects}</svg>`;
-}
+const formatApprovalDate = (d?: string | null) => {
+  if (!d) return '-';
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return '-';
+  return `${date.getDate().toString().padStart(2, '0')} ${date.toLocaleString('en-GB', { month: 'short' })} ${date.getFullYear()} ${date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
+};
 
 const fetchImageAsBase64 = async (url: string): Promise<string | null> => {
   try {
@@ -120,19 +121,7 @@ const fetchImageAsBase64 = async (url: string): Promise<string | null> => {
 };
 
 const drawTokenBarcode = (doc: jsPDF, value: string, x: number, y: number, unit: number, height: number) => {
-  const charPatterns: Record<string, string> = {
-    '0': '10100110101', '1': '110100101011', '2': '101100101011',
-    '3': '110110010101', '4': '101001101011', '5': '110100110101',
-    '6': '101100110101', '7': '101001101101', '8': '110100110110',
-    '9': '101100110110'
-  };
-  const startStop = '10010110';
-  let binaryString = startStop;
-  for (const char of value) {
-    binaryString += (charPatterns[char] || '10101') + '0';
-  }
-  binaryString += startStop;
-
+  const binaryString = code39Binary(value);
   let cx = x;
   for (const bit of binaryString) {
     if (bit === '1') doc.rect(cx, y, unit, height, 'F');
@@ -331,14 +320,19 @@ export default function FleetRequisitionsPage() {
 
       // Logo + header
       const logoBase64 = await fetchImageAsBase64('/logo.png');
-      if (logoBase64) doc.addImage(logoBase64, 'PNG', 14, 15, 26, 10);
-      doc.setFontSize(18);
+      if (logoBase64) doc.addImage(logoBase64, 'PNG', 14, 14, 24, 9);
+      doc.setFontSize(17);
       doc.setTextColor(15, 23, 42);
-      doc.text('Mineazy Logistics', 14, 32);
+      doc.text('Mineazy Mining Solutions', 14, 30);
+      doc.setFontSize(8.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text('15 Plumtree Road, Belmont, BULAWAYO', 14, 36);
+      doc.text('Contact: +263712290046 | Email: accounts@mineazy.co.zw', 14, 41);
       doc.setFontSize(12);
       doc.setTextColor(79, 70, 229);
-      doc.text('CORPORATE FUEL VOUCHER', 196, 32, { align: 'right' });
-      doc.line(14, 40, 196, 40);
+      doc.text('CORPORATE FUEL VOUCHER', 196, 30, { align: 'right' });
+      doc.setLineWidth(0.6);
+      doc.line(14, 48, 196, 48);
 
       // Voucher details
       const rows: [string, string][] = [
@@ -351,36 +345,56 @@ export default function FleetRequisitionsPage() {
         ['Volume to Redeem', `${req.litersRequested} Liters`],
         ['Odometer Reading', req.currentOdometer ? `${req.currentOdometer} km` : '-'],
         ['Redeem Gas Station', req.gasStation || '-'],
-        ['Treasurer Approval', req.treasurerApprovedBy || 'Verified'],
-        ['Finance Manager', req.financeManagerApprovedBy || 'Verified'],
+        ['Approval Status', statusLabel(req.status)],
+        [
+          'Treasurer Approval',
+          req.treasurerApprovedAt
+            ? `Approved by ${req.treasurerApprovedBy} on ${formatApprovalDate(req.treasurerApprovedAt)}`
+            : 'Pending',
+        ],
+        [
+          'Finance Manager',
+          req.financeManagerApprovedAt
+            ? `Approved by ${req.financeManagerApprovedBy} on ${formatApprovalDate(req.financeManagerApprovedAt)}`
+            : 'Pending',
+        ],
       ];
 
-      let y = 52;
-      doc.setFontSize(12);
+      let y = 58;
       for (const [label, value] of rows) {
+        doc.setFontSize(11);
         doc.setTextColor(100, 116, 139);
         doc.text(label, 14, y);
         doc.setTextColor(15, 23, 42);
-        doc.text(value, 95, y);
+        doc.text(value, 85, y);
         y += 8.5;
       }
 
-      // Token box with barcode
+      // Token box with barcode only (no readable redeem code)
       y += 4;
       doc.setDrawColor(203, 213, 225);
       doc.setFillColor(241, 245, 249);
-      doc.roundedRect(14, y, 182, 32, 3, 3, 'FD');
+      doc.roundedRect(14, y, 182, 40, 3, 3, 'FD');
+      const redeemValue = req.redeemToken || '000000';
+      const barcodeUnit = 0.5;
+      const barcodeWidth = code39Binary(redeemValue).length * barcodeUnit;
+      doc.setDrawColor(15, 23, 42);
       doc.setFillColor(15, 23, 42);
-      drawTokenBarcode(doc, req.redeemToken || '000000', 30, y + 7, 0.45, 14);
-      doc.setFontSize(13);
-      doc.setTextColor(79, 70, 229);
-      doc.text(`REDEEM CODE: ${req.redeemToken}`, 105, y + 26, { align: 'center' });
+      drawTokenBarcode(doc, redeemValue, 105 - barcodeWidth / 2, y + 7, barcodeUnit, 16);
+      doc.setFontSize(9);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Scan to Redeem Fuel', 105, y + 30, { align: 'center' });
 
-      // QR code
-      if (req.qrCodeUrl) {
-        const qrBase64 = await fetchImageAsBase64(req.qrCodeUrl);
-        if (qrBase64) doc.addImage(qrBase64, 'PNG', 177, y + 4, 16, 16);
-      }
+      // QR code pointing to the public authenticity verification page (bound to token)
+      const tokenParam = req.redeemToken ? `&token=${encodeURIComponent(req.redeemToken)}` : '';
+      const verifyUrl = `${window.location.origin}/verify/fuel?id=${req.id}${tokenParam}`;
+      const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(verifyUrl)}`;
+      const qrBase64 = await fetchImageAsBase64(qrSrc);
+      if (qrBase64) doc.addImage(qrBase64, 'PNG', 176, y + 3, 19, 19);
+      doc.setFontSize(6.3);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Scan to Verify', 185.5, y + 26, { align: 'center' });
+      doc.text('Authenticity', 185.5, y + 30, { align: 'center' });
 
       // Footer
       doc.setFontSize(9);

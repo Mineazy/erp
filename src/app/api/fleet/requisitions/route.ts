@@ -66,7 +66,8 @@ export async function POST(request: NextRequest) {
       where: { id: requisitionId },
       data: {
         status: 'TREASURER_APPROVED',
-        treasurerApprovedBy: currentUserName
+        treasurerApprovedBy: currentUserName,
+        treasurerApprovedAt: new Date()
       }
     });
 
@@ -115,7 +116,9 @@ export async function POST(request: NextRequest) {
 
     // Generate 6-digit barcoded token & QR Code URL pointing to public verification page
     const redeemToken = Math.floor(100000 + Math.random() * 900000).toString();
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`http://localhost:3000/verify/fuel?id=${req.id}`)}`;
+    const baseUrl = (process.env.NEXTAUTH_URL || 'https://mineazy.com').replace(/\/$/, '');
+    const verifyUrl = `${baseUrl}/verify/fuel?id=${req.id}&token=${encodeURIComponent(redeemToken)}`;
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(verifyUrl)}`;
 
     // Update requisition status to approved
     const updated = await prisma.erpFuelRequisition.update({
@@ -124,6 +127,7 @@ export async function POST(request: NextRequest) {
         status: 'APPROVED',
         approvedBy: currentUserName,
         financeManagerApprovedBy: currentUserName,
+        financeManagerApprovedAt: new Date(),
         redeemToken,
         qrCodeUrl
       }

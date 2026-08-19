@@ -1976,7 +1976,9 @@ model ErpFuelRequisition {
   purpose                  String
   approvedBy               String?    @map("approved_by")
   treasurerApprovedBy      String?    @map("treasurer_approved_by")
+  treasurerApprovedAt      DateTime?  @map("treasurer_approved_at")
   financeManagerApprovedBy String?    @map("finance_manager_approved_by")
+  financeManagerApprovedAt DateTime?  @map("finance_manager_approved_at")
   qrCodeUrl                String?    @map("qr_code_url")
   redeemToken              String?    @map("redeem_token")
   gasStation               String?    @map("gas_station")
