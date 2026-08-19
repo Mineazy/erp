@@ -122,6 +122,7 @@ const fetchImageAsBase64 = async (url: string): Promise<string | null> => {
 
 const drawTokenBarcode = (doc: jsPDF, value: string, x: number, y: number, unit: number, height: number) => {
   const binaryString = code39Binary(value);
+  doc.setFillColor(0, 0, 0);
   let cx = x;
   for (const bit of binaryString) {
     if (bit === '1') doc.rect(cx, y, unit, height, 'F');
@@ -141,7 +142,7 @@ export default function FleetRequisitionsPage() {
   // Form states
   const [selectedVehicle, setSelectedVehicle] = useState('');
   const [fuelType, setFuelType] = useState('Diesel');
-  const [gasStation, setGasStation] = useState('Zuva Petroleum Harare');
+  const [gasStation, setGasStation] = useState('Glow Petroleum');
   const [requestedLiters, setRequestedLiters] = useState('');
   const [reqPurpose, setReqPurpose] = useState('');
   const [currentOdometer, setCurrentOdometer] = useState('');
@@ -317,25 +318,80 @@ export default function FleetRequisitionsPage() {
   const handleDownloadPDF = async (req: Requisition) => {
     try {
       const doc = new jsPDF('p', 'mm', 'a4');
+      const W = 210;
+      const M = 14;
+      const CW = W - M * 2;
 
-      // Logo + header
+      // ---- Branded header ----
+      doc.setFillColor(79, 70, 229);
+      doc.rect(M, 8, CW, 3, 'F');
       const logoBase64 = await fetchImageAsBase64('/logo.png');
-      if (logoBase64) doc.addImage(logoBase64, 'PNG', 14, 14, 24, 9);
-      doc.setFontSize(17);
+      if (logoBase64) doc.addImage(logoBase64, 'PNG', M, 14, 24, 9);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
       doc.setTextColor(15, 23, 42);
-      doc.text('Mineazy Mining Solutions', 14, 30);
+      doc.text('Mineazy Mining Solutions', M, 31);
+      doc.setFont('helvetica', 'normal');
       doc.setFontSize(8.5);
       doc.setTextColor(100, 116, 139);
-      doc.text('15 Plumtree Road, Belmont, BULAWAYO', 14, 36);
-      doc.text('Contact: +263712290046 | Email: accounts@mineazy.co.zw', 14, 41);
-      doc.setFontSize(12);
+      doc.text('15 Plumtree Road, Belmont, BULAWAYO', M, 37);
+      doc.text('Contact: +263712290046  |  Email: accounts@mineazy.co.zw', M, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12.5);
       doc.setTextColor(79, 70, 229);
-      doc.text('CORPORATE FUEL VOUCHER', 196, 30, { align: 'right' });
-      doc.setLineWidth(0.6);
-      doc.line(14, 48, 196, 48);
+      doc.text('CORPORATE FUEL VOUCHER', W - M, 28, { align: 'right' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(148, 163, 184);
+      doc.text(`REF-${req.id.slice(0, 8).toUpperCase()}`, W - M, 34, { align: 'right' });
+      doc.setDrawColor(79, 70, 229);
+      doc.setLineWidth(0.7);
+      doc.line(M, 48, W - M, 48);
 
-      // Voucher details
-      const rows: [string, string][] = [
+      // ---- Approval status banner ----
+      let y = 54;
+      doc.setFillColor(238, 242, 255);
+      doc.roundedRect(M, y, CW, 12, 2, 2, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(22, 101, 52);
+      doc.text('APPROVED', 105, y + 7, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(79, 70, 229);
+      doc.text(`Issued: ${formatApprovalDate(req.financeManagerApprovedAt || req.createdAt)}`, W - M, y + 7, { align: 'right' });
+      y += 18;
+
+      // ---- Section title helper ----
+      const sectionTitle = (title: string, pos: number) => {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(79, 70, 229);
+        doc.text(title.toUpperCase(), M, pos);
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.3);
+        doc.line(M, pos + 2, W - M, pos + 2);
+      };
+      const rowH = 5.6;
+      const drawRow = (label: string, value: string, yRow: number, idx: number) => {
+        if (idx % 2 === 0) {
+          doc.setFillColor(248, 250, 252);
+          doc.rect(M, yRow - 4.4, CW, rowH, 'F');
+        }
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(100, 116, 139);
+        doc.text(label, M, yRow);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(15, 23, 42);
+        const lines = doc.splitTextToSize(value, CW - 55) as string[];
+        doc.text(lines, W - M, yRow, { align: 'right' });
+      };
+
+      // ---- Requisition details ----
+      sectionTitle('Requisition Details', y);
+      y += 8;
+      const detailRows: [string, string][] = [
         ['Voucher Reference', `REF-${req.id.slice(0, 8).toUpperCase()}`],
         ['Vehicle Plate', req.vehicle.plateNumber],
         ['Driver Name', req.driverName || '-'],
@@ -345,85 +401,116 @@ export default function FleetRequisitionsPage() {
         ['Volume to Redeem', `${req.litersRequested} Liters`],
         ['Odometer Reading', req.currentOdometer ? `${req.currentOdometer} km` : '-'],
         ['Redeem Gas Station', req.gasStation || '-'],
+      ];
+      detailRows.forEach(([label, value], idx) => {
+        drawRow(label, value, y, idx);
+        y += rowH;
+      });
+      y += 4;
+
+      // ---- Approval trail ----
+      sectionTitle('Approval Trail', y);
+      y += 8;
+      const approvalRows: [string, string][] = [
         ['Approval Status', statusLabel(req.status)],
         [
-          'Treasurer Approval',
+          'First (Treasurer)',
           req.treasurerApprovedBy
             ? `Approved by ${req.treasurerApprovedBy}${req.treasurerApprovedAt ? ` on ${formatApprovalDate(req.treasurerApprovedAt)}` : ''}`
             : 'Pending',
         ],
         [
-          'Finance Manager',
+          'Final (Finance Manager)',
           req.financeManagerApprovedBy
             ? `Approved by ${req.financeManagerApprovedBy}${req.financeManagerApprovedAt ? ` on ${formatApprovalDate(req.financeManagerApprovedAt)}` : ''}`
             : 'Pending',
         ],
       ];
+      approvalRows.forEach(([label, value], idx) => {
+        drawRow(label, value, y, idx);
+        y += rowH;
+      });
+      y += 6;
 
-      let y = 58;
-      for (const [label, value] of rows) {
-        doc.setFontSize(11);
-        doc.setTextColor(100, 116, 139);
-        doc.text(label, 14, y);
-        doc.setTextColor(15, 23, 42);
-        doc.text(value, 85, y);
-        y += 8.5;
-      }
-
-      // Token box with barcode only (no readable redeem code)
-      y += 4;
+      // ---- Fuel token (barcode + QR) ----
+      sectionTitle('Fuel Token', y);
+      y += 9;
+      const boxH = 48;
+      doc.setFillColor(255, 255, 255);
       doc.setDrawColor(203, 213, 225);
-      doc.setFillColor(241, 245, 249);
-      doc.roundedRect(14, y, 182, 40, 3, 3, 'FD');
+      doc.setLineWidth(0.4);
+      doc.roundedRect(M, y, CW, boxH, 2, 2, 'FD');
+      const dividerX = 150;
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.3);
+      doc.line(dividerX, y, dividerX, y + boxH);
+      // Barcode (left)
       const redeemValue = req.redeemToken || '000000';
-      const barcodeUnit = 0.5;
+      const barcodeUnit = 0.55;
       const barcodeWidth = code39Binary(redeemValue).length * barcodeUnit;
-      doc.setDrawColor(15, 23, 42);
-      doc.setFillColor(15, 23, 42);
-      drawTokenBarcode(doc, redeemValue, 105 - barcodeWidth / 2, y + 7, barcodeUnit, 16);
-      doc.setFontSize(9);
+      const barcodeCenterX = (M + dividerX) / 2;
+      drawTokenBarcode(doc, redeemValue, barcodeCenterX - barcodeWidth / 2, y + 11, barcodeUnit, 18);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
       doc.setTextColor(100, 116, 139);
-      doc.text('Scan to Redeem Fuel', 105, y + 30, { align: 'center' });
-
-      // QR code pointing to the public authenticity verification page (bound to token)
+      doc.text('Scan to Redeem Fuel', barcodeCenterX, y + 34, { align: 'center' });
+      doc.setFontSize(6.5);
+      doc.setTextColor(148, 163, 184);
+      doc.text('6-digit redeem code', barcodeCenterX, y + 39, { align: 'center' });
+      // QR (right, with white quiet zone)
       const tokenParam = req.redeemToken ? `&token=${encodeURIComponent(req.redeemToken)}` : '';
       const verifyUrl = `${window.location.origin}/verify/fuel?id=${req.id}${tokenParam}`;
       const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(verifyUrl)}`;
       const qrBase64 = await fetchImageAsBase64(qrSrc);
-      if (qrBase64) doc.addImage(qrBase64, 'PNG', 176, y + 3, 19, 19);
-      doc.setFontSize(6.3);
+      const qrCenterX = (dividerX + W - M) / 2;
+      if (qrBase64) {
+        const qrSize = 24;
+        doc.setFillColor(255, 255, 255);
+        doc.roundedRect(qrCenterX - qrSize / 2 - 3, y + 6, qrSize + 6, qrSize + 6, 1.5, 1.5, 'F');
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(qrCenterX - qrSize / 2 - 3, y + 6, qrSize + 6, qrSize + 6, 1.5, 1.5, 'S');
+        doc.addImage(qrBase64, 'PNG', qrCenterX - qrSize / 2, y + 8, qrSize, qrSize);
+      }
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
       doc.setTextColor(100, 116, 139);
-      doc.text('Scan to Verify', 185.5, y + 26, { align: 'center' });
-      doc.text('Authenticity', 185.5, y + 30, { align: 'center' });
+      doc.text('Scan to Verify', qrCenterX, y + 34, { align: 'center' });
+      doc.text('Authenticity', qrCenterX, y + 39, { align: 'center' });
+      y += boxH + 6;
 
-      // Security Clearance sign-off section
-      const secY = 214;
-      doc.setDrawColor(203, 213, 225);
+      // ---- Security clearance ----
       doc.setFillColor(248, 250, 252);
-      doc.roundedRect(14, secY, 182, 48, 3, 3, 'FD');
-      doc.setFontSize(10);
-      doc.setTextColor(15, 23, 42);
-      doc.text('SECURITY CLEARANCE', 22, secY + 9);
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.4);
+      doc.roundedRect(M, y, CW, 38, 2, 2, 'FD');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(79, 70, 229);
+      doc.text('SECURITY CLEARANCE', M + 8, y + 9);
+      doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
       doc.setTextColor(100, 116, 139);
-      doc.text('Station Security Officer sign-off before fuel is dispensed', 22, secY + 16);
+      doc.text('Station security officer sign-off before fuel is dispensed', M + 8, y + 14.5);
       doc.setFontSize(9);
       doc.setTextColor(15, 23, 42);
-      doc.text('Security Officer Signature:', 22, secY + 30);
-      doc.line(78, secY + 26, 105, secY + 26);
-      doc.text('Date:', 116, secY + 30);
-      doc.line(131, secY + 26, 196, secY + 26);
+      doc.text('Security Officer Signature', M + 8, y + 27);
+      doc.setDrawColor(148, 163, 184);
+      doc.setLineWidth(0.3);
+      doc.line(M + 62, y + 23, 105, y + 23);
+      doc.text('Date', 116, y + 27);
+      doc.line(131, y + 23, W - M, y + 23);
+      y += 44;
 
-      // Footer
-      doc.setFontSize(9);
+      // ---- Footer ----
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.3);
+      doc.line(M, y, W - M, y);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
       doc.setTextColor(148, 163, 184);
-      doc.text(
-        'Approved corporate haulage fuel voucher. Present this printout to the station operator to authorize fuel dispensing.',
-        105,
-        282,
-        { align: 'center' }
-      );
-      doc.text('*** End of Voucher ***', 105, 289, { align: 'center' });
+      doc.text('Mineazy Mining Solutions  •  15 Plumtree Road, Belmont, BULAWAYO  •  +263712290046  •  accounts@mineazy.co.zw', 105, y + 6, { align: 'center' });
+      doc.text('Authenticity verifiable at mineazy.com/verify/fuel  |  This voucher is valid for one-time fuel redemption at the designated station', 105, y + 11, { align: 'center' });
 
       const url = window.URL.createObjectURL(doc.output('blob'));
       triggerExport(url, `Fuel_Voucher_REF-${req.id.slice(0, 8).toUpperCase()}`);
@@ -678,6 +765,7 @@ export default function FleetRequisitionsPage() {
                     onChange={(e) => setGasStation(e.target.value)}
                     className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
                   >
+                    <option value="Glow Petroleum">Glow Petroleum</option>
                     <option value="Zuva Petroleum Harare">Zuva Petroleum</option>
                     <option value="Puma Energy Belgravia">Puma Energy</option>
                     <option value="TotalEnergies Avondale">TotalEnergies</option>

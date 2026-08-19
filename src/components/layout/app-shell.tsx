@@ -9,9 +9,9 @@ import { cn } from '@/lib/utils';
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
-  const isLoginPage = pathname === '/login';
+  const isStandalonePage = pathname === '/login' || pathname.startsWith('/verify');
 
-  if (isLoginPage) {
+  if (isStandalonePage) {
     return <>{children}</>;
   }
 
