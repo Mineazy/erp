@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
     const page = sp.page || 1;
     const limit = sp.limit || 50;
     const categoryId = request.nextUrl.searchParams.get('categoryId');
+    const warehouseId = request.nextUrl.searchParams.get('warehouseId');
     const where: Record<string, unknown> = {};
 
     if (categoryId) {
@@ -51,28 +52,55 @@ export async function GET(request: NextRequest) {
     const branchFilter = getBranchFilter(session) || {};
     if (items.length > 0) {
       const pIds = items.map(i => i.id);
-      const allStocks = await prisma.erpBranchStock.findMany({
-        where: { productId: { in: pIds } },
-        include: { branch: { select: { name: true } } }
-      });
-      
-      const stockMap = new Map();
-      const locationsMap = new Map();
 
-      for (const bs of allStocks) {
-        if (!branchFilter.branchId || branchFilter.branchId === bs.branchId) {
-          stockMap.set(bs.productId, (stockMap.get(bs.productId) || 0) + Number(bs.quantity));
+      if (warehouseId) {
+        const warehouseStocks = await prisma.erpWarehouseStock.findMany({
+          where: { productId: { in: pIds } },
+          include: { warehouse: { select: { id: true, name: true } } }
+        });
+        
+        const stockMap = new Map<string, number>();
+        const otherWarehousesMap = new Map<string, Set<string>>();
+        for (const ws of warehouseStocks) {
+          const qty = Number(ws.quantity);
+          if (qty <= 0) continue;
+          if (ws.warehouseId === warehouseId) {
+            stockMap.set(ws.productId, (stockMap.get(ws.productId) || 0) + qty);
+          } else if (ws.warehouse?.name) {
+            const locs = otherWarehousesMap.get(ws.productId) || new Set();
+            locs.add(ws.warehouse.name);
+            otherWarehousesMap.set(ws.productId, locs);
+          }
         }
-        if (Number(bs.quantity) > 0 && bs.branch) {
-          const locs = locationsMap.get(bs.productId) || new Set();
-          locs.add(bs.branch.name);
-          locationsMap.set(bs.productId, locs);
+        
+        for (const item of items) {
+          (item as any).stock = stockMap.get(item.id) || 0;
+          (item as any).availableLocations = Array.from(otherWarehousesMap.get(item.id) || []);
         }
-      }
-      
-      for (const item of items) {
-        (item as any).stock = stockMap.get(item.id) || 0;
-        (item as any).availableLocations = Array.from(locationsMap.get(item.id) || []);
+      } else {
+        const allStocks = await prisma.erpBranchStock.findMany({
+          where: { productId: { in: pIds } },
+          include: { branch: { select: { name: true } } }
+        });
+        
+        const stockMap = new Map();
+        const locationsMap = new Map();
+
+        for (const bs of allStocks) {
+          if (!branchFilter.branchId || branchFilter.branchId === bs.branchId) {
+            stockMap.set(bs.productId, (stockMap.get(bs.productId) || 0) + Number(bs.quantity));
+          }
+          if (Number(bs.quantity) > 0 && bs.branch) {
+            const locs = locationsMap.get(bs.productId) || new Set();
+            locs.add(bs.branch.name);
+            locationsMap.set(bs.productId, locs);
+          }
+        }
+        
+        for (const item of items) {
+          (item as any).stock = stockMap.get(item.id) || 0;
+          (item as any).availableLocations = Array.from(locationsMap.get(item.id) || []);
+        }
       }
     }
 

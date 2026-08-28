@@ -327,7 +327,8 @@ export default function DispatchNotesPage() {
               <div className="col-span-2"><span className="font-medium text-slate-600">Branch:</span> {voucherData.branch || '—'}</div>
             </div>
             <Separator />
-            <table className="w-full mt-4 text-sm border-collapse">
+            <div className="overflow-x-auto mt-4">
+            <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b-2 border-slate-800">
                   <th className="text-left py-2 font-bold uppercase text-slate-800">Items</th>
@@ -349,6 +350,7 @@ export default function DispatchNotesPage() {
                 ))}
               </tbody>
             </table>
+            </div>
             {voucherData.notes && (
               <p className="mt-4 text-sm text-slate-600"><span className="font-medium">Notes:</span> {voucherData.notes}</p>
             )}

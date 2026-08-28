@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   if (type && type !== 'all') where.type = type;
   
   if (search) {
-    where.name = { contains: search, mode: 'insensitive' };
+    where.name = { contains: search };
   }
 
   const [items, total] = await Promise.all([

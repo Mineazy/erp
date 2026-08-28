@@ -10,9 +10,10 @@ interface DialogProps {
   children: React.ReactNode;
   className?: string;
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | 'full';
+  bounded?: boolean;
 }
 
-export function Dialog({ open, onClose, title, description, children, className, size = 'md' }: DialogProps) {
+export function Dialog({ open, onClose, title, description, children, className, size = 'md', bounded = false }: DialogProps) {
   const ref = React.useRef<HTMLDivElement>(null);
   const onCloseRef = React.useRef(onClose);
   onCloseRef.current = onClose;
@@ -20,6 +21,8 @@ export function Dialog({ open, onClose, title, description, children, className,
   React.useEffect(() => {
     if (!open) return;
     function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Element;
+      if (target && target.closest?.('[data-dialog-ignore]')) return;
       if (ref.current && !ref.current.contains(event.target as Node)) {
         onCloseRef.current();
       }
@@ -39,25 +42,32 @@ export function Dialog({ open, onClose, title, description, children, className,
 
   if (!open) return null;
 
+  const isFull = size === 'full';
   const sizeClasses: Record<string, string> = {
-    sm: 'max-w-sm',
-    md: 'max-w-md',
-    lg: 'max-w-lg',
-    xl: 'max-w-xl',
-    '2xl': 'max-w-2xl',
-    '3xl': 'max-w-3xl',
-    '4xl': 'max-w-4xl',
-    '5xl': 'max-w-5xl',
-    full: 'max-w-full',
+    sm: 'w-full sm:max-w-sm',
+    md: 'w-full sm:max-w-md',
+    lg: 'w-full sm:max-w-lg',
+    xl: 'w-full sm:max-w-xl',
+    '2xl': 'w-full sm:max-w-2xl',
+    '3xl': 'w-full sm:max-w-3xl',
+    '4xl': 'w-full sm:max-w-4xl',
+    '5xl': 'w-full sm:max-w-5xl',
+    full: 'w-full',
   };
 
+  const frameStyle = bounded
+    ? { left: 'var(--frame-left, 0px)', top: 'var(--frame-top, 0px)' }
+    : undefined;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/50" />
+    <div className={cn('fixed inset-0 z-50 flex justify-center', isFull ? 'items-stretch' : 'items-end sm:items-center')} style={frameStyle}>
+      <div className="fixed inset-0 bg-black/50" style={bounded ? { left: 'var(--frame-left, 0px)', top: 'var(--frame-top, 0px)' } : undefined} />
       <div
         ref={ref}
         className={cn(
-          'relative z-50 w-[92%] sm:w-full max-h-[90vh] overflow-y-auto rounded-lg border border-slate-200 bg-white p-6 shadow-lg',
+          isFull
+            ? 'relative z-50 h-full w-full overflow-y-auto bg-white p-5 sm:p-6 shadow-lg'
+            : 'relative z-50 max-h-[92dvh] overflow-y-auto rounded-t-2xl sm:rounded-lg border border-slate-200 bg-white p-5 sm:p-6 shadow-lg sm:max-h-[90vh]',
           sizeClasses[size],
           className
         )}

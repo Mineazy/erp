@@ -6,7 +6,12 @@ export default async function Home() {
   const session = await getServerSession(authOptions);
 
   if (session) {
-    redirect('/dashboard');
+    const role = (session.user as any)?.role;
+    if (role === 'fuel_attendant') {
+      redirect('/fleet/attendant');
+    } else {
+      redirect('/dashboard');
+    }
   } else {
     redirect('/login');
   }

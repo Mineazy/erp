@@ -1,17 +1,38 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSession, unauthorized, badRequest, ok, getBody } from '@/lib/api';
+import { getSession, unauthorized, forbidden, badRequest, ok, getBody } from '@/lib/api';
+
+const APPROVER_ROLES = ['admin', 'treasurer', 'finance_manager'];
+
+function isApproverRole(role?: string | null): boolean {
+  return APPROVER_ROLES.includes((role || '').toLowerCase());
+}
 
 export async function GET(request: NextRequest) {
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const requisitions = await prisma.erpFuelRequisition.findMany({
-    orderBy: { createdAt: 'desc' },
-    include: { vehicle: true }
-  });
+  const user = session.user as any;
+  const role = user?.role as string | undefined;
 
-  return ok(requisitions);
+  try {
+    // Regular users only see requisitions they submitted. Approvers & Admins
+    // see every submission regardless of approval stage.
+    const requisitions = await prisma.erpFuelRequisition.findMany({
+      where: isApproverRole(role) ? {} : { userId: user?.id || undefined },
+      orderBy: { createdAt: 'desc' },
+      include: { vehicle: true }
+    });
+
+    return ok(requisitions);
+  } catch (error) {
+    // Fallback: return all requisitions if filtering fails
+    const requisitions = await prisma.erpFuelRequisition.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: { vehicle: true }
+    });
+    return ok(requisitions);
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -22,22 +43,56 @@ export async function POST(request: NextRequest) {
   const { action, vehicleId, litersRequested, purpose, requisitionId } = body;
   const currentUserId = (session.user as any)?.id || 'system';
   const currentUserName = session.user?.name || 'Administrator';
+  const currentRole = ((session.user as any)?.role || '') as string;
+  const isAdmin = currentRole.toLowerCase() === 'admin';
 
   if (action === 'create') {
-    const { fuelType, gasStation, currentOdometer, driverName, branch, destination } = body;
-    if (!vehicleId || !litersRequested || !purpose || !fuelType) {
-      return badRequest('Vehicle, liters requested, purpose, and fuel type are required');
+    const { fuelType, gasStation, currentOdometer, driverName, branch, destination, customVehicle } = body;
+    if (!litersRequested || !purpose || !fuelType) {
+      return badRequest('Liters requested, purpose, and fuel type are required');
     }
     if (!currentOdometer || !driverName || !branch || !destination) {
       return badRequest('Driver name, branch, destination, and current odometer reading are required');
     }
 
-    const vehicle = await prisma.erpVehicle.findUnique({ where: { id: vehicleId } });
+    let finalVehicleId = vehicleId;
+
+    // Handle custom vehicle - create it first
+    if (!vehicleId && customVehicle) {
+      const { plateNumber, make, model } = customVehicle;
+      if (!plateNumber || !make || !model) {
+        return badRequest('Custom vehicle requires plate number, make, and model');
+      }
+      try {
+        const newVehicle = await prisma.erpVehicle.create({
+          data: {
+            plateNumber,
+            make,
+            model,
+            type: 'heavy_truck',
+            status: 'active',
+            assignedDriver: driverName,
+            currentOdometer: Number(currentOdometer || 0),
+            latitude: -17.8251,
+            longitude: 31.0531,
+            speed: 0.0,
+            lastPing: new Date()
+          }
+        });
+        finalVehicleId = newVehicle.id;
+      } catch (err: any) {
+        return badRequest(err.message || 'Failed to create custom vehicle');
+      }
+    }
+
+    if (!finalVehicleId) return badRequest('Vehicle is required');
+
+    const vehicle = await prisma.erpVehicle.findUnique({ where: { id: finalVehicleId } });
     if (!vehicle) return badRequest('Vehicle not found');
 
     const req = await prisma.erpFuelRequisition.create({
       data: {
-        vehicleId,
+        vehicleId: finalVehicleId,
         userId: currentUserId,
         userName: currentUserName,
         fuelType,
@@ -56,6 +111,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (action === 'approve_treasurer') {
+    if (!isAdmin && currentRole.toLowerCase() !== 'treasurer') return forbidden('Only a Treasurer or Admin can approve at this stage');
     if (!requisitionId) return badRequest('Requisition ID is required');
 
     const req = await prisma.erpFuelRequisition.findUnique({ where: { id: requisitionId } });
@@ -75,6 +131,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (action === 'approve_finance') {
+    if (!isAdmin && currentRole.toLowerCase() !== 'finance_manager') return forbidden('Only a Finance Manager or Admin can approve at this stage');
     if (!requisitionId) return badRequest('Requisition ID is required');
 
     const req = (await prisma.erpFuelRequisition.findUnique({
@@ -86,41 +143,13 @@ export async function POST(request: NextRequest) {
       return badRequest('Requisition must be approved by Treasurer first');
     }
 
-    // Fetch prepaid fuel balance matching the selected fuelType
-    const fuelType = req.fuelType || 'Diesel';
-    const fuel = await prisma.erpPrepaidFuel.findFirst({ where: { fuelType } });
-    if (!fuel) return badRequest(`Prepaid fuel reserves not configured for type ${fuelType}`);
-
-    const requestedLiters = Number(req.litersRequested);
-    if (Number(fuel.balanceLiters) < requestedLiters) {
-      return badRequest(`Insufficient prepaid fuel reserves in accounts. Available: ${fuel.balanceLiters}L`);
-    }
-
-    // Deduct liters from prepaid fuel balance
-    await prisma.erpPrepaidFuel.update({
-      where: { id: fuel.id },
-      data: { balanceLiters: Number(fuel.balanceLiters) - requestedLiters }
-    });
-
-    // Write usage log
-    await prisma.erpPrepaidFuelLog.create({
-      data: {
-        fuelType,
-        action: 'USAGE',
-        quantity: requestedLiters,
-        pricePerLiter: fuel.currentPricePerLiter,
-        amount: requestedLiters * Number(fuel.currentPricePerLiter),
-        notes: `Fueled vehicle ${req.vehicle.plateNumber} via Requisition #${req.id.slice(0, 8)}`
-      }
-    });
-
     // Generate 6-digit barcoded token & QR Code URL pointing to public verification page
     const redeemToken = Math.floor(100000 + Math.random() * 900000).toString();
     const baseUrl = (process.env.NEXTAUTH_URL || 'https://mineazy.com').replace(/\/$/, '');
     const verifyUrl = `${baseUrl}/verify/fuel?id=${req.id}&token=${encodeURIComponent(redeemToken)}`;
     const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(verifyUrl)}`;
 
-    // Update requisition status to approved
+    // Update requisition status to approved (prepaid deduction happens at dispatch/redemption time)
     const updated = await prisma.erpFuelRequisition.update({
       where: { id: requisitionId },
       data: {
@@ -133,30 +162,74 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Automatically log a Fuel Record for the vehicle
-    await prisma.erpFuelRecord.create({
+    return ok(updated);
+  }
+
+  if (action === 'reject') {
+    if (!isAdmin && !['treasurer', 'finance_manager'].includes(currentRole.toLowerCase())) return forbidden('Only an approver or Admin can reject a requisition');
+    if (!requisitionId) return badRequest('Requisition ID is required');
+
+    const reason = body.reason as string | undefined;
+
+    const updated = await prisma.erpFuelRequisition.update({
+      where: { id: requisitionId },
       data: {
-        vehicleId: req.vehicleId,
-        refuelDate: new Date(),
-        quantity: requestedLiters,
-        unitCost: fuel.currentPricePerLiter,
-        totalCost: requestedLiters * Number(fuel.currentPricePerLiter),
-        fuelType,
-        notes: `Approved by Treasurer (${req.treasurerApprovedBy}) & Finance Manager (${currentUserName}). Token: ${redeemToken}`
+        status: 'REJECTED',
+        approvedBy: currentUserName,
+        ...(reason && { notes: reason })
       }
     });
 
     return ok(updated);
   }
 
-  if (action === 'reject') {
+  if (action === 'edit') {
+    if (!isApproverRole(currentRole)) return forbidden('Only an approver or Admin can edit a requisition');
     if (!requisitionId) return badRequest('Requisition ID is required');
+
+    const req = await prisma.erpFuelRequisition.findUnique({ where: { id: requisitionId } });
+    if (!req) return badRequest('Requisition not found');
+    if (req.status === 'APPROVED' || req.status === 'REJECTED' || req.status === 'CANCELLED' || req.status === 'DISPENSED') {
+      return badRequest('Cannot edit a requisition that is already approved, dispensed, rejected, or cancelled');
+    }
+
+    const { fuelType: ft, gasStation: gs, currentOdometer: co, driverName: dn, branch: br, destination: dest, litersRequested: lr, purpose: pur, vehicleId: vid } = body;
 
     const updated = await prisma.erpFuelRequisition.update({
       where: { id: requisitionId },
       data: {
-        status: 'REJECTED',
-        approvedBy: currentUserName
+        ...(vid && { vehicleId: vid }),
+        ...(ft && { fuelType: ft }),
+        ...(lr && { litersRequested: Number(lr) }),
+        ...(pur && { purpose: pur }),
+        ...(gs && { gasStation: gs }),
+        ...(co !== undefined && { currentOdometer: Number(co) }),
+        ...(dn && { driverName: dn }),
+        ...(br && { branch: br }),
+        ...(dest && { destination: dest }),
+      }
+    });
+
+    return ok(updated);
+  }
+
+  if (action === 'cancel') {
+    if (!isApproverRole(currentRole)) return forbidden('Only an approver or Admin can cancel a requisition');
+    if (!requisitionId) return badRequest('Requisition ID is required');
+
+    const req = await prisma.erpFuelRequisition.findUnique({ where: { id: requisitionId } });
+    if (!req) return badRequest('Requisition not found');
+    if (req.status === 'APPROVED' || req.status === 'DISPENSED') return badRequest('Cannot cancel a requisition that has already been approved or dispensed');
+    if (req.status === 'REJECTED' || req.status === 'CANCELLED') return badRequest('Requisition is already rejected or cancelled');
+
+    const reason = body.reason as string | undefined;
+
+    const updated = await prisma.erpFuelRequisition.update({
+      where: { id: requisitionId },
+      data: {
+        status: 'CANCELLED',
+        approvedBy: currentUserName,
+        ...(reason && { notes: reason })
       }
     });
 

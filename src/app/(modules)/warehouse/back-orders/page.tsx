@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
-import { AlertTriangle, Upload, Plus, Search, FileSpreadsheet, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, Upload, Plus, Search, FileSpreadsheet, CheckCircle2, Send, Warehouse, ShoppingCart, ClipboardCheck, Package, Truck, Clock } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import Link from 'next/link';
 
@@ -17,6 +17,11 @@ interface BackOrder {
   orderNumber: string;
   branch: { name: string };
   status: string;
+  stage: string;
+  customerName?: string | null;
+  urgency: string;
+  targetDate?: string | null;
+  activities: Array<{ id: string; action: string; createdAt: string }>;
   lines: Array<{
     id: string;
     productName: string;
@@ -31,6 +36,7 @@ export default function BackOrdersPage() {
   const [data, setData] = useState<BackOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [stageFilter, setStageFilter] = useState('');
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadData, setUploadData] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -38,7 +44,10 @@ export default function BackOrdersPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/warehouse/back-orders?search=${search}`);
+      const params = new URLSearchParams();
+      if (search) params.set('search', search);
+      if (stageFilter) params.set('stage', stageFilter);
+      const res = await fetch(`/api/warehouse/back-orders?${params}`);
       if (res.ok) {
         setData(await res.json());
       }
@@ -49,7 +58,7 @@ export default function BackOrdersPage() {
     }
   };
 
-  useEffect(() => { fetchData(); }, [search]);
+  useEffect(() => { fetchData(); }, [search, stageFilter]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -113,6 +122,28 @@ export default function BackOrdersPage() {
     }
   };
 
+  const STAGE_CONFIG: Record<string, { label: string; icon: any; color: string; bg: string }> = {
+    submitted: { label: 'Submitted', icon: Send, color: 'text-blue-700', bg: 'bg-blue-50' },
+    warehouse_review: { label: 'Warehouse Review', icon: Warehouse, color: 'text-indigo-700', bg: 'bg-indigo-50' },
+    procurement_needed: { label: 'Procurement Needed', icon: AlertTriangle, color: 'text-amber-700', bg: 'bg-amber-50' },
+    requisition_created: { label: 'Requisition', icon: ClipboardCheck, color: 'text-orange-700', bg: 'bg-orange-50' },
+    po_created: { label: 'PO Issued', icon: ShoppingCart, color: 'text-purple-700', bg: 'bg-purple-50' },
+    goods_received: { label: 'Goods Received', icon: Truck, color: 'text-teal-700', bg: 'bg-teal-50' },
+    allocation: { label: 'Ready to Allocate', icon: Package, color: 'text-emerald-700', bg: 'bg-emerald-50' },
+    dispatched: { label: 'Dispatched', icon: Send, color: 'text-cyan-700', bg: 'bg-cyan-50' },
+    closed: { label: 'Closed', icon: CheckCircle2, color: 'text-slate-700', bg: 'bg-slate-100' },
+  };
+
+  const getStageBadge = (stage: string) => {
+    const cfg = STAGE_CONFIG[stage] || { label: stage, icon: Clock, color: 'text-slate-600', bg: 'bg-slate-50' };
+    const Icon = cfg.icon;
+    return (
+      <Badge variant="outline" className={`${cfg.bg} ${cfg.color} border-current`}>
+        <Icon className="h-3 w-3 mr-1" />{cfg.label}
+      </Badge>
+    );
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'draft': return <Badge variant="secondary">Draft</Badge>;
@@ -153,9 +184,15 @@ export default function BackOrdersPage() {
               <AlertTriangle className="h-5 w-5 text-amber-600" />
               Active Back Orders
             </CardTitle>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <input type="text" placeholder="Search orders..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-mine-blue-500 w-64" />
+            <div className="flex items-center gap-3">
+              <select value={stageFilter} onChange={e => setStageFilter(e.target.value)} className="px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-mine-blue-500 bg-white">
+                <option value="">All Stages</option>
+                {Object.entries(STAGE_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </select>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input type="text" placeholder="Search orders..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-mine-blue-500 w-64" />
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -165,6 +202,7 @@ export default function BackOrdersPage() {
               <TableRow>
                 <TableHead>Order #</TableHead>
                 <TableHead>Branch</TableHead>
+                <TableHead>Stage</TableHead>
                 <TableHead>Items</TableHead>
                 <TableHead>Fulfillment</TableHead>
                 <TableHead>Status</TableHead>
@@ -174,7 +212,7 @@ export default function BackOrdersPage() {
             <TableBody>
               {data.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-slate-500 py-8">
+                  <TableCell colSpan={7} className="text-center text-slate-500 py-8">
                     No back orders found
                   </TableCell>
                 </TableRow>
@@ -188,6 +226,7 @@ export default function BackOrdersPage() {
                     <TableRow key={order.id}>
                       <TableCell className="font-mono text-xs">{order.orderNumber}</TableCell>
                       <TableCell className="font-medium">{order.branch?.name || 'Unknown'}</TableCell>
+                      <TableCell>{getStageBadge(order.stage)}</TableCell>
                       <TableCell>{order.lines.length} products</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">

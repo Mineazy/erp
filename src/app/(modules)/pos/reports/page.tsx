@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { FileText, Download, Search, ShoppingCart, DollarSign, Calendar, Landmark, Percent } from 'lucide-react';
+import { FileText, Download, Search, ShoppingCart, DollarSign, Calendar, Landmark, Percent, AlertTriangle, Truck } from 'lucide-react';
 import { useReportExport } from '@/hooks/use-report-export';
 
 interface ReportOption {
@@ -49,6 +49,8 @@ export default function POSReportsPage() {
     { name: 'Cashier Sessions Audit Log', type: 'cashier_sessions', icon: ShoppingCart, desc: 'Start/end times, opening balances, and short/over discrepancies', category: 'Sessions' },
     { name: 'POS Payment Methods Split', type: 'payment_splits', icon: DollarSign, desc: 'Revenue split by cash, card, mobile wallet, and loyalty credits', category: 'Finance' },
     { name: 'Multi-Currency POS Revenue', type: 'multicurrency_revenue', icon: Landmark, desc: 'Sales totals collected in USD, ZiG, and ZAR RSA Rand', category: 'Finance' },
+    { name: 'Cashier Variances Report', type: 'variances', icon: AlertTriangle, desc: 'Cashier cash shortages and overages across all sessions', category: 'Reconciliation' },
+    { name: 'Branch Orders Report', type: 'branch_orders', icon: Truck, desc: 'Stock orders placed by branches with status and quantities', category: 'Inventory' },
   ];
 
   const filteredReports = reportsList.filter(r =>
@@ -179,7 +181,7 @@ export default function POSReportsPage() {
                       {report.name}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={report.category === 'Reconciliation' ? 'warning' : report.category === 'Sessions' ? 'success' : 'secondary'}>{report.category}</Badge>
+                      <Badge variant={report.category === 'Reconciliation' ? 'warning' : report.category === 'Sessions' ? 'success' : report.category === 'Inventory' ? 'secondary' : 'secondary'}>{report.category}</Badge>
                     </TableCell>
                     <TableCell className="text-xs text-slate-500">{report.desc}</TableCell>
                     <TableCell className="text-right">

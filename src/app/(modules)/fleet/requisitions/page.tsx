@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +12,7 @@ import { useReportExport } from '@/hooks/use-report-export';
 
 import { ClipboardList, Plus, Check, X, QrCode, Printer, Download, Eye, Fuel, CheckCircle, Clock, Search, Filter, MoreVertical, Building, MapPin, CheckSquare, Settings2, Trash2 } from 'lucide-react';
 import { useNetwork } from '@/lib/hooks/use-network';
-import { cacheData, getCachedData, saveOfflineTransaction } from '@/lib/db';
+import { cacheData, getCachedData, saveOfflineTransaction, saveSessionToIdb, loadSessionFromIdb } from '@/lib/db';
 import jsPDF from 'jspdf';
 
 interface Vehicle {
@@ -19,6 +20,7 @@ interface Vehicle {
   plateNumber: string;
   make: string;
   model: string;
+  assignedDriver?: string;
 }
 
 interface Requisition {
@@ -43,6 +45,11 @@ interface Requisition {
   branch?: string | null;
   destination?: string | null;
   currentOdometer?: number | string | null;
+  notes?: string | null;
+  redeemedAt?: string | null;
+  redeemedBy?: string | null;
+  dispensedQuantity?: number | string | null;
+  drawdownVoucherNo?: string | null;
   createdAt: string;
 }
 
@@ -131,13 +138,14 @@ const drawTokenBarcode = (doc: jsPDF, value: string, x: number, y: number, unit:
 };
 
 export default function FleetRequisitionsPage() {
+  const { data: sessionData } = useSession();
   const { isOnline } = useNetwork();
   const { triggerExport, ExportDialog } = useReportExport();
+  const [activeVoucher, setActiveVoucher] = useState<Requisition | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ id?: string; email?: string; role?: string; name?: string } | null>(null);
   const [requisitions, setRequisitions] = useState<Requisition[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeVoucher, setActiveVoucher] = useState<Requisition | null>(null);
-  const [currentUser, setCurrentUser] = useState<{ id?: string; email?: string; role?: string; name?: string } | null>(null);
 
   // Form states
   const [selectedVehicle, setSelectedVehicle] = useState('');
@@ -149,6 +157,45 @@ export default function FleetRequisitionsPage() {
   const [driverName, setDriverName] = useState('');
   const [branch, setBranch] = useState('');
   const [destination, setDestination] = useState('');
+  // Custom vehicle fields
+  const [customPlate, setCustomPlate] = useState('');
+  const [customMake, setCustomMake] = useState('');
+  const [customModel, setCustomModel] = useState('');
+  // Driver dropdown
+  const [driverInputValue, setDriverInputValue] = useState('');
+  const [showDriverDropdown, setShowDriverDropdown] = useState(false);
+
+  // Edit dialog state
+  const [editingRequisition, setEditingRequisition] = useState<Requisition | null>(null);
+  const [editVehicleId, setEditVehicleId] = useState('');
+  const [editFuelType, setEditFuelType] = useState('Diesel');
+  const [editGasStation, setEditGasStation] = useState('Glow Petroleum');
+  const [editRequestedLiters, setEditRequestedLiters] = useState('');
+  const [editPurpose, setEditPurpose] = useState('');
+  const [editOdometer, setEditOdometer] = useState('');
+  const [editDriverName, setEditDriverName] = useState('');
+  const [editBranch, setEditBranch] = useState('');
+  const [editDestination, setEditDestination] = useState('');
+
+  // View detail modal state
+  const [viewingRequisition, setViewingRequisition] = useState<Requisition | null>(null);
+
+  // Reason modal state (for reject/cancel)
+  const [reasonModalOpen, setReasonModalOpen] = useState(false);
+  const [reasonAction, setReasonAction] = useState<'reject' | 'cancel'>('reject');
+  const [reasonTargetId, setReasonTargetId] = useState('');
+  const [reasonText, setReasonText] = useState('');
+
+  // Search, filter, and pagination state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterVehicle, setFilterVehicle] = useState('');
+  const [filterFuelType, setFilterFuelType] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const fetchData = async () => {
     try {
@@ -184,23 +231,45 @@ export default function FleetRequisitionsPage() {
     fetchData();
   }, []);
 
+  // Derive currentUser from NextAuth session
   useEffect(() => {
-    fetch('/api/auth/session')
-      .then((r) => r.json())
-      .then((s) => setCurrentUser(s?.user || null))
-      .catch(() => setCurrentUser(null));
-  }, []);
+    if (sessionData?.user) {
+      setCurrentUser(sessionData.user as any);
+      saveSessionToIdb(sessionData.user);
+    } else if (!isOnline) {
+      loadSessionFromIdb().then((cached) => {
+        if (cached?.isActive) setCurrentUser(cached);
+      });
+    } else {
+      setCurrentUser(null);
+    }
+  }, [sessionData, isOnline]);
+
+  // Unique drivers from fleet registry
+  const uniqueDrivers = Array.from(new Set(vehicles.map(v => v.assignedDriver).filter(Boolean))) as string[];
+  const filteredDrivers = driverInputValue
+    ? uniqueDrivers.filter(d => d.toLowerCase().includes(driverInputValue.toLowerCase()))
+    : uniqueDrivers;
 
   const handleCreateRequisition = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedVehicle || !requestedLiters || !reqPurpose || !fuelType || !currentOdometer || !driverName || !branch || !destination) {
+    if (!requestedLiters || !reqPurpose || !fuelType || !currentOdometer || !driverName || !branch || !destination) {
       toast('Please complete all form fields', 'warning');
+      return;
+    }
+    if (selectedVehicle === 'custom' && (!customPlate || !customMake || !customModel)) {
+      toast('Please enter plate number, make, and model for custom vehicle', 'warning');
+      return;
+    }
+    if (selectedVehicle !== 'custom' && !selectedVehicle) {
+      toast('Please select a vehicle', 'warning');
       return;
     }
     
     const payload = {
       action: 'create',
-      vehicleId: selectedVehicle,
+      vehicleId: selectedVehicle === 'custom' ? undefined : selectedVehicle,
+      customVehicle: selectedVehicle === 'custom' ? { plateNumber: customPlate, make: customMake, model: customModel } : undefined,
       fuelType,
       gasStation,
       litersRequested: Number(requestedLiters),
@@ -217,7 +286,8 @@ export default function FleetRequisitionsPage() {
           id: crypto.randomUUID(),
           type: 'fleet_requisition',
           payload,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          status: 'pending'
         });
         toast('Offline fuel requisition saved locally', 'success');
         
@@ -247,6 +317,10 @@ export default function FleetRequisitionsPage() {
         setReqPurpose('');
         setCurrentOdometer('');
         setDriverName('');
+        setDriverInputValue('');
+        setCustomPlate('');
+        setCustomMake('');
+        setCustomModel('');
         setBranch('');
         setDestination('');
       } catch {
@@ -268,6 +342,10 @@ export default function FleetRequisitionsPage() {
         setReqPurpose('');
         setCurrentOdometer('');
         setDriverName('');
+        setDriverInputValue('');
+        setCustomPlate('');
+        setCustomMake('');
+        setCustomModel('');
         setBranch('');
         setDestination('');
         fetchData();
@@ -308,11 +386,167 @@ export default function FleetRequisitionsPage() {
     }
   };
 
+  const openEditDialog = (req: Requisition) => {
+    setEditingRequisition(req);
+    setEditVehicleId(req.vehicleId);
+    setEditFuelType(req.fuelType);
+    setEditGasStation(req.gasStation || 'Glow Petroleum');
+    setEditRequestedLiters(String(req.litersRequested));
+    setEditPurpose(req.purpose);
+    setEditOdometer(req.currentOdometer ? String(req.currentOdometer) : '');
+    setEditDriverName(req.driverName || '');
+    setEditBranch(req.branch || '');
+    setEditDestination(req.destination || '');
+  };
+
+  const handleEditRequisition = async () => {
+    if (!editingRequisition) return;
+    if (!editVehicleId || !editRequestedLiters || !editPurpose || !editFuelType || !editOdometer || !editDriverName || !editBranch || !editDestination) {
+      toast('All fields are required', 'warning');
+      return;
+    }
+    try {
+      const res = await fetch('/api/fleet/requisitions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'edit',
+          requisitionId: editingRequisition.id,
+          vehicleId: editVehicleId,
+          fuelType: editFuelType,
+          gasStation: editGasStation,
+          litersRequested: Number(editRequestedLiters),
+          purpose: editPurpose,
+          currentOdometer: Number(editOdometer),
+          driverName: editDriverName,
+          branch: editBranch,
+          destination: editDestination
+        })
+      });
+      if (res.ok) {
+        toast('Requisition updated successfully', 'success');
+        setEditingRequisition(null);
+        fetchData();
+      } else {
+        const err = await res.json().catch(() => ({ error: 'Failed to update' }));
+        toast(err.error || 'Failed to update requisition', 'error');
+      }
+    } catch {
+      toast('Connection error', 'error');
+    }
+  };
+
+  const handleCancelRequisition = async (id: string, reason?: string) => {
+    try {
+      const res = await fetch('/api/fleet/requisitions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'cancel', requisitionId: id, reason: reason || undefined })
+      });
+      if (res.ok) {
+        toast('Requisition cancelled', 'success');
+        fetchData();
+      } else {
+        const err = await res.json().catch(() => ({ error: 'Failed to cancel' }));
+        toast(err.error || 'Failed to cancel requisition', 'error');
+      }
+    } catch {
+      toast('Connection error', 'error');
+    }
+  };
+
+  const handleReasonConfirm = async () => {
+    if (reasonAction === 'reject') {
+      try {
+        const res = await fetch('/api/fleet/requisitions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'reject', requisitionId: reasonTargetId, reason: reasonText || undefined })
+        });
+        if (res.ok) {
+          toast('Requisition rejected', 'success');
+          setReasonModalOpen(false);
+          setReasonText('');
+          fetchData();
+        } else {
+          const err = await res.json().catch(() => ({ error: 'Failed to reject' }));
+          toast(err.error || 'Failed to reject requisition', 'error');
+        }
+      } catch {
+        toast('Connection error', 'error');
+      }
+    } else if (reasonAction === 'cancel') {
+      await handleCancelRequisition(reasonTargetId, reasonText);
+      setReasonModalOpen(false);
+      setReasonText('');
+    }
+  };
+
+  const role = currentUser?.role?.toLowerCase();
+  const isAdmin = role === 'admin';
+  const isApprover = isAdmin || role === 'treasurer' || role === 'finance_manager';
+  const canApproveTreasurer = isAdmin || role === 'treasurer';
+  const canApproveFinance = isAdmin || role === 'finance_manager';
+  const visibleRequisitions = isApprover || !currentUser
+    ? requisitions
+    : requisitions.filter(r => r.userId === currentUser.id || r.userId === currentUser.email);
+
+  // Apply search and filters
+  const filteredRequisitions = visibleRequisitions.filter(r => {
+    // Search query
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const match =
+        r.vehicle.plateNumber.toLowerCase().includes(q) ||
+        r.userName.toLowerCase().includes(q) ||
+        r.driverName?.toLowerCase().includes(q) ||
+        r.purpose?.toLowerCase().includes(q) ||
+        r.gasStation?.toLowerCase().includes(q) ||
+        r.branch?.toLowerCase().includes(q) ||
+        r.destination?.toLowerCase().includes(q);
+      if (!match) return false;
+    }
+    // Vehicle filter
+    if (filterVehicle && r.vehicleId !== filterVehicle) return false;
+    // Fuel type filter
+    if (filterFuelType && r.fuelType !== filterFuelType) return false;
+    // Status filter
+    if (filterStatus && r.status !== filterStatus) return false;
+    // Date range filter
+    if (filterDateFrom) {
+      const from = new Date(filterDateFrom);
+      if (new Date(r.createdAt) < from) return false;
+    }
+    if (filterDateTo) {
+      const to = new Date(filterDateTo);
+      to.setHours(23, 59, 59, 999);
+      if (new Date(r.createdAt) > to) return false;
+    }
+    return true;
+  });
+
+  const totalPages = Math.ceil(filteredRequisitions.length / pageSize);
+  const paginatedRequisitions = filteredRequisitions.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
+  const activeFilterCount = [filterVehicle, filterFuelType, filterStatus, filterDateFrom, filterDateTo].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setFilterVehicle('');
+    setFilterFuelType('');
+    setFilterStatus('');
+    setFilterDateFrom('');
+    setFilterDateTo('');
+    setCurrentPage(1);
+  };
+
   const canDownload = (req: Requisition) => {
     if (!currentUser) return false;
-    const isRequestor = req.userId === currentUser.id || req.userId === currentUser.email;
-    const isTreasurer = currentUser.role === 'treasurer';
-    return isRequestor || isTreasurer;
+    const role = currentUser.role?.toLowerCase();
+    return role === 'treasurer' || role === 'admin';
   };
 
   const handleDownloadPDF = async (req: Requisition) => {
@@ -528,8 +762,12 @@ export default function FleetRequisitionsPage() {
         return <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-200">Awaiting Finance Manager (Final)</Badge>;
       case 'APPROVED':
         return <Badge variant="success">Approved & Issued</Badge>;
+      case 'DISPENSED':
+        return <Badge variant="success" className="bg-emerald-100 text-emerald-800">Fuel Dispensed</Badge>;
       case 'REJECTED':
         return <Badge variant="destructive">Rejected</Badge>;
+      case 'CANCELLED':
+        return <Badge variant="destructive">Cancelled</Badge>;
       default:
         return <Badge>{status}</Badge>;
     }
@@ -550,7 +788,91 @@ export default function FleetRequisitionsPage() {
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader className="pb-3 border-b border-slate-100">
-              <CardTitle className="text-lg">Requisition Registry & Approvals</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Requisition Registry & Approvals</CardTitle>
+                <div className="flex items-center gap-2">
+                  {activeFilterCount > 0 && (
+                    <Button variant="outline" size="sm" onClick={clearFilters} className="text-xs h-8 gap-1">
+                      <X className="h-3.5 w-3.5" />
+                      Clear ({activeFilterCount})
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={`text-xs h-8 gap-1 ${showFilters ? 'bg-mine-blue-50 text-mine-blue-700 border-mine-blue-200' : ''}`}
+                  >
+                    <Filter className="h-3.5 w-3.5" />
+                    Filters
+                    {activeFilterCount > 0 && (
+                      <span className="ml-1 bg-mine-blue-600 text-white rounded-full w-4 h-4 text-[10px] flex items-center justify-center">{activeFilterCount}</span>
+                    )}
+                  </Button>
+                </div>
+              </div>
+              {/* Search bar */}
+              <div className="mt-3 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search by plate, requestor, driver, purpose, branch..."
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
+                />
+              </div>
+              {/* Filter row */}
+              {showFilters && (
+                <div className="mt-3 grid grid-cols-2 md:grid-cols-5 gap-2">
+                  <select
+                    value={filterVehicle}
+                    onChange={(e) => { setFilterVehicle(e.target.value); setCurrentPage(1); }}
+                    className="text-xs border border-slate-200 rounded-md px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-mine-blue-500"
+                  >
+                    <option value="">All Vehicles</option>
+                    {vehicles.map(v => (
+                      <option key={v.id} value={v.id}>{v.plateNumber}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={filterFuelType}
+                    onChange={(e) => { setFilterFuelType(e.target.value); setCurrentPage(1); }}
+                    className="text-xs border border-slate-200 rounded-md px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-mine-blue-500"
+                  >
+                    <option value="">All Fuel Types</option>
+                    <option value="Diesel">Diesel</option>
+                    <option value="Petrol">Petrol</option>
+                  </select>
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
+                    className="text-xs border border-slate-200 rounded-md px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-mine-blue-500"
+                  >
+                    <option value="">All Statuses</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="TREASURER_APPROVED">Treasurer Approved</option>
+                    <option value="APPROVED">Approved</option>
+                    <option value="DISPENSED">Dispensed</option>
+                    <option value="REJECTED">Rejected</option>
+                    <option value="CANCELLED">Cancelled</option>
+                  </select>
+                  <input
+                    type="date"
+                    value={filterDateFrom}
+                    onChange={(e) => { setFilterDateFrom(e.target.value); setCurrentPage(1); }}
+                    placeholder="Date From"
+                    className="text-xs border border-slate-200 rounded-md px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-mine-blue-500"
+                  />
+                  <input
+                    type="date"
+                    value={filterDateTo}
+                    onChange={(e) => { setFilterDateTo(e.target.value); setCurrentPage(1); }}
+                    placeholder="Date To"
+                    className="text-xs border border-slate-200 rounded-md px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-mine-blue-500"
+                  />
+                </div>
+              )}
             </CardHeader>
             <CardContent className="p-0">
               <Table>
@@ -566,7 +888,7 @@ export default function FleetRequisitionsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {requisitions.map((r) => (
+                  {paginatedRequisitions.map((r) => (
                     <TableRow key={r.id}>
                       <TableCell className="text-slate-500 font-mono text-xs">
                         {new Date(r.createdAt).toLocaleString()}
@@ -587,91 +909,108 @@ export default function FleetRequisitionsPage() {
                       <TableCell>{getStatusBadge(r.status)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          {r.status === 'PENDING' && (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleProcessRequisition(r.id, 'approve_treasurer')}
-                                className="text-xs h-8 gap-1 border-blue-200 text-blue-600 hover:bg-blue-50"
-                                title="Approve as Treasurer (1st Level)"
-                              >
-                                <Check className="h-3.5 w-3.5" />
-                                Treasurer
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleProcessRequisition(r.id, 'reject')}
-                                className="text-xs h-8 p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setViewingRequisition(r)}
+                            className="text-xs h-8 gap-1"
+                            title="View Requisition"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            View
+                          </Button>
 
-                          {r.status === 'TREASURER_APPROVED' && (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleProcessRequisition(r.id, 'approve_finance')}
-                                className="text-xs h-8 gap-1 border-emerald-200 text-emerald-600 hover:bg-emerald-50"
-                                title="Approve as Finance Manager (Final Level)"
-                              >
-                                <Check className="h-3.5 w-3.5" />
-                                Finance Mgr
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleProcessRequisition(r.id, 'reject')}
-                                className="text-xs h-8 p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-
-                          {r.status === 'APPROVED' && (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={() => setActiveVoucher(r)}
-                                className="text-xs h-8 gap-1"
-                              >
-                                <Eye className="h-3 w-3" />
-                                View Voucher
-                              </Button>
-                              {canDownload(r) && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleDownloadPDF(r)}
-                                  className="text-xs h-8 p-1.5 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
-                                  title="Download Fuel Slip PDF"
-                                >
-                                  <Printer className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </>
-                          )}
-
-                          {r.status === 'REJECTED' && (
-                            <span className="text-xs text-slate-400 font-medium italic">Rejected</span>
+                          {r.status === 'APPROVED' && canDownload(r) && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDownloadPDF(r)}
+                              className="text-xs h-8 p-1.5 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                              title="Download Fuel Slip PDF"
+                            >
+                              <Printer className="h-4 w-4" />
+                            </Button>
                           )}
                         </div>
                       </TableCell>
                     </TableRow>
                   ))}
-                  {requisitions.length === 0 && (
+                  {paginatedRequisitions.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-slate-400">No requisitions submitted yet</TableCell>
+                      <TableCell colSpan={7} className="text-center py-8 text-slate-400">
+                        {filteredRequisitions.length === 0 && visibleRequisitions.length > 0
+                          ? 'No requisitions match your search or filters'
+                          : isApprover
+                          ? 'No requisitions submitted yet'
+                          : 'No requisitions submitted by you yet'}
+                      </TableCell>
                     </TableRow>
                   )}
                 </TableBody>
               </Table>
+              {/* Pagination */}
+              {filteredRequisitions.length > 0 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <span>Showing {Math.min((currentPage - 1) * pageSize + 1, filteredRequisitions.length)}–{Math.min(currentPage * pageSize, filteredRequisitions.length)} of {filteredRequisitions.length}</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                      className="border border-slate-200 rounded px-1.5 py-0.5 text-xs bg-white"
+                    >
+                      <option value={5}>5</option>
+                      <option value={10}>10</option>
+                      <option value={25}>25</option>
+                      <option value={50}>50</option>
+                    </select>
+                    <span>per page</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage <= 1}
+                      onClick={() => setCurrentPage(p => p - 1)}
+                      className="h-7 px-2 text-xs"
+                    >
+                      Previous
+                    </Button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                      .reduce<(number | string)[]>((acc, p, idx, arr) => {
+                        if (idx > 0 && typeof arr[idx - 1] === 'number' && (p as number) - (arr[idx - 1] as number) > 1) {
+                          acc.push('...');
+                        }
+                        acc.push(p);
+                        return acc;
+                      }, [])
+                      .map((p, idx) =>
+                        typeof p === 'string' ? (
+                          <span key={`ellipsis-${idx}`} className="px-1 text-slate-400 text-xs">...</span>
+                        ) : (
+                          <Button
+                            key={p}
+                            variant={p === currentPage ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setCurrentPage(p)}
+                            className="h-7 w-7 p-0 text-xs"
+                          >
+                            {p}
+                          </Button>
+                        )
+                      )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage >= totalPages}
+                      onClick={() => setCurrentPage(p => p + 1)}
+                      className="h-7 px-2 text-xs"
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -684,7 +1023,7 @@ export default function FleetRequisitionsPage() {
           <CardContent className="p-4">
             <form onSubmit={handleCreateRequisition} className="space-y-4">
               <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Select Vehicle</label>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Select Vehicle *</label>
                 <select
                   value={selectedVehicle}
                   onChange={(e) => setSelectedVehicle(e.target.value)}
@@ -696,19 +1035,47 @@ export default function FleetRequisitionsPage() {
                       {v.plateNumber} ({v.make} {v.model})
                     </option>
                   ))}
+                  <option value="custom">+ Add Custom Vehicle</option>
                 </select>
               </div>
+              {selectedVehicle === 'custom' && (
+                <div className="grid grid-cols-3 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Plate Number *</label>
+                    <input type="text" required placeholder="e.g. ABC-123" value={customPlate} onChange={(e) => setCustomPlate(e.target.value.toUpperCase())} className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Make *</label>
+                    <input type="text" required placeholder="e.g. Toyota" value={customMake} onChange={(e) => setCustomMake(e.target.value)} className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Model *</label>
+                    <input type="text" required placeholder="e.g. Hilux" value={customModel} onChange={(e) => setCustomModel(e.target.value)} className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800" />
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
-                <div>
+                <div className="relative">
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Driver Name *</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. John Moyo"
                     value={driverName}
-                    onChange={(e) => setDriverName(e.target.value)}
+                    onChange={(e) => { setDriverName(e.target.value); setDriverInputValue(e.target.value); setShowDriverDropdown(true); }}
+                    onFocus={() => setShowDriverDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowDriverDropdown(false), 200)}
                     className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
                   />
+                  {showDriverDropdown && filteredDrivers.length > 0 && (
+                    <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                      {filteredDrivers.map((d) => (
+                        <button key={d} type="button" onClick={() => { setDriverName(d); setDriverInputValue(d); setShowDriverDropdown(false); }} className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 text-slate-700">
+                          {d}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Branch *</label>
@@ -877,6 +1244,337 @@ export default function FleetRequisitionsPage() {
             )}
           </div>
         )}
+      </Dialog>
+
+      {/* Edit Requisition Dialog */}
+      <Dialog
+        open={!!editingRequisition}
+        onClose={() => setEditingRequisition(null)}
+        title="Edit Requisition"
+        description={`Editing requisition for ${editingRequisition?.vehicle?.plateNumber || ''}`}
+        size="3xl"
+      >
+        {editingRequisition && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Vehicle *</label>
+                <select
+                  value={editVehicleId}
+                  onChange={(e) => setEditVehicleId(e.target.value)}
+                  className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
+                >
+                  <option value="">-- Choose Vehicle --</option>
+                  {vehicles.map((v) => (
+                    <option key={v.id} value={v.id}>{v.plateNumber} ({v.make} {v.model})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Fuel Type *</label>
+                <select
+                  value={editFuelType}
+                  onChange={(e) => setEditFuelType(e.target.value)}
+                  className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
+                >
+                  <option value="Diesel">Diesel</option>
+                  <option value="Petrol">Petrol</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Requested Liters (L) *</label>
+                <input
+                  type="number"
+                  value={editRequestedLiters}
+                  onChange={(e) => setEditRequestedLiters(e.target.value)}
+                  className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Gas Station</label>
+                <select
+                  value={editGasStation}
+                  onChange={(e) => setEditGasStation(e.target.value)}
+                  className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
+                >
+                  <option value="Glow Petroleum">Glow Petroleum</option>
+                  <option value="Zuva Petroleum Harare">Zuva Petroleum</option>
+                  <option value="Puma Energy Belgravia">Puma Energy</option>
+                  <option value="TotalEnergies Avondale">TotalEnergies</option>
+                  <option value="Engen Msasa">Engen Petroleum</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Driver Name *</label>
+                <input
+                  type="text"
+                  value={editDriverName}
+                  onChange={(e) => setEditDriverName(e.target.value)}
+                  className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Branch *</label>
+                <input
+                  type="text"
+                  value={editBranch}
+                  onChange={(e) => setEditBranch(e.target.value)}
+                  className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Odometer Reading (km) *</label>
+                <input
+                  type="number"
+                  value={editOdometer}
+                  onChange={(e) => setEditOdometer(e.target.value)}
+                  className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Destination *</label>
+                <input
+                  type="text"
+                  value={editDestination}
+                  onChange={(e) => setEditDestination(e.target.value)}
+                  className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Purpose / Notes *</label>
+              <textarea
+                rows={3}
+                value={editPurpose}
+                onChange={(e) => setEditPurpose(e.target.value)}
+                className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setEditingRequisition(null)}>Cancel</Button>
+              <Button onClick={handleEditRequisition}>Save Changes</Button>
+            </div>
+          </div>
+        )}
+      </Dialog>
+
+      {/* View Requisition Detail Modal */}
+      <Dialog
+        open={!!viewingRequisition}
+        onClose={() => setViewingRequisition(null)}
+        title="Requisition Details"
+        description={`REF-${viewingRequisition?.id.slice(0, 8).toUpperCase() || ''}`}
+        size="3xl"
+      >
+        {viewingRequisition && (
+          <div className="space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-mine-blue-50 p-2 rounded-lg">
+                  <Fuel className="h-5 w-5 text-mine-blue-700" />
+                </div>
+                <div>
+                  <p className="font-bold text-slate-900">{viewingRequisition.vehicle.plateNumber}</p>
+                  <p className="text-xs text-slate-500">{viewingRequisition.vehicle.make} {viewingRequisition.vehicle.model}</p>
+                </div>
+              </div>
+              {getStatusBadge(viewingRequisition.status)}
+            </div>
+
+            {/* Details Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="bg-slate-50 p-3 rounded-lg">
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Driver</p>
+                <p className="text-sm font-medium">{viewingRequisition.driverName || '-'}</p>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-lg">
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Fuel Type</p>
+                <p className="text-sm font-medium">{viewingRequisition.fuelType}</p>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-lg">
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Liters Requested</p>
+                <p className="text-sm font-bold text-mine-blue-800">{viewingRequisition.litersRequested} L</p>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-lg">
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Branch</p>
+                <p className="text-sm font-medium">{viewingRequisition.branch || '-'}</p>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-lg">
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Destination</p>
+                <p className="text-sm font-medium">{viewingRequisition.destination || '-'}</p>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-lg">
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Gas Station</p>
+                <p className="text-sm font-medium">{viewingRequisition.gasStation || '-'}</p>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-lg">
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Odometer</p>
+                <p className="text-sm font-medium">{viewingRequisition.currentOdometer ? `${viewingRequisition.currentOdometer} km` : '-'}</p>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-lg">
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Submitted By</p>
+                <p className="text-sm font-medium">{viewingRequisition.userName}</p>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-lg">
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Date</p>
+                <p className="text-sm font-medium">{new Date(viewingRequisition.createdAt).toLocaleString()}</p>
+              </div>
+            </div>
+
+            {/* Purpose */}
+            <div className="bg-slate-50 p-3 rounded-lg">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Purpose</p>
+              <p className="text-sm text-slate-700">{viewingRequisition.purpose}</p>
+            </div>
+
+            {/* Approval Trail */}
+            <div className="border border-slate-200 rounded-lg p-3 space-y-2">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Approval Trail</p>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <span className="text-slate-500">Treasurer:</span>{' '}
+                  <span className="font-medium">
+                    {viewingRequisition.treasurerApprovedBy
+                      ? `${viewingRequisition.treasurerApprovedBy}${viewingRequisition.treasurerApprovedAt ? ` on ${formatApprovalDate(viewingRequisition.treasurerApprovedAt)}` : ''}`
+                      : 'Pending'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500">Finance Manager:</span>{' '}
+                  <span className="font-medium">
+                    {viewingRequisition.financeManagerApprovedBy
+                      ? `${viewingRequisition.financeManagerApprovedBy}${viewingRequisition.financeManagerApprovedAt ? ` on ${formatApprovalDate(viewingRequisition.financeManagerApprovedAt)}` : ''}`
+                      : 'Pending'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Notes/Reason (if rejected/cancelled) */}
+            {viewingRequisition.notes && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-[10px] text-red-500 uppercase tracking-wider font-bold mb-1">Reason ({viewingRequisition.status === 'REJECTED' ? 'Rejection' : 'Cancellation'})</p>
+                <p className="text-sm text-red-700">{viewingRequisition.notes}</p>
+              </div>
+            )}
+
+            {/* Action Buttons (for approvers on editable requisitions) */}
+            {viewingRequisition && !['APPROVED', 'REJECTED', 'CANCELLED'].includes(viewingRequisition.status) && (
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                {viewingRequisition.status === 'PENDING' && canApproveTreasurer && (
+                  <Button
+                    size="sm"
+                    onClick={() => { handleProcessRequisition(viewingRequisition.id, 'approve_treasurer'); setViewingRequisition(null); }}
+                    className="gap-1 bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    Approve (Treasurer)
+                  </Button>
+                )}
+                {viewingRequisition.status === 'TREASURER_APPROVED' && canApproveFinance && (
+                  <Button
+                    size="sm"
+                    onClick={() => { handleProcessRequisition(viewingRequisition.id, 'approve_finance'); setViewingRequisition(null); }}
+                    className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    Approve (Finance Mgr)
+                  </Button>
+                )}
+                {isApprover && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => { openEditDialog(viewingRequisition); setViewingRequisition(null); }}
+                      className="gap-1"
+                    >
+                      <Settings2 className="h-3.5 w-3.5" />
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => { setReasonAction('reject'); setReasonTargetId(viewingRequisition.id); setReasonModalOpen(true); setViewingRequisition(null); }}
+                      className="gap-1 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Reject
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => { setReasonAction('cancel'); setReasonTargetId(viewingRequisition.id); setReasonModalOpen(true); setViewingRequisition(null); }}
+                      className="gap-1 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Cancel
+                    </Button>
+                  </>
+                )}
+                {!isApprover && (
+                  <p className="text-xs text-slate-400 italic">Only approvers can take action on this requisition</p>
+                )}
+              </div>
+            )}
+
+            {/* View Voucher for APPROVED */}
+            {viewingRequisition.status === 'APPROVED' && (
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <Button
+                  size="sm"
+                  onClick={() => { setActiveVoucher(viewingRequisition); setViewingRequisition(null); }}
+                  className="gap-1"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  View Voucher
+                </Button>
+                {canDownload(viewingRequisition) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => { handleDownloadPDF(viewingRequisition); setViewingRequisition(null); }}
+                    className="gap-1 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 border-indigo-200"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Download PDF
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </Dialog>
+
+      {/* Reason Modal (for Reject/Cancel) */}
+      <Dialog
+        open={reasonModalOpen}
+        onClose={() => { setReasonModalOpen(false); setReasonText(''); }}
+        title={reasonAction === 'reject' ? 'Reason for Rejection' : 'Reason for Cancellation'}
+        description="Please provide a reason (optional)"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <textarea
+            rows={4}
+            placeholder={reasonAction === 'reject' ? 'e.g. Insufficient budget, duplicate request...' : 'e.g. No longer needed, duplicate request...'}
+            value={reasonText}
+            onChange={(e) => setReasonText(e.target.value)}
+            className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => { setReasonModalOpen(false); setReasonText(''); }}>
+              Cancel
+            </Button>
+            <Button
+              variant={reasonAction === 'reject' ? 'destructive' : 'destructive'}
+              onClick={handleReasonConfirm}
+            >
+              {reasonAction === 'reject' ? 'Confirm Rejection' : 'Confirm Cancellation'}
+            </Button>
+          </div>
+        </div>
       </Dialog>
       {ExportDialog}
     </div>

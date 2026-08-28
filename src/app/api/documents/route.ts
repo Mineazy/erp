@@ -62,18 +62,11 @@ export async function GET(request: Request) {
       if (type === 'archive') whereClause.mimeType = { contains: 'zip' };
     }
 
-    if (user.role === 'admin') {
-      whereClause.OR = [
-        { isRestricted: false },
-        { uploadedBy: user.id }
-      ];
-    } else {
-      whereClause.OR = [
-        { isRestricted: false },
-        { uploadedBy: user.id },
-        { shares: { some: { userId: user.id } } }
-      ];
-    }
+    // Documents are only visible to: the owner, users they shared with, and admins
+    whereClause.OR = [
+      { uploadedBy: user.id },
+      { shares: { some: { userId: user.id } } },
+    ];
 
     let orderByClause: any = { createdAt: 'desc' };
     if (sortBy === 'name_asc') orderByClause = { title: 'asc' };

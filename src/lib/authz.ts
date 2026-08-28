@@ -1,17 +1,21 @@
-export type UserRole = 'admin' | 'accountant' | 'manager' | 'user';
+export type UserRole = 'admin' | 'accountant' | 'manager' | 'user' | 'fuel_attendant';
 
 export const ROLES: Record<UserRole, string> = {
   admin: 'Admin',
   accountant: 'Accountant',
   manager: 'Manager',
   user: 'User',
+  fuel_attendant: 'Fuel Attendant',
 };
+
+const USER_DEFAULT_MODULES = ['documents', 'messaging'];
 
 export interface PermissionSet {
   admin: boolean;
   accountant: boolean | 'readonly';
   manager: boolean | 'readonly';
   user: boolean | 'readonly';
+  fuel_attendant: boolean | 'readonly';
 }
 
 type AccessLevel = boolean | 'readonly';
@@ -22,102 +26,126 @@ const MODULE_PERMISSIONS: Record<string, PermissionSet> = {
     accountant: false,
     manager: false,
     user: false,
+    fuel_attendant: false,
   },
   messaging: {
     admin: true,
     accountant: true,
     manager: true,
     user: true,
+    fuel_attendant: false,
   },
   financial: {
     admin: true,
     accountant: true,
     manager: 'readonly',
     user: false,
+    fuel_attendant: false,
   },
   inventory: {
     admin: true,
     accountant: 'readonly',
     manager: true,
     user: 'readonly',
+    fuel_attendant: false,
   },
   crm: {
     admin: true,
     accountant: 'readonly',
     manager: true,
     user: 'readonly',
+    fuel_attendant: false,
   },
   pos: {
     admin: true,
     accountant: 'readonly',
     manager: true,
     user: true,
+    fuel_attendant: false,
   },
   purchasing: {
     admin: true,
     accountant: 'readonly',
     manager: true,
     user: 'readonly',
+    fuel_attendant: false,
   },
   warehouse: {
     admin: true,
     accountant: 'readonly',
     manager: true,
     user: 'readonly',
+    fuel_attendant: false,
   },
   workshop: {
     admin: true,
     accountant: 'readonly',
     manager: true,
     user: 'readonly',
+    fuel_attendant: false,
   },
   fleet: {
     admin: true,
     accountant: true,
     manager: true,
     user: 'readonly',
+    fuel_attendant: true,
   },
   tax: {
     admin: true,
     accountant: true,
     manager: 'readonly',
     user: false,
+    fuel_attendant: false,
   },
   fdms: {
     admin: true,
     accountant: true,
     manager: 'readonly',
     user: false,
+    fuel_attendant: false,
   },
   reports: {
     admin: true,
     accountant: true,
     manager: true,
     user: 'readonly',
+    fuel_attendant: false,
   },
   sales: {
     admin: true,
     accountant: 'readonly',
     manager: true,
     user: 'readonly',
+    fuel_attendant: false,
   },
   admin: {
     admin: true,
     accountant: false,
     manager: false,
     user: false,
+    fuel_attendant: false,
   },
   projects: {
     admin: true,
     accountant: 'readonly',
     manager: true,
     user: 'readonly',
+    fuel_attendant: false,
   },
   documents: {
     admin: true,
     accountant: 'readonly',
     manager: true,
     user: 'readonly',
+    fuel_attendant: false,
+  },
+  hr: {
+    admin: true,
+    accountant: 'readonly',
+    manager: true,
+    user: 'readonly',
+    fuel_attendant: false,
   },
 };
 
@@ -165,6 +193,11 @@ export function checkApiAccess(
 
 export function canAccessModule(module: string, role: string | undefined, department?: string | null, permissions?: any | null): boolean {
   if (!role) return false;
+
+  // Fuel attendant: locked to fleet module only, no exceptions
+  if (role === 'fuel_attendant') {
+    return module.toLowerCase() === 'fleet';
+  }
 
   if (permissions?.modules) {
     return permissions.modules.includes(module.toLowerCase());
@@ -218,12 +251,23 @@ export function canAccessModule(module: string, role: string | undefined, depart
     }
   }
 
+  // User role: default access restricted to documents + messaging only
+  // Other modules require explicit permissions.modules assignment
+  if (role === 'user') {
+    return USER_DEFAULT_MODULES.includes(module.toLowerCase());
+  }
+
   const access = getModuleAccess(module, role as UserRole);
   return access === true || access === 'readonly';
 }
 
 export function canWriteModule(module: string, role: string | undefined, department?: string | null, permissions?: any | null): boolean {
   if (!role) return false;
+
+  // Fuel attendant: locked to fleet module only, no exceptions
+  if (role === 'fuel_attendant') {
+    return module.toLowerCase() === 'fleet';
+  }
 
   if (permissions?.modules) {
     return permissions.modules.includes(module.toLowerCase());
@@ -257,6 +301,11 @@ export function canWriteModule(module: string, role: string | undefined, departm
     }
   }
 
+  // User role: write access restricted to documents + messaging only
+  if (role === 'user') {
+    return USER_DEFAULT_MODULES.includes(module.toLowerCase());
+  }
+
   return roleCanWrite(module, role as UserRole);
 }
 
@@ -270,19 +319,17 @@ export function getVisibleModules(role: string | undefined, department?: string 
 export function canAccessMenu(href: string, permissions: any | null, role: string | undefined, department?: string | null): boolean {
   if (!role) return false;
 
-  // Exact menu match
-  if (permissions?.menus) {
-    if (permissions.menus.includes(href)) return true;
-    
-    // Allow if parent path is permitted? For now require exact match since admin explicitly selects
-    // But they might only select the module, in which case do we allow all menus?
-    // Let's rely strictly on the `menus` array if `permissions` is defined.
-    // If the admin only checks the module but no menus, they get no menus.
-    return false;
+  // Fuel attendant: only /fleet/attendant page, no exceptions
+  if (role === 'fuel_attendant') {
+    return href === '/fleet/attendant';
   }
 
-  // If no explicit permissions set, fallback to whether they can access the module at all
-  // The module needs to be extracted from the href, e.g. /inventory/dashboard -> inventory
+  // If permissions.menus is set and non-empty, restrict to those specific items
+  if (permissions?.menus && Array.isArray(permissions.menus) && permissions.menus.length > 0) {
+    return permissions.menus.includes(href);
+  }
+
+  // If no explicit menus restriction, fall back to module-level access
   const mod = href.split('/')[1]; 
   return canAccessModule(mod, role, department);
 }

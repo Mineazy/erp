@@ -10,7 +10,7 @@ import { Select } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
-import { Package, Plus, Search, Edit2, Archive, AlertTriangle, Upload, Download, History, Building2, ArrowLeftRight } from 'lucide-react';
+import { Package, Plus, Search, Edit2, Archive, AlertTriangle, Upload, Download, History, Building2, ArrowLeftRight, DollarSign, Percent, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface Product {
   id: string;
@@ -76,6 +76,29 @@ export default function ProductsPage() {
   const [branchStockDialogOpen, setBranchStockDialogOpen] = useState(false);
   const [branchStockData, setBranchStockData] = useState<BranchStock[]>([]);
   const [branchStockProductName, setBranchStockProductName] = useState('');
+
+  const [priceAdjustDialogOpen, setPriceAdjustDialogOpen] = useState(false);
+  const [priceAdjustProduct, setPriceAdjustProduct] = useState<Product | null>(null);
+  const [priceAdjustType, setPriceAdjustType] = useState<'cost_price' | 'selling_price'>('selling_price');
+  const [priceAdjustNewPrice, setPriceAdjustNewPrice] = useState('');
+  const [priceAdjustReason, setPriceAdjustReason] = useState('');
+  const [priceAdjustLoading, setPriceAdjustLoading] = useState(false);
+
+  const [bulkAdjustDialogOpen, setBulkAdjustDialogOpen] = useState(false);
+  const [bulkAdjustType, setBulkAdjustType] = useState<'cost_price' | 'selling_price'>('selling_price');
+  const [bulkAdjustMode, setBulkAdjustMode] = useState<'percentage' | 'fixed'>('percentage');
+  const [bulkAdjustValue, setBulkAdjustValue] = useState('');
+  const [bulkAdjustCategory, setBulkAdjustCategory] = useState('');
+  const [bulkAdjustReason, setBulkAdjustReason] = useState('');
+  const [bulkAdjustLoading, setBulkAdjustLoading] = useState(false);
+  const [bulkAdjustPreview, setBulkAdjustPreview] = useState<any[] | null>(null);
+  const [bulkAdjustStep, setBulkAdjustStep] = useState<'configure' | 'preview' | 'result'>('configure');
+  const [bulkAdjustResult, setBulkAdjustResult] = useState<any>(null);
+
+  const [priceHistoryDialogOpen, setPriceHistoryDialogOpen] = useState(false);
+  const [priceHistoryData, setPriceHistoryData] = useState<any[]>([]);
+  const [priceHistoryProductName, setPriceHistoryProductName] = useState('');
+  const [priceHistoryLoading, setPriceHistoryLoading] = useState(false);
 
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [selectedCategoryForModal, setSelectedCategoryForModal] = useState<{id: string, name: string} | null>(null);
@@ -268,6 +291,134 @@ export default function ProductsPage() {
     setBranchStockDialogOpen(true);
   };
 
+  const openPriceAdjust = (product: Product) => {
+    setPriceAdjustProduct(product);
+    setPriceAdjustType('selling_price');
+    setPriceAdjustNewPrice(String(product.sellingPrice));
+    setPriceAdjustReason('');
+    setPriceAdjustDialogOpen(true);
+  };
+
+  const handlePriceAdjust = async () => {
+    if (!priceAdjustProduct) return;
+    const newPrice = parseFloat(priceAdjustNewPrice);
+    if (isNaN(newPrice) || newPrice < 0) { toast('Invalid price', 'error'); return; }
+    setPriceAdjustLoading(true);
+    try {
+      const tid = toast('Adjusting price...', 'info', 120000);
+      const res = await fetch(`/api/inventory/products/${priceAdjustProduct.id}/adjust-price`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceType: priceAdjustType, newPrice, reason: priceAdjustReason }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed' }));
+        dismissToast(tid); toast(err.error || 'Failed to adjust price', 'error'); return;
+      }
+      dismissToast(tid);
+      toast('Price adjusted successfully', 'success');
+      setPriceAdjustDialogOpen(false);
+      fetchData();
+      if (categoryModalOpen) fetchCategoryModalData();
+    } catch { toast('Network error', 'error'); }
+    finally { setPriceAdjustLoading(false); }
+  };
+
+  const openBulkAdjust = () => {
+    setBulkAdjustType('selling_price');
+    setBulkAdjustMode('percentage');
+    setBulkAdjustValue('');
+    setBulkAdjustCategory('');
+    setBulkAdjustReason('');
+    setBulkAdjustPreview(null);
+    setBulkAdjustResult(null);
+    setBulkAdjustStep('configure');
+    setBulkAdjustDialogOpen(true);
+  };
+
+  const fetchBulkPreview = async () => {
+    const val = parseFloat(bulkAdjustValue);
+    if (isNaN(val)) { toast('Enter a valid adjustment value', 'error'); return; }
+    setBulkAdjustLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set('limit', '200');
+      if (bulkAdjustCategory) params.set('categoryId', bulkAdjustCategory);
+      const res = await fetch(`/api/inventory/products?${params}`);
+      if (!res.ok) { toast('Failed to fetch products', 'error'); return; }
+      const json = await res.json();
+      const products = json.items ?? json;
+      const priceField = bulkAdjustType === 'cost_price' ? 'costPrice' : 'sellingPrice';
+      const preview = products.map((p: any) => {
+        const old = Number(p[priceField]);
+        let newP: number;
+        if (bulkAdjustMode === 'percentage') {
+          newP = Math.round(old * (1 + val / 100) * 100) / 100;
+        } else {
+          newP = Math.round((old + val) * 100) / 100;
+        }
+        if (newP < 0) newP = 0;
+        return { id: p.id, code: p.code, name: p.name, oldPrice: old, newPrice: newP, change: newP - old };
+      }).filter((p: any) => p.change !== 0);
+      setBulkAdjustPreview(preview);
+      setBulkAdjustStep('preview');
+    } catch { toast('Network error', 'error'); }
+    finally { setBulkAdjustLoading(false); }
+  };
+
+  const handleBulkAdjust = async () => {
+    setBulkAdjustLoading(true);
+    try {
+      const tid = toast('Applying bulk price adjustment...', 'info', 120000);
+      const res = await fetch('/api/inventory/products/adjust-price-bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productIds: bulkAdjustPreview?.map(p => p.id),
+          priceType: bulkAdjustType,
+          adjustmentType: bulkAdjustMode,
+          adjustmentValue: parseFloat(bulkAdjustValue),
+          reason: bulkAdjustReason,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed' }));
+        dismissToast(tid); toast(err.error || 'Failed to adjust prices', 'error'); return;
+      }
+      const result = await res.json();
+      dismissToast(tid);
+      toast(`${result.data?.updated || result.updated || 0} products updated`, 'success');
+      setBulkAdjustResult(result.data || result);
+      setBulkAdjustStep('result');
+      fetchData();
+      if (categoryModalOpen) fetchCategoryModalData();
+    } catch { toast('Network error', 'error'); }
+    finally { setBulkAdjustLoading(false); }
+  };
+
+  const openPriceHistory = async (product?: Product) => {
+    if (product) {
+      setPriceHistoryProductName(product.name);
+    } else {
+      setPriceHistoryProductName('All Products');
+    }
+    setPriceHistoryLoading(true);
+    setPriceHistoryDialogOpen(true);
+    try {
+      const params = new URLSearchParams();
+      if (product) params.set('productId', product.id);
+      params.set('limit', '100');
+      const res = await fetch(`/api/inventory/price-history?${params}`);
+      if (res.ok) {
+        const json = await res.json();
+        setPriceHistoryData(json.items || []);
+      } else {
+        setPriceHistoryData([]);
+      }
+    } catch { setPriceHistoryData([]); }
+    finally { setPriceHistoryLoading(false); }
+  };
+
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importResults, setImportResults] = useState<{ row: number; status: string; product?: any; error?: string }[] | null>(null);
@@ -318,6 +469,8 @@ export default function ProductsPage() {
           <p className="text-slate-500 mt-1">Manage your product catalog and inventory</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => openPriceHistory()}><History className="h-4 w-4 mr-2" />Price History</Button>
+          <Button variant="outline" onClick={openBulkAdjust}><TrendingUp className="h-4 w-4 mr-2" />Bulk Adjust</Button>
           <Button variant="outline" onClick={downloadTemplate}><Download className="h-4 w-4 mr-2" />Template</Button>
           <Button variant="outline" onClick={() => { setImportDialogOpen(true); setSelectedFile(null); setImportResults(null); }}><Upload className="h-4 w-4 mr-2" />Import</Button>
           <Button onClick={openCreate}><Plus className="h-4 w-4 mr-2" />Add Product</Button>
@@ -419,6 +572,7 @@ export default function ProductsPage() {
                   <TableCell><Badge variant={product.isActive ? 'success' : 'secondary'}>{product.isActive ? 'Active' : 'Archived'}</Badge></TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => openPriceAdjust(product)} className="p-1.5 hover:bg-emerald-50 rounded" title="Adjust Price"><DollarSign className="h-4 w-4 text-emerald-500" /></button>
                       <button onClick={() => openEdit(product)} className="p-1.5 hover:bg-slate-100 rounded" title="Edit"><Edit2 className="h-4 w-4 text-slate-400" /></button>
                       <button onClick={() => openHistory(product)} className="p-1.5 hover:bg-slate-100 rounded" title="View History"><History className="h-4 w-4 text-slate-400" /></button>
                       <button onClick={() => openBranchStock(product)} className="p-1.5 hover:bg-slate-100 rounded" title="Stock by Branch"><Building2 className="h-4 w-4 text-slate-400" /></button>
@@ -635,6 +789,200 @@ export default function ProductsPage() {
         </DialogFooter>
       </Dialog>
 
+      {/* Single Price Adjust Dialog */}
+      <Dialog open={priceAdjustDialogOpen} onClose={() => setPriceAdjustDialogOpen(false)} title={`Adjust Price: ${priceAdjustProduct?.name}`} size="md">
+        <div className="space-y-4">
+          <div className="bg-slate-50 rounded-lg p-4">
+            <div className="text-sm text-slate-500">Current Prices</div>
+            <div className="mt-1 flex gap-4">
+              <div><span className="text-xs text-slate-400">Cost Price</span><p className="font-mono font-bold text-slate-900">${Number(priceAdjustProduct?.costPrice || 0).toFixed(2)}</p></div>
+              <div><span className="text-xs text-slate-400">Selling Price</span><p className="font-mono font-bold text-slate-900">${Number(priceAdjustProduct?.sellingPrice || 0).toFixed(2)}</p></div>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Price Type</label>
+            <div className="flex gap-2">
+              <button onClick={() => { setPriceAdjustType('selling_price'); setPriceAdjustNewPrice(String(priceAdjustProduct?.sellingPrice || 0)); }} className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${priceAdjustType === 'selling_price' ? 'bg-mine-blue-800 text-white border-mine-blue-800' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>Selling Price</button>
+              <button onClick={() => { setPriceAdjustType('cost_price'); setPriceAdjustNewPrice(String(priceAdjustProduct?.costPrice || 0)); }} className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${priceAdjustType === 'cost_price' ? 'bg-mine-blue-800 text-white border-mine-blue-800' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>Cost Price</button>
+            </div>
+          </div>
+          <Input label="New Price" type="number" step="0.01" min="0" value={priceAdjustNewPrice} onChange={(e) => setPriceAdjustNewPrice(e.target.value)} />
+          {priceAdjustProduct && (
+            <div className="text-sm text-slate-500">
+              Change: <span className={`font-medium ${parseFloat(priceAdjustNewPrice) > Number(priceAdjustType === 'cost_price' ? priceAdjustProduct.costPrice : priceAdjustProduct.sellingPrice) ? 'text-emerald-600' : 'text-red-600'}`}>
+                {parseFloat(priceAdjustNewPrice) > Number(priceAdjustType === 'cost_price' ? priceAdjustProduct.costPrice : priceAdjustProduct.sellingPrice) ? '+' : ''}
+                ${(parseFloat(priceAdjustNewPrice) - Number(priceAdjustType === 'cost_price' ? priceAdjustProduct.costPrice : priceAdjustProduct.sellingPrice)).toFixed(2)}
+                ({(((parseFloat(priceAdjustNewPrice) - Number(priceAdjustType === 'cost_price' ? priceAdjustProduct.costPrice : priceAdjustProduct.sellingPrice)) / Number(priceAdjustType === 'cost_price' ? priceAdjustProduct.costPrice : priceAdjustProduct.sellingPrice || 1)) * 100).toFixed(1)}%)
+              </span>
+            </div>
+          )}
+          <Input label="Reason (Optional)" value={priceAdjustReason} onChange={(e) => setPriceAdjustReason(e.target.value)} placeholder="e.g. Supplier price increase" />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setPriceAdjustDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handlePriceAdjust} loading={priceAdjustLoading}><DollarSign className="h-4 w-4 mr-2" />Apply</Button>
+        </DialogFooter>
+      </Dialog>
+
+      {/* Bulk Price Adjust Dialog */}
+      <Dialog open={bulkAdjustDialogOpen} onClose={() => setBulkAdjustDialogOpen(false)} title="Bulk Price Adjustment" size="2xl">
+        {bulkAdjustStep === 'configure' && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Price Type</label>
+              <div className="flex gap-2">
+                <button onClick={() => setBulkAdjustType('selling_price')} className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${bulkAdjustType === 'selling_price' ? 'bg-mine-blue-800 text-white border-mine-blue-800' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>Selling Price</button>
+                <button onClick={() => setBulkAdjustType('cost_price')} className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${bulkAdjustType === 'cost_price' ? 'bg-mine-blue-800 text-white border-mine-blue-800' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}>Cost Price</button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Adjustment Type</label>
+              <div className="flex gap-2">
+                <button onClick={() => setBulkAdjustMode('percentage')} className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${bulkAdjustMode === 'percentage' ? 'bg-mine-blue-800 text-white border-mine-blue-800' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}><Percent className="h-4 w-4 inline mr-1" />Percentage (%)</button>
+                <button onClick={() => setBulkAdjustMode('fixed')} className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${bulkAdjustMode === 'fixed' ? 'bg-mine-blue-800 text-white border-mine-blue-800' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}><DollarSign className="h-4 w-4 inline mr-1" />Fixed Amount ($)</button>
+              </div>
+            </div>
+            <Input label={bulkAdjustMode === 'percentage' ? 'Adjustment Percentage' : 'Adjustment Amount ($)'} type="number" step="0.01" value={bulkAdjustValue} onChange={(e) => setBulkAdjustValue(e.target.value)} placeholder={bulkAdjustMode === 'percentage' ? 'e.g. 10 for +10%, -5 for -5%' : 'e.g. 5.00 or -2.50'} />
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Filter by Category (Optional)</label>
+              <select value={bulkAdjustCategory} onChange={(e) => setBulkAdjustCategory(e.target.value)} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-mine-blue-500 bg-white">
+                <option value="">All Categories</option>
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <Input label="Reason (Optional)" value={bulkAdjustReason} onChange={(e) => setBulkAdjustReason(e.target.value)} placeholder="e.g. Annual price review" />
+          </div>
+        )}
+        {bulkAdjustStep === 'preview' && bulkAdjustPreview && (
+          <div className="space-y-4">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+              Preview: {bulkAdjustPreview.length} product{bulkAdjustPreview.length !== 1 ? 's' : ''} will be updated. Review changes below.
+            </div>
+            <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-lg">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead className="text-right">Old Price</TableHead>
+                    <TableHead className="text-right">New Price</TableHead>
+                    <TableHead className="text-right">Change</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {bulkAdjustPreview.map((p: any) => (
+                    <TableRow key={p.id}>
+                      <TableCell className="font-mono text-xs">{p.code}</TableCell>
+                      <TableCell className="text-sm">{p.name}</TableCell>
+                      <TableCell className="text-right font-mono text-sm">${p.oldPrice.toFixed(2)}</TableCell>
+                      <TableCell className="text-right font-mono text-sm font-medium">${p.newPrice.toFixed(2)}</TableCell>
+                      <TableCell className={`text-right font-mono text-sm font-medium ${p.change > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {p.change > 0 ? '+' : ''}{p.change.toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
+        {bulkAdjustStep === 'result' && bulkAdjustResult && (
+          <div className="space-y-4">
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-sm text-emerald-800">
+              Successfully updated {bulkAdjustResult.updated || bulkAdjustResult.results?.length || 0} product{((bulkAdjustResult.updated || bulkAdjustResult.results?.length || 0) !== 1) ? 's' : ''}!
+            </div>
+            {bulkAdjustResult.results && (
+              <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Code</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead className="text-right">Old Price</TableHead>
+                      <TableHead className="text-right">New Price</TableHead>
+                      <TableHead className="text-right">Change</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {bulkAdjustResult.results.map((r: any) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="font-mono text-xs">{r.code}</TableCell>
+                        <TableCell className="text-sm">{r.name}</TableCell>
+                        <TableCell className="text-right font-mono text-sm">${Number(r.oldPrice).toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono text-sm font-medium">${Number(r.newPrice).toFixed(2)}</TableCell>
+                        <TableCell className={`text-right font-mono text-sm font-medium ${Number(r.changeAmount) > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                          {Number(r.changeAmount) > 0 ? '+' : ''}{Number(r.changeAmount).toFixed(2)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        )}
+        <DialogFooter>
+          {bulkAdjustStep === 'configure' && (
+            <>
+              <Button variant="outline" onClick={() => setBulkAdjustDialogOpen(false)}>Cancel</Button>
+              <Button onClick={fetchBulkPreview} loading={bulkAdjustLoading}><TrendingUp className="h-4 w-4 mr-2" />Preview Changes</Button>
+            </>
+          )}
+          {bulkAdjustStep === 'preview' && (
+            <>
+              <Button variant="outline" onClick={() => setBulkAdjustStep('configure')}>Back</Button>
+              <Button onClick={handleBulkAdjust} loading={bulkAdjustLoading}><DollarSign className="h-4 w-4 mr-2" />Apply {bulkAdjustPreview?.length} Changes</Button>
+            </>
+          )}
+          {bulkAdjustStep === 'result' && (
+            <Button onClick={() => setBulkAdjustDialogOpen(false)}>Done</Button>
+          )}
+        </DialogFooter>
+      </Dialog>
+
+      {/* Price History Dialog */}
+      <Dialog open={priceHistoryDialogOpen} onClose={() => setPriceHistoryDialogOpen(false)} title={`Price History: ${priceHistoryProductName}`} size="2xl">
+        {priceHistoryLoading ? (
+          <p className="text-sm text-slate-500 py-4">Loading...</p>
+        ) : priceHistoryData.length === 0 ? (
+          <p className="text-sm text-slate-500 py-4">No price adjustment history found.</p>
+        ) : (
+          <div className="max-h-96 overflow-y-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Product</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead className="text-right">Old Price</TableHead>
+                  <TableHead className="text-right">New Price</TableHead>
+                  <TableHead className="text-right">Change</TableHead>
+                  <TableHead>Reason</TableHead>
+                  <TableHead>User</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {priceHistoryData.map((r: any) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="text-xs">{new Date(r.createdAt).toLocaleDateString()} {new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</TableCell>
+                    <TableCell className="text-xs"><span className="font-mono text-slate-400">{r.productCode}</span> {r.productName}</TableCell>
+                    <TableCell><Badge variant={r.priceType === 'selling_price' ? 'success' : 'default'}>{r.priceType === 'selling_price' ? 'Selling' : 'Cost'}</Badge></TableCell>
+                    <TableCell className="text-right font-mono text-xs">${Number(r.oldPrice).toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-mono text-xs font-medium">${Number(r.newPrice).toFixed(2)}</TableCell>
+                    <TableCell className={`text-right font-mono text-xs font-medium ${Number(r.changeAmount) > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {Number(r.changeAmount) > 0 ? '+' : ''}{Number(r.changeAmount).toFixed(2)}
+                      {r.changePercent ? <span className="text-slate-400 ml-1">({Number(r.changePercent).toFixed(1)}%)</span> : null}
+                    </TableCell>
+                    <TableCell className="text-xs text-slate-500 max-w-[120px] truncate">{r.reason || '—'}</TableCell>
+                    <TableCell className="text-xs">{r.userName || '—'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+        <DialogFooter><Button variant="outline" onClick={() => setPriceHistoryDialogOpen(false)}>Close</Button></DialogFooter>
+      </Dialog>
 
     </div>
   );

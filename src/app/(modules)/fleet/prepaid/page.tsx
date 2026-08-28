@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { toast } from '@/components/ui/toast';
-import { CreditCard, ArrowUpRight, ShieldAlert, Sparkles, Scale } from 'lucide-react';
+import { CreditCard, ArrowUpRight, ShieldAlert, Scale, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface FuelRecord {
@@ -28,9 +28,60 @@ interface FuelLog {
   createdAt: string;
 }
 
+interface RequisitionLite {
+  id: string;
+  fuelType: string;
+  litersRequested: number;
+  driverName: string | null;
+  status: string;
+  createdAt: string;
+  vehicle: { plateNumber: string } | null;
+}
+
+const PAGE_SIZE = 10;
+const FUEL_TYPES = ['Diesel', 'Petrol'];
+const inputCls =
+  'w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800 bg-white';
+
+const extractRequisitionRef = (notes?: string | null): string | null => {
+  if (!notes) return null;
+  const m = notes.match(/Requisition #([A-Za-z0-9]+)/i);
+  return m ? `REF-${m[1].toUpperCase()}` : null;
+};
+
+function PaginationBar({
+  page,
+  totalPages,
+  onPrev,
+  onNext,
+}: {
+  page: number;
+  totalPages: number;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  if (totalPages <= 1) return null;
+  return (
+    <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3">
+      <span className="text-xs text-slate-500">
+        Page {page} of {totalPages}
+      </span>
+      <div className="flex gap-2">
+        <Button size="sm" variant="outline" disabled={page <= 1} onClick={onPrev}>
+          Prev
+        </Button>
+        <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={onNext}>
+          Next
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function PrepaidFuelPage() {
   const [fuels, setFuels] = useState<FuelRecord[]>([]);
   const [logs, setLogs] = useState<FuelLog[]>([]);
+  const [requisitions, setRequisitions] = useState<RequisitionLite[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Top up fields
@@ -44,13 +95,37 @@ export default function PrepaidFuelPage() {
   const [adjustQty, setAdjustQty] = useState('');
   const [adjustPrice, setAdjustPrice] = useState('');
 
+  // Ledger filters
+  const [ledgerSearch, setLedgerSearch] = useState('');
+  const [ledgerFuelType, setLedgerFuelType] = useState('');
+  const [ledgerAction, setLedgerAction] = useState('');
+  const [ledgerReq, setLedgerReq] = useState('');
+  const [ledgerFrom, setLedgerFrom] = useState('');
+  const [ledgerTo, setLedgerTo] = useState('');
+  const [ledgerPage, setLedgerPage] = useState(1);
+
+  // Register filters
+  const [regSearch, setRegSearch] = useState('');
+  const [regFuelType, setRegFuelType] = useState('');
+  const [regReq, setRegReq] = useState('');
+  const [regDriver, setRegDriver] = useState('');
+  const [regFrom, setRegFrom] = useState('');
+  const [regTo, setRegTo] = useState('');
+  const [regPage, setRegPage] = useState(1);
+
   const fetchData = async () => {
     try {
-      const res = await fetch('/api/fleet/prepaid');
-      if (res.ok) {
-        const data = await res.json();
+      const [prepaidRes, reqRes] = await Promise.all([
+        fetch('/api/fleet/prepaid'),
+        fetch('/api/fleet/requisitions'),
+      ]);
+      if (prepaidRes.ok) {
+        const data = await prepaidRes.json();
         setFuels(data.fuels || []);
         setLogs(data.logs || []);
+      }
+      if (reqRes.ok) {
+        setRequisitions((await reqRes.json()) || []);
       }
     } catch (_) {
       toast('Failed to load prepaid fuel accounts', 'error');
@@ -62,6 +137,127 @@ export default function PrepaidFuelPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // ── Enrichment: attach requisition ref / driver / vehicle to each log ──
+  const reqByRef = useMemo(() => {
+    const map = new Map<string, RequisitionLite>();
+    requisitions.forEach((r) => map.set(`REF-${r.id.slice(0, 8).toUpperCase()}`, r));
+    return map;
+  }, [requisitions]);
+
+  const enrichedLogs = useMemo(
+    () =>
+      logs.map((log) => {
+        const requisitionRef = extractRequisitionRef(log.notes);
+        const req = requisitionRef ? reqByRef.get(requisitionRef) : undefined;
+        return {
+          ...log,
+          requisitionRef,
+          driverName: req?.driverName || null,
+          vehiclePlate: req?.vehicle?.plateNumber || null,
+        };
+      }),
+    [logs, reqByRef]
+  );
+
+  const fuelTypes = useMemo(() => {
+    const fromRecords = fuels.map((f) => f.fuelType);
+    return Array.from(new Set([...FUEL_TYPES, ...fromRecords]));
+  }, [fuels]);
+
+  const inPeriod = (iso: string, from: string, to: string) => {
+    const d = new Date(iso).getTime();
+    if (from) {
+      const f = new Date(from).getTime();
+      if (d < f) return false;
+    }
+    if (to) {
+      const t = new Date(to + 'T23:59:59').getTime();
+      if (d > t) return false;
+    }
+    return true;
+  };
+
+  // ── Ledger (Prepaid Accounts Ledger & Audit Logs) ──
+  const ledgerRows = useMemo(() => {
+    const q = ledgerSearch.trim().toLowerCase();
+    return enrichedLogs.filter((log) => {
+      const searchable = [
+        log.fuelType,
+        log.action,
+        log.notes || '',
+        log.requisitionRef || '',
+        new Date(log.createdAt).toLocaleString(),
+      ]
+        .join(' ')
+        .toLowerCase();
+      if (q && !searchable.includes(q)) return false;
+      if (ledgerFuelType && log.fuelType !== ledgerFuelType) return false;
+      if (ledgerAction && log.action !== ledgerAction) return false;
+      if (ledgerReq.trim() && !(log.requisitionRef || '').includes(ledgerReq.trim().toUpperCase())) return false;
+      if (!inPeriod(log.createdAt, ledgerFrom, ledgerTo)) return false;
+      return true;
+    });
+  }, [enrichedLogs, ledgerSearch, ledgerFuelType, ledgerAction, ledgerReq, ledgerFrom, ledgerTo]);
+
+  const ledgerTotalPages = Math.max(1, Math.ceil(ledgerRows.length / PAGE_SIZE));
+  const safeLedgerPage = Math.min(ledgerPage, ledgerTotalPages);
+  const ledgerPageRows = ledgerRows.slice((safeLedgerPage - 1) * PAGE_SIZE, safeLedgerPage * PAGE_SIZE);
+
+  // ── Fuel Movement Register (Top-Ups & Redemptions, disaggregated by fuel type) ──
+  const registerRows = useMemo(
+    () => enrichedLogs.filter((log) => log.action === 'TOPUP' || log.action === 'USAGE'),
+    [enrichedLogs]
+  );
+
+  const registerSummary = useMemo(() => {
+    return fuelTypes.map((ft) => {
+      const rows = registerRows.filter((r) => r.fuelType === ft);
+      const topUps = rows.filter((r) => r.action === 'TOPUP');
+      const redemptions = rows.filter((r) => r.action === 'USAGE');
+      const sum = (arr: typeof rows, key: 'quantity' | 'amount') =>
+        arr.reduce((acc, r) => acc + Number(r[key] || 0), 0);
+      return {
+        fuelType: ft,
+        topUpLiters: sum(topUps, 'quantity'),
+        topUpValue: sum(topUps, 'amount'),
+        redemptionLiters: sum(redemptions, 'quantity'),
+        redemptionValue: sum(redemptions, 'amount'),
+      };
+    });
+  }, [fuelTypes, registerRows]);
+
+  const driverOptions = useMemo(
+    () => Array.from(new Set(registerRows.map((r) => r.driverName).filter(Boolean) as string[])),
+    [registerRows]
+  );
+
+  const regFilteredRows = useMemo(() => {
+    const q = regSearch.trim().toLowerCase();
+    return registerRows.filter((row) => {
+      const searchable = [
+        row.fuelType,
+        row.action,
+        row.notes || '',
+        row.requisitionRef || '',
+        row.driverName || '',
+        row.vehiclePlate || '',
+        new Date(row.createdAt).toLocaleString(),
+      ]
+        .join(' ')
+        .toLowerCase();
+      if (q && !searchable.includes(q)) return false;
+      if (regFuelType && row.fuelType !== regFuelType) return false;
+      if (regReq.trim() && !(row.requisitionRef || '').includes(regReq.trim().toUpperCase())) return false;
+      if (regDriver && row.driverName !== regDriver) return false;
+      if (!inPeriod(row.createdAt, regFrom, regTo)) return false;
+      return true;
+    });
+  }, [registerRows, regSearch, regFuelType, regReq, regDriver, regFrom, regTo]);
+
+  const regTotalPages = Math.max(1, Math.ceil(regFilteredRows.length / PAGE_SIZE));
+  const safeRegPage = Math.min(regPage, regTotalPages);
+  const regPageRows = regFilteredRows.slice((safeRegPage - 1) * PAGE_SIZE, safeRegPage * PAGE_SIZE);
 
   const handleTopUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,6 +337,24 @@ export default function PrepaidFuelPage() {
     } catch (_) {}
   };
 
+  const activityBadge = (action: string) => {
+    const variant =
+      action === 'TOPUP'
+        ? 'success'
+        : action === 'USAGE'
+        ? 'secondary'
+        : action === 'ADJUST_PRICE'
+        ? 'warning'
+        : 'warning';
+    const label =
+      action === 'TOPUP' ? 'Top Up' : action === 'USAGE' ? 'Redemption' : action.replace(/_/g, ' ');
+    return (
+      <Badge variant={variant} className="text-[10px] uppercase font-bold">
+        {label}
+      </Badge>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -185,7 +399,7 @@ export default function PrepaidFuelPage() {
                     <select
                       value={topUpType}
                       onChange={(e) => setTopUpType(e.target.value)}
-                      className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
+                      className={inputCls}
                     >
                       <option value="Diesel">Diesel</option>
                       <option value="Petrol">Petrol</option>
@@ -198,7 +412,7 @@ export default function PrepaidFuelPage() {
                       placeholder="e.g. 5000"
                       value={topUpQty}
                       onChange={(e) => setTopUpQty(e.target.value)}
-                      className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
+                      className={inputCls}
                     />
                   </div>
                 </div>
@@ -210,7 +424,7 @@ export default function PrepaidFuelPage() {
                     placeholder="Defaults to current price"
                     value={topUpPrice}
                     onChange={(e) => setTopUpPrice(e.target.value)}
-                    className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
+                    className={inputCls}
                   />
                 </div>
                 <div>
@@ -220,7 +434,7 @@ export default function PrepaidFuelPage() {
                     placeholder="e.g. Purchase order PO-9988 top-up"
                     value={topUpNotes}
                     onChange={(e) => setTopUpNotes(e.target.value)}
-                    className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
+                    className={inputCls}
                   />
                 </div>
                 <Button type="submit" className="w-full font-bold">Top Up reserves</Button>
@@ -241,7 +455,7 @@ export default function PrepaidFuelPage() {
                 <select
                   value={adjustType}
                   onChange={(e) => setAdjustType(e.target.value)}
-                  className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
+                  className={inputCls}
                 >
                   <option value="Diesel">Diesel</option>
                   <option value="Petrol">Petrol</option>
@@ -254,7 +468,7 @@ export default function PrepaidFuelPage() {
                     placeholder="New Qty (L)"
                     value={adjustQty}
                     onChange={(e) => setAdjustQty(e.target.value)}
-                    className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
+                    className={inputCls}
                   />
                   <Button onClick={handleAdjustQty} variant="secondary" size="sm" className="w-full font-bold">Adjust Qty</Button>
                 </div>
@@ -265,7 +479,7 @@ export default function PrepaidFuelPage() {
                     placeholder="New Price ($)"
                     value={adjustPrice}
                     onChange={(e) => setAdjustPrice(e.target.value)}
-                    className="w-full text-sm border border-slate-200 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
+                    className={inputCls}
                   />
                   <Button onClick={handleAdjustPrice} variant="secondary" size="sm" className="w-full font-bold">Adjust Price</Button>
                 </div>
@@ -274,12 +488,47 @@ export default function PrepaidFuelPage() {
           </Card>
         </div>
 
-        {/* Audit Logs list */}
+        {/* Prepaid Accounts Ledger & Audit Logs */}
         <div className="lg:col-span-2">
           <Card>
             <CardHeader className="pb-3 border-b border-slate-100">
               <CardTitle className="text-lg">Prepaid Accounts Ledger & Audit Logs</CardTitle>
             </CardHeader>
+
+            {/* Ledger filters */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 p-4 border-b border-slate-100">
+              <div className="col-span-2 md:col-span-1 relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={ledgerSearch}
+                  onChange={(e) => { setLedgerSearch(e.target.value); setLedgerPage(1); }}
+                  className={`${inputCls} pl-8`}
+                />
+              </div>
+              <select value={ledgerFuelType} onChange={(e) => { setLedgerFuelType(e.target.value); setLedgerPage(1); }} className={inputCls}>
+                <option value="">All Fuel Types</option>
+                {fuelTypes.map((ft) => <option key={ft} value={ft}>{ft}</option>)}
+              </select>
+              <select value={ledgerAction} onChange={(e) => { setLedgerAction(e.target.value); setLedgerPage(1); }} className={inputCls}>
+                <option value="">All Activity</option>
+                <option value="TOPUP">Top Up</option>
+                <option value="USAGE">Redemption</option>
+                <option value="ADJUST_QTY">Adjust Qty</option>
+                <option value="ADJUST_PRICE">Adjust Price</option>
+              </select>
+              <input
+                type="text"
+                placeholder="Requisition #"
+                value={ledgerReq}
+                onChange={(e) => { setLedgerReq(e.target.value); setLedgerPage(1); }}
+                className={inputCls}
+              />
+              <input type="date" value={ledgerFrom} onChange={(e) => { setLedgerFrom(e.target.value); setLedgerPage(1); }} className={inputCls} />
+              <input type="date" value={ledgerTo} onChange={(e) => { setLedgerTo(e.target.value); setLedgerPage(1); }} className={inputCls} />
+            </div>
+
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
@@ -287,6 +536,7 @@ export default function PrepaidFuelPage() {
                     <TableHead>Date/Time</TableHead>
                     <TableHead>Fuel Type</TableHead>
                     <TableHead>Activity</TableHead>
+                    <TableHead>Requisition #</TableHead>
                     <TableHead>Volume (L)</TableHead>
                     <TableHead>Price/L</TableHead>
                     <TableHead>Value Amount</TableHead>
@@ -294,27 +544,15 @@ export default function PrepaidFuelPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {logs.map((log) => (
+                  {ledgerPageRows.map((log) => (
                     <TableRow key={log.id}>
                       <TableCell className="text-slate-500 font-mono text-xs">
                         {new Date(log.createdAt).toLocaleString()}
                       </TableCell>
                       <TableCell className="font-semibold">{log.fuelType}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            log.action === 'TOPUP'
-                              ? 'success'
-                              : log.action === 'USAGE'
-                              ? 'secondary'
-                              : 'warning'
-                          }
-                          className="text-[10px] uppercase font-bold"
-                        >
-                          {log.action}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-mono">{log.quantity > 0 ? `${log.quantity} L` : '-'}</TableCell>
+                      <TableCell>{activityBadge(log.action)}</TableCell>
+                      <TableCell className="font-mono text-xs">{log.requisitionRef || '—'}</TableCell>
+                      <TableCell className="font-mono">{log.quantity > 0 ? `${Number(log.quantity).toLocaleString()} L` : '-'}</TableCell>
                       <TableCell className="font-mono">${Number(log.pricePerLiter).toFixed(2)}</TableCell>
                       <TableCell className="font-mono">{log.amount > 0 ? `$${Number(log.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '-'}</TableCell>
                       <TableCell className="text-xs text-slate-500 max-w-[200px] truncate" title={log.notes || ''}>
@@ -322,17 +560,134 @@ export default function PrepaidFuelPage() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {logs.length === 0 && (
+                  {ledgerPageRows.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-slate-400">No prepaid actions logged</TableCell>
+                      <TableCell colSpan={8} className="text-center py-8 text-slate-400">No prepaid actions match your filters</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
               </Table>
+              <PaginationBar
+                page={safeLedgerPage}
+                totalPages={ledgerTotalPages}
+                onPrev={() => setLedgerPage((p) => Math.max(1, p - 1))}
+                onNext={() => setLedgerPage((p) => Math.min(ledgerTotalPages, p + 1))}
+              />
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {/* Fuel Movement Register (Top-Ups & Redemptions) */}
+      <Card>
+        <CardHeader className="pb-3 border-b border-slate-100">
+          <CardTitle className="text-lg flex items-center gap-1.5">
+            <Scale className="h-5 w-5 text-mine-blue-700" />
+            Fuel Movement Register — Top-Ups & Redemptions by Fuel Type
+          </CardTitle>
+          <p className="text-sm text-slate-500 mt-1">Prepaid top-ups and voucher redemptions disaggregated by fuel type</p>
+        </CardHeader>
+
+        {/* Per-fuel-type summary */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border-b border-slate-100">
+          {registerSummary.map((s) => (
+            <div key={s.fuelType} className="rounded-xl border border-slate-200 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">{s.fuelType}</p>
+                <Badge variant="secondary" className="text-[10px]">Register Totals</Badge>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-lg bg-emerald-50 border border-emerald-100 p-3">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-emerald-600 mb-1">Top-Ups</p>
+                  <p className="text-lg font-bold font-mono text-emerald-700">{Number(s.topUpLiters).toLocaleString()} L</p>
+                  <p className="text-xs font-mono text-emerald-600">${Number(s.topUpValue).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div className="rounded-lg bg-sky-50 border border-sky-100 p-3">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-sky-600 mb-1">Redemptions</p>
+                  <p className="text-lg font-bold font-mono text-sky-700">{Number(s.redemptionLiters).toLocaleString()} L</p>
+                  <p className="text-xs font-mono text-sky-600">${Number(s.redemptionValue).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+          {registerSummary.length === 0 && (
+            <p className="text-sm text-slate-400 py-4 text-center">No fuel movement data available</p>
+          )}
+        </div>
+
+        {/* Register filters */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 p-4 border-b border-slate-100">
+          <div className="col-span-2 md:col-span-1 relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search..."
+              value={regSearch}
+              onChange={(e) => { setRegSearch(e.target.value); setRegPage(1); }}
+              className={`${inputCls} pl-8`}
+            />
+          </div>
+          <select value={regFuelType} onChange={(e) => { setRegFuelType(e.target.value); setRegPage(1); }} className={inputCls}>
+            <option value="">All Fuel Types</option>
+            {fuelTypes.map((ft) => <option key={ft} value={ft}>{ft}</option>)}
+          </select>
+          <input
+            type="text"
+            placeholder="Requisition #"
+            value={regReq}
+            onChange={(e) => { setRegReq(e.target.value); setRegPage(1); }}
+            className={inputCls}
+          />
+          <select value={regDriver} onChange={(e) => { setRegDriver(e.target.value); setRegPage(1); }} className={inputCls}>
+            <option value="">All Drivers</option>
+            {driverOptions.map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
+          <input type="date" value={regFrom} onChange={(e) => { setRegFrom(e.target.value); setRegPage(1); }} className={inputCls} />
+          <input type="date" value={regTo} onChange={(e) => { setRegTo(e.target.value); setRegPage(1); }} className={inputCls} />
+        </div>
+
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date/Time</TableHead>
+                <TableHead>Fuel Type</TableHead>
+                <TableHead>Activity</TableHead>
+                <TableHead>Requisition #</TableHead>
+                <TableHead>Driver</TableHead>
+                <TableHead>Vehicle</TableHead>
+                <TableHead>Volume (L)</TableHead>
+                <TableHead>Value Amount</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {regPageRows.map((row) => (
+                <TableRow key={row.id}>
+                  <TableCell className="text-slate-500 font-mono text-xs">{new Date(row.createdAt).toLocaleString()}</TableCell>
+                  <TableCell className="font-semibold">{row.fuelType}</TableCell>
+                  <TableCell>{activityBadge(row.action)}</TableCell>
+                  <TableCell className="font-mono text-xs">{row.requisitionRef || '—'}</TableCell>
+                  <TableCell>{row.driverName || '—'}</TableCell>
+                  <TableCell className="font-mono text-xs">{row.vehiclePlate || '—'}</TableCell>
+                  <TableCell className="font-mono">{row.quantity > 0 ? `${Number(row.quantity).toLocaleString()} L` : '-'}</TableCell>
+                  <TableCell className="font-mono">{row.amount > 0 ? `$${Number(row.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '-'}</TableCell>
+                </TableRow>
+              ))}
+              {regPageRows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-slate-400">No fuel movements match your filters</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+          <PaginationBar
+            page={safeRegPage}
+            totalPages={regTotalPages}
+            onPrev={() => setRegPage((p) => Math.max(1, p - 1))}
+            onNext={() => setRegPage((p) => Math.min(regTotalPages, p + 1))}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }

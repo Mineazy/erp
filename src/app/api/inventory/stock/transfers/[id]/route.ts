@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSession, unauthorized, notFound, ok, getBody } from '@/lib/api';
+import { getSession, unauthorized, notFound, ok, badRequest, getBody } from '@/lib/api';
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -9,7 +9,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
   const transfer = await prisma.erpStockTransfer.findUnique({
     where: { id },
-    include: { lines: true, fromBranch: true, toBranch: true },
+    include: { lines: true, fromBranch: true, toBranch: true, fromWarehouse: true, toWarehouse: true },
   });
   if (!transfer) return notFound('Stock transfer not found');
 
@@ -23,9 +23,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
   const existing = await prisma.erpStockTransfer.findUnique({ where: { id }, include: { lines: true } });
   if (!existing) return notFound('Stock transfer not found');
+  if (existing.status !== 'draft') return badRequest('Only draft orders can be edited');
 
   const body = await getBody(request);
-  const { fromBranchId, toBranchId, status, notes } = body;
+  const { fromBranchId, toBranchId, fromWarehouseId, toWarehouseId, status, notes } = body;
   const lines = (body.lines || undefined) as any[] | undefined;
 
   await prisma.erpStockTransferLine.deleteMany({ where: { transferId: id } });
@@ -33,6 +34,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const updateData: Record<string, unknown> = {};
   if (fromBranchId !== undefined) updateData.fromBranchId = fromBranchId;
   if (toBranchId !== undefined) updateData.toBranchId = toBranchId;
+  if (fromWarehouseId !== undefined) updateData.fromWarehouseId = fromWarehouseId;
+  if (toWarehouseId !== undefined) updateData.toWarehouseId = toWarehouseId;
   if (status !== undefined) updateData.status = status;
   if (notes !== undefined) updateData.notes = notes;
   if (lines) {
@@ -40,6 +43,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       create: lines.map((l: any) => ({
         productId: l.productId,
         productName: l.productName,
+        productCode: l.productCode || null,
         quantity: parseFloat(l.quantity),
         batchNo: l.batchNo || null,
         unitPrice: parseFloat(l.unitPrice) || 0,
@@ -50,7 +54,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const transfer = await prisma.erpStockTransfer.update({
     where: { id },
     data: updateData as any,
-    include: { lines: true, fromBranch: true, toBranch: true },
+    include: { lines: true, fromBranch: true, toBranch: true, fromWarehouse: true, toWarehouse: true },
   });
 
   return ok(transfer);

@@ -58,7 +58,55 @@ export async function POST(request: NextRequest) {
   if (!session) return unauthorized();
 
   const body = (await getBody(request)) as any;
-  const { plateNumber, make, model, type, status, currentOdometer, assignedDriver } = body;
+  const { action, vehicleId, plateNumber, make, model, type, status, currentOdometer, assignedDriver, year, vin, fuelType, capacity, insurancePolicy, insuranceExpiry, licenceExpiry } = body;
+
+  if (action === 'edit') {
+    if (!vehicleId) return badRequest('Vehicle ID is required');
+    const existing = await prisma.erpVehicle.findUnique({ where: { id: vehicleId } });
+    if (!existing) return badRequest('Vehicle not found');
+
+    try {
+      const updated = await prisma.erpVehicle.update({
+        where: { id: vehicleId },
+        data: {
+          ...(plateNumber && { plateNumber }),
+          ...(make && { make }),
+          ...(model && { model }),
+          ...(type && { type }),
+          ...(status && { status }),
+          ...(assignedDriver !== undefined && { assignedDriver }),
+          ...(currentOdometer !== undefined && { currentOdometer: Number(currentOdometer) }),
+          ...(year !== undefined && { year: year ? Number(year) : null }),
+          ...(vin !== undefined && { vin }),
+          ...(fuelType !== undefined && { fuelType }),
+          ...(capacity !== undefined && { capacity: capacity ? Number(capacity) : null }),
+          ...(insurancePolicy !== undefined && { insurancePolicy }),
+          ...(insuranceExpiry !== undefined && { insuranceExpiry: insuranceExpiry ? new Date(insuranceExpiry) : null }),
+          ...(licenceExpiry !== undefined && { licenceExpiry: licenceExpiry ? new Date(licenceExpiry) : null }),
+        }
+      });
+      return ok(updated);
+    } catch (err: any) {
+      return badRequest(err.message || 'Failed to update vehicle');
+    }
+  }
+
+  if (action === 'delete') {
+    if (!vehicleId) return badRequest('Vehicle ID is required');
+    const existing = await prisma.erpVehicle.findUnique({ where: { id: vehicleId } });
+    if (!existing) return badRequest('Vehicle not found');
+
+    try {
+      // Delete related records first (no cascade on some relations)
+      await prisma.erpFuelRecord.deleteMany({ where: { vehicleId } });
+      await prisma.erpServiceRecord.deleteMany({ where: { vehicleId } });
+      await prisma.erpVehicleDispatch.deleteMany({ where: { vehicleId } });
+      await prisma.erpVehicle.delete({ where: { id: vehicleId } });
+      return ok({ success: true });
+    } catch (err: any) {
+      return badRequest(err.message || 'Failed to delete vehicle');
+    }
+  }
 
   if (!plateNumber || !make || !model) {
     return badRequest('Plate number, make, and model are required');
@@ -74,7 +122,7 @@ export async function POST(request: NextRequest) {
         status: status || 'active',
         assignedDriver,
         currentOdometer: Number(currentOdometer || 0),
-        latitude: -17.8251, // default center
+        latitude: -17.8251,
         longitude: 31.0531,
         speed: 0.0,
         lastPing: new Date()

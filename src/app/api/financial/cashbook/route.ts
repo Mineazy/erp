@@ -34,7 +34,8 @@ export async function GET(request: NextRequest) {
     where,
     orderBy: { entryDate: 'desc' },
   });
-  return ok(items);
+  const serialized = items.map(i => ({ ...i, amount: Number(i.amount), exchangeRate: Number(i.exchangeRate) }));
+  return ok(serialized);
 }
 
 export async function POST(request: NextRequest) {

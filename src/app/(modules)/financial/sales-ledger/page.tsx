@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Receipt, Search, Download, Users, AlertTriangle, DollarSign } from 'lucide-react';
+import { Receipt, Search, Download, Users, AlertTriangle, DollarSign, CreditCard, Calendar } from 'lucide-react';
 
 interface Transaction {
   id: string;
@@ -43,10 +43,18 @@ interface Totals {
   totalCustomers: number;
 }
 
+interface InstallmentInfo {
+  customerId: string;
+  activePlans: number;
+  totalBalance: number;
+  monthlyPayment: number;
+}
+
 interface LedgerData {
   transactions: Transaction[];
   summaries: CustomerSummary[];
   totals: Totals;
+  installmentSummary?: { activePlans: number; totalOutstanding: number; monthlyCollections: number };
 }
 
 const statusVariant: Record<string, 'success' | 'warning' | 'destructive' | 'default'> = {
@@ -65,6 +73,7 @@ export default function SalesLedgerPage() {
   const [dateTo, setDateTo] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
+  const [installmentMap, setInstallmentMap] = useState<Record<string, InstallmentInfo>>({});
 
   const fetchCustomers = async () => {
     try {
@@ -100,6 +109,22 @@ export default function SalesLedgerPage() {
 
   useEffect(() => { fetchCustomers(); }, []);
   useEffect(() => { fetchData(); }, [customerId, dateFrom, dateTo, statusFilter]);
+
+  useEffect(() => {
+    fetch('/api/financial/installments?status=active')
+      .then(r => r.json())
+      .then((plans: any[]) => {
+        const map: Record<string, InstallmentInfo> = {};
+        plans.forEach((p: any) => {
+          if (!map[p.customerId]) map[p.customerId] = { customerId: p.customerId, activePlans: 0, totalBalance: 0, monthlyPayment: 0 };
+          map[p.customerId].activePlans++;
+          map[p.customerId].totalBalance += Number(p.balanceAmount);
+          map[p.customerId].monthlyPayment += Number(p.monthlyPayment);
+        });
+        setInstallmentMap(map);
+      })
+      .catch(() => {});
+  }, []);
 
   const groupedTransactions = data?.transactions.reduce(
     (acc, t) => {
@@ -166,6 +191,38 @@ export default function SalesLedgerPage() {
         </Card>
       </div>
 
+      {Object.keys(installmentMap).length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="border-amber-200 bg-amber-50">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-amber-700">Active Installment Plans</p>
+                <p className="text-xl font-bold text-amber-900">{Object.values(installmentMap).reduce((s, i) => s + i.activePlans, 0)}</p>
+              </div>
+              <div className="p-2 bg-amber-100 rounded-lg"><CreditCard className="h-5 w-5 text-amber-700" /></div>
+            </CardContent>
+          </Card>
+          <Card className="border-amber-200 bg-amber-50">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-amber-700">Installment Balance</p>
+                <p className="text-xl font-bold text-amber-900">${Object.values(installmentMap).reduce((s, i) => s + i.totalBalance, 0).toLocaleString()}</p>
+              </div>
+              <div className="p-2 bg-amber-100 rounded-lg"><DollarSign className="h-5 w-5 text-amber-700" /></div>
+            </CardContent>
+          </Card>
+          <Card className="border-amber-200 bg-amber-50">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-amber-700">Monthly Installments Due</p>
+                <p className="text-xl font-bold text-amber-900">${Object.values(installmentMap).reduce((s, i) => s + i.monthlyPayment, 0).toLocaleString()}</p>
+              </div>
+              <div className="p-2 bg-amber-100 rounded-lg"><Calendar className="h-5 w-5 text-amber-700" /></div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -221,6 +278,11 @@ export default function SalesLedgerPage() {
                             {summary.invoiceCount} invoice{summary.invoiceCount !== 1 ? 's' : ''}
                             {summary.city ? ` · ${summary.city}` : ''}
                           </span>
+                          {installmentMap[summary.customerId] && (
+                            <span className="ml-2 inline-flex items-center gap-1 text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-medium">
+                              <CreditCard className="h-3 w-3" /> {installmentMap[summary.customerId].activePlans} installment{installmentMap[summary.customerId].activePlans !== 1 ? 's' : ''}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-4">

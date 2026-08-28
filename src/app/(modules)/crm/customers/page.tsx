@@ -10,7 +10,7 @@ import { Select } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
-import { Users, Plus, Search, Edit2, Trash2, Phone, Mail, MapPin } from 'lucide-react';
+import { Users, Plus, Search, Edit2, Trash2, Phone, Mail, MapPin, Trophy, Star } from 'lucide-react';
 
 interface Customer {
   id: string;
@@ -29,9 +29,12 @@ interface Customer {
   cardBalance: number;
   segment?: string | null;
   resellerDiscount?: number;
+  branchId?: string | null;
 }
 
-const emptyForm = { code: '', name: '', type: 'company', segment: 'retail', resellerDiscount: '0.00', contactPerson: '', email: '', phone: '', city: '', taxId: '', loyaltyCardBarcode: '' };
+interface Branch { id: string; name: string; }
+
+const emptyForm = { code: '', name: '', type: 'company', segment: 'retail', resellerDiscount: '0.00', contactPerson: '', email: '', phone: '', city: '', taxId: '', vatNumber: '', branchId: '' };
 
 export default function CustomersPage() {
   const [data, setData] = useState<Customer[]>([]);
@@ -41,6 +44,7 @@ export default function CustomersPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [branches, setBranches] = useState<Branch[]>([]);
 
   const fetchData = async () => {
     try {
@@ -61,6 +65,12 @@ export default function CustomersPage() {
 
   useEffect(() => { fetchData(); }, [search, segmentFilter]);
 
+  useEffect(() => {
+    fetch('/api/admin/branches').then(r => r.json()).then(d => {
+      setBranches(Array.isArray(d) ? d : (d.items || []));
+    }).catch(() => {});
+  }, []);
+
   const openCreate = () => {
     setEditingCustomer(null);
     setForm(emptyForm);
@@ -80,7 +90,8 @@ export default function CustomersPage() {
       phone: customer.phone || '',
       city: customer.city || '',
       taxId: (customer as any).taxId || '',
-      loyaltyCardBarcode: customer.loyaltyCardBarcode || '',
+      vatNumber: (customer as any).vatNumber || '',
+      branchId: customer.branchId || '',
     });
     setDialogOpen(true);
   };
@@ -188,6 +199,102 @@ export default function CustomersPage() {
         </Card>
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Star className="h-4 w-4 text-amber-500" />
+              Top 3 Customers Overall
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            {data.length === 0 ? (
+              <p className="text-sm text-slate-400 italic">No customers yet</p>
+            ) : (
+              <div className="space-y-2">
+                {[...data]
+                  .sort((a, b) => (b.totalSpent || 0) - (a.totalSpent || 0))
+                  .slice(0, 3)
+                  .map((c, i) => (
+                    <div key={c.id} className="flex items-center gap-3 p-2 rounded-lg bg-slate-50">
+                      <span className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${i === 0 ? 'bg-amber-100 text-amber-700' : i === 1 ? 'bg-slate-200 text-slate-600' : 'bg-orange-100 text-orange-700'}`}>
+                        {i + 1}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-slate-800 truncate">{c.name}</p>
+                        <p className="text-[10px] text-slate-400">{c.code}{c.branchId ? ` · ${branches.find(b => b.id === c.branchId)?.name || ''}` : ''}</p>
+                      </div>
+                      <span className="text-sm font-bold text-slate-900">${Number(c.totalSpent || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Trophy className="h-4 w-4 text-emerald-500" />
+              Top 5 Customers Per Branch
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            {data.length === 0 ? (
+              <p className="text-sm text-slate-400 italic">No customers yet</p>
+            ) : (
+              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                {branches
+                  .filter(b => data.some(c => c.branchId === b.id))
+                  .sort((a, b) => {
+                    const aMax = Math.max(...data.filter(c => c.branchId === a.id).map(c => c.totalSpent || 0));
+                    const bMax = Math.max(...data.filter(c => c.branchId === b.id).map(c => c.totalSpent || 0));
+                    return bMax - aMax;
+                  })
+                  .map(branch => {
+                    const branchCustomers = [...data]
+                      .filter(c => c.branchId === branch.id)
+                      .sort((a, b) => (b.totalSpent || 0) - (a.totalSpent || 0))
+                      .slice(0, 5);
+                    return (
+                      <div key={branch.id}>
+                        <p className="text-xs font-semibold text-slate-600 mb-1.5">{branch.name}</p>
+                        <div className="space-y-1">
+                          {branchCustomers.map((c, i) => (
+                            <div key={c.id} className="flex items-center gap-2 text-sm">
+                              <span className="text-[10px] font-bold text-slate-400 w-3">{i + 1}.</span>
+                              <span className="flex-1 truncate text-slate-700">{c.name}</span>
+                              <span className="font-mono text-xs font-medium text-slate-900">${Number(c.totalSpent || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                {data.some(c => !c.branchId) && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-600 mb-1.5">Unassigned</p>
+                    <div className="space-y-1">
+                      {[...data]
+                        .filter(c => !c.branchId)
+                        .sort((a, b) => (b.totalSpent || 0) - (a.totalSpent || 0))
+                        .slice(0, 5)
+                        .map((c, i) => (
+                          <div key={c.id} className="flex items-center gap-2 text-sm">
+                            <span className="text-[10px] font-bold text-slate-400 w-3">{i + 1}.</span>
+                            <span className="flex-1 truncate text-slate-700">{c.name}</span>
+                            <span className="font-mono text-xs font-medium text-slate-900">${Number(c.totalSpent || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -226,6 +333,7 @@ export default function CustomersPage() {
                 <TableHead className="text-right">Total Spent</TableHead>
                 <TableHead>Email / Phone</TableHead>
                 <TableHead>City</TableHead>
+                <TableHead>Branch</TableHead>
                 <TableHead className="text-right font-semibold">AR Balance</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -280,6 +388,7 @@ export default function CustomersPage() {
                       </div>
                     </TableCell>
                     <TableCell>{customer.city || '-'}</TableCell>
+                    <TableCell className="text-xs">{branches.find(b => b.id === customer.branchId)?.name || <span className="text-slate-400 italic">—</span>}</TableCell>
                     <TableCell className="text-right font-mono font-semibold">${Number(customer.balance || 0).toLocaleString()}</TableCell>
                     <TableCell>
                       <Badge variant={customer.isActive ? 'success' : 'secondary'}>
@@ -303,7 +412,7 @@ export default function CustomersPage() {
       <Dialog open={dialogOpen} onClose={() => { setDialogOpen(false); setEditingCustomer(null); }} title={editingCustomer ? 'Edit Customer' : 'Add Customer'} size="lg">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Customer Code" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="e.g. CUS-006" />
+            <Input label="Customer Code" value={form.code} disabled placeholder="Auto-generated" className="bg-slate-50 text-slate-500" />
             <Input label="Customer Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. NewCo Ltd" />
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -316,17 +425,21 @@ export default function CustomersPage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <Input label="City" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Harare" />
-            <Input label="Tax ID" value={form.taxId} onChange={(e) => setForm({ ...form, taxId: e.target.value })} placeholder="e.g. 123456789" />
+            <Input label="TIN" value={form.taxId} onChange={(e) => setForm({ ...form, taxId: e.target.value })} placeholder="e.g. 123456789" />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Loyalty Card Barcode" value={form.loyaltyCardBarcode} onChange={(e) => setForm({ ...form, loyaltyCardBarcode: e.target.value })} placeholder="e.g. LOYAL-1001" />
+            <Input label="VAT Registration Number" value={form.vatNumber || ''} onChange={(e) => setForm({ ...form, vatNumber: e.target.value })} placeholder="e.g. VAT10012345" />
             <Select label="Customer Segment" options={[{ value: 'retail', label: 'Retail' }, { value: 'wholesale', label: 'Wholesale' }, { value: 'reseller', label: 'Reseller' }]} value={form.segment} onChange={(e) => setForm({ ...form, segment: e.target.value })} />
           </div>
-          {form.segment === 'reseller' && (
-            <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="Loyalty Card" disabled value="Auto-generated" className="bg-slate-50 text-slate-500" />
+            <Select label="Branch" options={[{ value: '', label: '— No Branch —' }, ...branches.map(b => ({ value: b.id, label: b.name }))]} value={form.branchId} onChange={(e) => setForm({ ...form, branchId: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            {form.segment === 'reseller' && (
               <Input label="Reseller Discount (%)" type="number" step="0.01" value={form.resellerDiscount} onChange={(e) => setForm({ ...form, resellerDiscount: e.target.value })} placeholder="e.g. 15.00" />
-            </div>
-          )}
+            )}
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => { setDialogOpen(false); setEditingCustomer(null); }}>Cancel</Button>

@@ -284,6 +284,7 @@ export default function JournalPage() {
             </div>
             {viewEntry.lines && viewEntry.lines.length > 0 && (
               <div className="border rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-slate-50 border-b">
@@ -308,6 +309,7 @@ export default function JournalPage() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             )}
             <div className="flex justify-between text-sm font-bold pt-2 border-t">

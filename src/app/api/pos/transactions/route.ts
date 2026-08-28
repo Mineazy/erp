@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
   if (branchId && branchId !== 'all') where.branchId = branchId;
   
   if (search) {
-    where.transactionNumber = { contains: search, mode: 'insensitive' };
+    where.transactionNumber = { contains: search };
   }
 
   if (dateFrom || dateTo) {
@@ -50,7 +50,8 @@ export async function GET(request: NextRequest) {
       include: {
         lines: true,
         payments: true,
-        branch: { select: { id: true, code: true, name: true, address: true, city: true, country: true, phone: true, email: true } }
+        branch: { select: { id: true, code: true, name: true, address: true, city: true, country: true, phone: true, email: true } },
+        fiscalisedDoc: { select: { documentRef: true, authCode: true, qrCodeUrl: true, qrCodeData: true, deviceId: true, receiptNo: true } }
       },
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
@@ -190,7 +191,7 @@ export async function POST(request: NextRequest) {
             }
           : undefined,
       },
-      include: { lines: true, payments: true, branch: true },
+      include: { lines: true, payments: true, branch: true, fiscalisedDoc: { select: { documentRef: true, authCode: true, qrCodeUrl: true, qrCodeData: true, deviceId: true, receiptNo: true } } },
     });
 
     if (customerId) {

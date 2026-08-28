@@ -57,6 +57,7 @@ const roles = [
   { value: 'sales_marketing_manager', label: 'Sales & Marketing Manager' },
   { value: 'business_development_manager', label: 'Business Development Manager' },
   { value: 'operations_manager', label: 'Operations Manager' },
+  { value: 'fuel_attendant', label: 'Fuel Attendant' },
 ];
 
 const departments = [

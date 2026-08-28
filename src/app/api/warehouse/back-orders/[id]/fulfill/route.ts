@@ -1,101 +1,191 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSession, unauthorized, notFound, badRequest, getBody, getNextSequence } from '@/lib/api';
+import { getSession, unauthorized, notFound, ok, badRequest, getBody } from '@/lib/api';
+
+const STAGE_FLOW: Record<string, string[]> = {
+  submitted: ['warehouse_review'],
+  warehouse_review: ['procurement_needed', 'allocation'],
+  procurement_needed: ['requisition_created'],
+  requisition_created: ['po_created'],
+  po_created: ['goods_received'],
+  goods_received: ['allocation'],
+  allocation: ['dispatched'],
+  dispatched: ['closed'],
+};
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const userEmail = (session.user as any).email || 'unknown';
-  const body = await getBody(request);
-  const fulfillLines = (body.lines as Array<{ lineId: string; fulfillQty: number }>) || [];
+  const { id } = await params;
+  const body: any = await getBody(request);
+  const { action, toStage, notes, items } = body;
 
-  if (!fulfillLines.length) return badRequest('No items to fulfill');
+  if (!action) return badRequest('Action is required');
 
-  const backOrder = await prisma.erpBackOrder.findUnique({
-    where: { id },
-    include: { lines: true },
-  });
-
+  const backOrder = await prisma.erpBackOrder.findUnique({ where: { id }, include: { lines: true } });
   if (!backOrder) return notFound('Back order not found');
-  if (['closed', 'fulfilled'].includes(backOrder.status)) return badRequest('Back order is already closed/fulfilled');
 
-  const dcWarehouse = await prisma.erpWarehouse.findFirst({
-    where: { OR: [{ code: 'DC' }, { name: { contains: 'DC Warehouse' } }] }
-  });
+  const userEmail = (session.user as any)?.email || 'unknown';
 
-  if (!dcWarehouse) return badRequest('DC Warehouse not found. Ensure DC Warehouse exists.');
+  if (action === 'advance_stage') {
+    const allowed = STAGE_FLOW[backOrder.stage] || [];
+    if (!toStage || !allowed.includes(toStage)) {
+      return badRequest(`Cannot transition from '${backOrder.stage}' to '${toStage || 'undefined'}'`);
+    }
 
-  const result = await prisma.$transaction(async (tx) => {
-    // 1. Create a Draft Stock Transfer for these items
-    const transferNo = await getNextSequence(tx as any, 'erpStockTransfer', 'transferNo', 'TRF');
-    
-    const transfer = await tx.erpStockTransfer.create({
+    const updateData: any = { stage: toStage };
+    if (toStage === 'warehouse_review') updateData.status = 'approved';
+    if (toStage === 'allocation') updateData.status = 'allocated';
+    if (toStage === 'closed') updateData.status = 'closed';
+    if (toStage === 'procurement_needed' || toStage === 'requisition_created' || toStage === 'po_created') updateData.status = 'in_progress';
+
+    await prisma.erpBackOrder.update({ where: { id }, data: updateData });
+    await prisma.erpBackOrderActivity.create({
       data: {
-        transferNo,
-        fromWarehouseId: dcWarehouse.id,
-        toBranchId: backOrder.branchId,
-        status: 'draft',
-        requestedBy: userEmail,
-        notes: `Auto-generated from Back Order ${backOrder.orderNumber}`,
+        backOrderId: id,
+        action,
+        fromStage: backOrder.stage,
+        toStage,
+        performedBy: userEmail,
+        notes: (notes as string) || null,
+      },
+    });
+  }
+
+  if (action === 'receive_goods') {
+    if (!items?.length) return badRequest('Items with received quantities are required');
+
+    const result = await prisma.$transaction(async (tx) => {
+      for (const item of items) {
+        const line = backOrder.lines.find(l => l.id === item.lineId);
+        if (!line) continue;
+        const receivedQty = parseFloat(item.receivedQty) || 0;
+        const newReceived = Number(line.receivedQty) + receivedQty;
+        const newPurchased = Number(line.purchasedQty) + receivedQty;
+        const newOutstanding = Number(line.requestedQty) - Number(line.allocatedQty) - newPurchased;
+        await tx.erpBackOrderLine.update({
+          where: { id: line.id },
+          data: {
+            receivedQty: newReceived,
+            purchasedQty: newPurchased,
+            outstandingQty: Math.max(0, newOutstanding),
+            status: newOutstanding <= 0 ? 'allocated' : 'partially_allocated',
+          },
+        });
       }
+
+      const updatedLines = await tx.erpBackOrderLine.findMany({ where: { backOrderId: id } });
+      const allFulfilled = updatedLines.every(l => Number(l.outstandingQty) <= 0);
+      const hasReceived = updatedLines.some(l => Number(l.receivedQty) > 0);
+
+      await tx.erpBackOrder.update({
+        where: { id },
+        data: {
+          stage: allFulfilled ? 'allocation' : 'goods_received',
+          status: allFulfilled ? 'allocated' : hasReceived ? 'partially_received' : backOrder.status,
+        },
+      });
+
+      return { allFulfilled };
     });
 
-    let anyPending = false;
-    let anyAllocated = false;
+    await prisma.erpBackOrderActivity.create({
+      data: {
+        backOrderId: id,
+        action: 'receive_goods',
+        fromStage: backOrder.stage,
+        toStage: result.allFulfilled ? 'allocation' : 'goods_received',
+        performedBy: userEmail,
+        notes: (notes as string) || 'Goods received',
+      },
+    });
+  }
 
-    // 2. Process each line
-    for (const fl of fulfillLines) {
-      if (fl.fulfillQty <= 0) continue;
-
-      const line = backOrder.lines.find(l => l.id === fl.lineId);
-      if (!line) continue;
-
-      const newAllocatedQty = Number(line.allocatedQty) + fl.fulfillQty;
-      const newOutstandingQty = Number(line.requestedQty) - newAllocatedQty;
-
-      // Update back order line
-      await tx.erpBackOrderLine.update({
-        where: { id: line.id },
-        data: {
-          allocatedQty: newAllocatedQty,
-          outstandingQty: Math.max(0, newOutstandingQty),
-          status: newOutstandingQty <= 0 ? 'allocated' : 'partially_allocated'
-        }
-      });
-
-      // Create transfer line
-      await tx.erpStockTransferLine.create({
-        data: {
-          transferId: transfer.id,
-          productId: line.productId,
-          productName: line.productName,
-          quantity: fl.fulfillQty,
-        }
-      });
-
-      anyAllocated = true;
-    }
-
-    if (!anyAllocated) {
-      throw new Error("No items were allocated");
-    }
-
-    // 3. Check overall Back Order status
-    const updatedLines = await tx.erpBackOrderLine.findMany({ where: { backOrderId: id } });
-    const allAllocated = updatedLines.every(l => Number(l.outstandingQty) <= 0);
-    const hasAnyAllocated = updatedLines.some(l => Number(l.allocatedQty) > 0);
-
-    const newStatus = allAllocated ? 'allocated' : (hasAnyAllocated ? 'partially_allocated' : backOrder.status);
-
-    await tx.erpBackOrder.update({
+  if (action === 'create_requisition') {
+    await prisma.erpBackOrder.update({
       where: { id },
-      data: { status: newStatus }
+      data: { stage: 'requisition_created', status: 'in_progress' },
     });
+    await prisma.erpBackOrderActivity.create({
+      data: {
+        backOrderId: id,
+        action: 'create_requisition',
+        fromStage: backOrder.stage,
+        toStage: 'requisition_created',
+        performedBy: userEmail,
+        notes: (notes as string) || 'Purchase requisition created',
+        refType: 'purchase_requisition',
+        refId: (items?.[0]?.requisitionId as string) || null,
+      },
+    });
+  }
 
-    return { transferId: transfer.id, newStatus };
+  if (action === 'create_po') {
+    await prisma.erpBackOrder.update({
+      where: { id },
+      data: { stage: 'po_created', status: 'in_progress' },
+    });
+    await prisma.erpBackOrderActivity.create({
+      data: {
+        backOrderId: id,
+        action: 'create_po',
+        fromStage: backOrder.stage,
+        toStage: 'po_created',
+        performedBy: userEmail,
+        notes: (notes as string) || 'Purchase order created',
+        refType: 'purchase_order',
+        refId: (items?.[0]?.poId as string) || null,
+      },
+    });
+  }
+
+  if (action === 'request_procurement') {
+    await prisma.erpBackOrder.update({
+      where: { id },
+      data: { stage: 'procurement_needed', status: 'in_progress' },
+    });
+    await prisma.erpBackOrderActivity.create({
+      data: {
+        backOrderId: id,
+        action: 'request_procurement',
+        fromStage: backOrder.stage,
+        toStage: 'procurement_needed',
+        performedBy: userEmail,
+        notes: (notes as string) || 'Procurement requested — DC stock insufficient',
+      },
+    });
+  }
+
+  if (action === 'update_lines') {
+    if (!items?.length) return badRequest('Items are required');
+    for (const item of items) {
+      await prisma.erpBackOrderLine.update({
+        where: { id: item.lineId },
+        data: {
+          purchasedQty: parseFloat(item.purchasedQty) || 0,
+          notes: item.notes || null,
+        },
+      });
+    }
+    await prisma.erpBackOrderActivity.create({
+      data: {
+        backOrderId: id,
+        action: 'update_lines',
+        performedBy: userEmail,
+        notes: (notes as string) || 'Line items updated',
+      },
+    });
+  }
+
+  const updated = await prisma.erpBackOrder.findUnique({
+    where: { id },
+    include: {
+      branch: true,
+      lines: true,
+      activities: { orderBy: { createdAt: 'desc' } },
+    },
   });
 
-  return NextResponse.json({ success: true, result });
+  return ok(updated);
 }

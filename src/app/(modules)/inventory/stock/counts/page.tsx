@@ -87,7 +87,8 @@ export default function StockCountsPage() {
           id: crypto.randomUUID(),
           type: 'inventory_count',
           payload,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          status: 'pending'
         });
         toast('Offline stock count saved locally', 'success');
         setCd(false);

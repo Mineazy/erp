@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Lock, ArrowRight } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,6 +19,11 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [branches, setBranches] = useState<{id: string, name: string}[]>([]);
   const [branchesLoading, setBranchesLoading] = useState(true);
+
+  const [step, setStep] = useState<'credentials' | 'branch'>('credentials');
+  const [verifiedRole, setVerifiedRole] = useState('');
+  const [verifiedBranchId, setVerifiedBranchId] = useState('');
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     fetch('/api/auth/branches')
@@ -32,37 +37,79 @@ export default function LoginPage() {
       .finally(() => setBranchesLoading(false));
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
+    setVerifying(true);
 
     try {
-      console.log('Attempting credentials sign-in for:', email);
+      const res = await fetch('/api/auth/pre-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || 'Invalid credentials');
+        setVerifying(false);
+        return;
+      }
+
+      setVerifiedRole(data.role);
+      setVerifiedBranchId(data.branchId || '');
+
+      if (data.canChooseBranch) {
+        setStep('branch');
+        setVerifying(false);
+      } else {
+        setBranchId(data.branchId || '');
+        setVerifying(false);
+        await doSignIn(data.branchId || '');
+      }
+    } catch (err) {
+      setError('An unexpected error occurred');
+      setVerifying(false);
+    }
+  };
+
+  const doSignIn = async (selectedBranch: string) => {
+    setLoading(true);
+    setError('');
+
+    try {
       const result = await signIn('credentials', {
         email,
         password,
-        branchId,
+        branchId: selectedBranch,
         redirect: false,
       });
 
-      console.log('Sign-in response received:', result);
-
       if (result?.error) {
-        console.warn('Sign-in failed with error:', result.error);
         setError(result.error);
         setLoading(false);
         return;
       }
 
-      console.log('Sign-in successful, redirecting to dashboard...');
-      router.push('/dashboard');
+      const sessionRes = await fetch('/api/auth/session');
+      const sessionData = await sessionRes.json();
+      const role = sessionData?.user?.role;
+      if (role === 'fuel_attendant') {
+        router.push('/fleet/attendant');
+      } else {
+        router.push('/dashboard');
+      }
       router.refresh();
     } catch (err) {
-      console.error('Unexpected client-side sign-in error:', err);
       setError('An unexpected error occurred');
       setLoading(false);
     }
+  };
+
+  const handleBranchSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await doSignIn(branchId);
   };
 
   return (
@@ -77,57 +124,82 @@ export default function LoginPage() {
 
         <Card className="border-0 shadow-2xl bg-white/95 backdrop-blur-sm">
           <CardHeader className="pb-4">
-            <CardTitle className="text-xl text-slate-900">Sign In</CardTitle>
-            <CardDescription>Enter your credentials to access the system</CardDescription>
+            <CardTitle className="text-xl text-slate-900">
+              {step === 'credentials' ? 'Sign In' : 'Select Branch'}
+            </CardTitle>
+            <CardDescription>
+              {step === 'credentials'
+                ? 'Enter your credentials to access the system'
+                : `Logged in as ${verifiedRole.charAt(0).toUpperCase() + verifiedRole.slice(1).replace('_', ' ')}. Choose a branch.`}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
-                  {error}
-                </div>
-              )}
+            {step === 'credentials' ? (
+              <form onSubmit={handleVerify} className="space-y-4">
+                {error && (
+                  <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+                    {error}
+                  </div>
+                )}
 
-              <Input
-                label="Email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com"
-                required
-              />
-
-              <div className="relative">
                 <Input
-                  label="Password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
+                  label="Email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@company.com"
                   required
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-[38px] text-slate-400 hover:text-slate-600"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-              
-              <Select
-                label="Branch (Optional for Admins)"
-                value={branchId}
-                onChange={(e) => setBranchId(e.target.value)}
-                options={branches.map(b => ({ value: b.id, label: b.name }))}
-                placeholder={branchesLoading ? "Loading branches..." : "All Branches / Select a Branch"}
-                disabled={branchesLoading}
-              />
 
-              <Button type="submit" className="w-full h-11" loading={loading}>
-                {loading ? 'Signing in...' : 'Sign In'}
-              </Button>
-            </form>
+                <div className="relative">
+                  <Input
+                    label="Password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-[38px] text-slate-400 hover:text-slate-600"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+
+                <Button type="submit" className="w-full h-11" loading={verifying}>
+                  {verifying ? 'Verifying...' : <>Continue <ArrowRight className="h-4 w-4 ml-2" /></>}
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handleBranchSubmit} className="space-y-4">
+                {error && (
+                  <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+                    {error}
+                  </div>
+                )}
+
+                <Select
+                  label="Branch"
+                  value={branchId}
+                  onChange={(e) => setBranchId(e.target.value)}
+                  options={branches.map(b => ({ value: b.id, label: b.name }))}
+                  placeholder={branchesLoading ? "Loading branches..." : "Select a branch"}
+                  disabled={branchesLoading}
+                />
+
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" className="flex-1 h-11" onClick={() => { setStep('credentials'); setError(''); setVerifiedRole(''); }}>
+                    Back
+                  </Button>
+                  <Button type="submit" className="flex-1 h-11" loading={loading} disabled={!branchId}>
+                    {loading ? 'Signing in...' : 'Sign In'}
+                  </Button>
+                </div>
+              </form>
+            )}
           </CardContent>
         </Card>
 

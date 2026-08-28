@@ -3,10 +3,35 @@ const DB_VERSION = 4;
 
 export interface OfflineTransaction {
   id: string; // uuid generated locally
-  type: 'pos_payment' | 'fleet_hauling' | 'fleet_requisition' | 'inventory_count';
+  type: 'pos_payment' | 'fleet_hauling' | 'fleet_requisition' | 'inventory_count' | string;
   payload: any;
   timestamp: number;
+  method?: string; // HTTP method (POST/PUT/PATCH/DELETE)
+  url?: string; // target API URL for replay
+  idempotencyKey?: string;
+  status?: 'pending' | 'failed';
+  error?: string; // reason when the last replay attempt failed
 }
+
+/**
+ * Queue an arbitrary mutating API request made while offline.
+ * Stored in the outbox and replayed by SyncManager once back online.
+ */
+export const enqueueOfflineRequest = async (url: string, method: string, payload: any) => {
+  const type = url.replace('/api/', '').split('/')[0] || 'mutation';
+  const tx: OfflineTransaction = {
+    id: crypto.randomUUID(),
+    type,
+    method: (method || 'POST').toUpperCase(),
+    url,
+    payload,
+    idempotencyKey: crypto.randomUUID(),
+    timestamp: Date.now(),
+    status: 'pending',
+  };
+  await saveOfflineTransaction(tx);
+  return tx;
+};
 
 export const initDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
@@ -74,6 +99,49 @@ export const removeOfflineTransaction = async (id: string) => {
     const store = tx.objectStore('offline_transactions');
     const request = store.delete(id);
     request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+};
+
+export const markOfflineTransactionFailed = async (id: string, error: string) => {
+  const db = await initDB();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('offline_transactions', 'readwrite');
+    const store = tx.objectStore('offline_transactions');
+    const getReq = store.get(id);
+    getReq.onsuccess = () => {
+      const entry = getReq.result;
+      if (entry) {
+        entry.status = 'failed';
+        entry.error = error;
+        store.put(entry);
+      }
+    };
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+};
+
+/** Save the auth session to IndexedDB for offline persistence. */
+export const saveSessionToIdb = async (session: any) => {
+  const db = await initDB();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('session_cache', 'readwrite');
+    const store = tx.objectStore('session_cache');
+    const request = store.put(session, 'current');
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+};
+
+/** Load the auth session from IndexedDB, used for offline persistence. */
+export const loadSessionFromIdb = async (): Promise<any | null> => {
+  const db = await initDB();
+  return new Promise<any | null>((resolve, reject) => {
+    const tx = db.transaction('session_cache', 'readonly');
+    const store = tx.objectStore('session_cache');
+    const request = store.get('current');
+    request.onsuccess = () => resolve(request.result || null);
     request.onerror = () => reject(request.error);
   });
 };

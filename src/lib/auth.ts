@@ -36,7 +36,9 @@ export const authOptions: NextAuthOptions = {
         let finalBranchId = user.branchId;
         let branchName = user.branch?.name || null;
 
-        if (user.role === 'admin') {
+        const canChooseBranch = user.role === 'admin' || user.role === 'manager';
+
+        if (canChooseBranch) {
           finalBranchId = selectedBranchId;
           if (selectedBranchId) {
             const branch = await prisma.erpBranch.findUnique({ where: { id: selectedBranchId } });
@@ -45,14 +47,12 @@ export const authOptions: NextAuthOptions = {
             branchName = 'All Branches';
           }
         } else {
-          // Non-admin must have selected their assigned branch (or maybe the frontend didn't pass it properly)
-          // If they passed a branch and it doesn't match, reject.
-          if (selectedBranchId && selectedBranchId !== user.branchId) {
-            throw new Error('You do not have access to this branch');
-          }
-          // Ensure they actually have a branch
+          // Non-admin/non-manager: locked to their assigned branch
           if (!user.branchId) {
-             throw new Error('You are not assigned to any branch');
+             throw new Error('You are not assigned to any branch. Please contact an administrator.');
+          }
+          if (selectedBranchId && selectedBranchId !== user.branchId) {
+            throw new Error('You can only login to your registered branch');
           }
           finalBranchId = user.branchId;
         }
@@ -81,6 +81,27 @@ export const authOptions: NextAuthOptions = {
         token.branchName = u.branchName || null;
         token.permissions = u.permissions || null;
       }
+
+      // Re-fetch permissions, role, department, and branch from DB on every request
+      // so admin changes take effect immediately without requiring re-login
+      if (token.id) {
+        try {
+          const dbUser = await prisma.erpUser.findUnique({
+            where: { id: token.id as string },
+            select: { permissions: true, role: true, department: true, branchId: true, branch: { select: { name: true } } },
+          });
+          if (dbUser) {
+            token.permissions = dbUser.permissions || null;
+            token.role = dbUser.role;
+            token.department = dbUser.department || null;
+            token.branchId = dbUser.branchId || null;
+            token.branchName = dbUser.branch?.name || null;
+          }
+        } catch {
+          // If DB query fails, keep existing token values
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
@@ -99,6 +120,12 @@ export const authOptions: NextAuthOptions = {
     async signIn(message) {
       if (message?.user) {
         try {
+          // Update lastLogin timestamp
+          await prisma.erpUser.update({
+            where: { id: message.user.id },
+            data: { lastLogin: new Date() },
+          }).catch(() => {});
+
           const { logAudit } = await import('./audit');
           await logAudit({
             userId: message.user.email || message.user.id,

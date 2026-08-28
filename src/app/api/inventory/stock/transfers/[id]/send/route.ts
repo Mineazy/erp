@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSession, unauthorized, notFound, badRequest, ok, getNextSequence } from '@/lib/api';
+import { getSession, unauthorized, notFound, badRequest, ok, getNextSequence, getBody } from '@/lib/api';
 
-export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await getSession();
   if (!session) return unauthorized();
@@ -16,6 +16,15 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
   if (transfer.status !== 'draft' && transfer.status !== 'pending') {
     return badRequest('Transfer can only be sent when in draft or pending status');
   }
+
+  // Accept sent quantities from request body
+  let sentLines: { lineId: string; sentQty: number }[] = [];
+  try {
+    const body = await getBody(request);
+    if (body.sentLines && Array.isArray(body.sentLines)) {
+      sentLines = body.sentLines;
+    }
+  } catch {}
 
   const userEmail = (session.user as any).email || 'unknown';
 
@@ -33,9 +42,33 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       });
     }
 
+    // Track short-shipments for back order creation
+    const shortShipments: { productId: string; productName: string; requestedQty: number; sentQty: number }[] = [];
+
     // 2. Process each line
     for (const line of transfer.lines) {
-      const quantity = Number(line.quantity);
+      const requestedQty = Number(line.quantity);
+      // Use sent qty if provided, otherwise fall back to ordered qty
+      const sentEntry = sentLines.find(s => s.lineId === line.id);
+      const quantity = sentEntry ? Number(sentEntry.sentQty) : requestedQty;
+
+      // Update sentQty on the line
+      if (sentEntry) {
+        await tx.erpStockTransferLine.update({
+          where: { id: line.id },
+          data: { sentQty: sentEntry.sentQty },
+        });
+
+        // Check for short-shipment
+        if (Number(sentEntry.sentQty) < requestedQty) {
+          shortShipments.push({
+            productId: line.productId,
+            productName: line.productName,
+            requestedQty,
+            sentQty: Number(sentEntry.sentQty),
+          });
+        }
+      }
 
       // Deduct from sender (Warehouse or Branch)
       if (transfer.fromWarehouseId) {
@@ -52,15 +85,8 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
         });
       }
 
-      // Add to L99 Transit Warehouse, with location = toBranchId to disaggregate
+      // Add to L99 Transit Warehouse
       const destIdentifier = transfer.toBranchId || transfer.toWarehouseId || 'unknown_dest';
-      
-      // Since ErpWarehouseStock unique constraint is [warehouseId, productId, batchNo],
-      // and we need to disaggregate by destination branch, we can encode the destination in the batchNo 
-      // or we just rely on location field. But wait! If we rely on location field, upsert might fail if two branches
-      // have the same product in L99 and the unique constraint doesn't include location!
-      // The schema for ErpWarehouseStock is: @@unique([warehouseId, productId, batchNo])
-      // So to disaggregate by branch in L99, we MUST include the destination branch ID in the batchNo!
       const transitBatchNo = `L99-${destIdentifier}-${line.batchNo || 'std'}`;
 
       await tx.erpWarehouseStock.upsert({
@@ -79,7 +105,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
           productName: line.productName,
           quantity: quantity,
           fromWarehouseId: transfer.fromBranchId || transfer.fromWarehouseId,
-          toWarehouseId: l99.id, // Moving to L99
+          toWarehouseId: l99.id,
           referenceType: 'stock_transfer',
           referenceId: id,
           notes: `Sent to L99 Transit for destination ${destIdentifier}`,
@@ -89,7 +115,31 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       });
     }
 
-    // 4. Update Transfer Status
+    // 4. Auto-create Back Order for short-shipments
+    if (shortShipments.length > 0 && transfer.toBranchId) {
+      const backOrderNo = await getNextSequence(tx as any, 'erpBackOrder', 'orderNumber', 'BO');
+      await tx.erpBackOrder.create({
+        data: {
+          orderNumber: backOrderNo,
+          branchId: transfer.toBranchId,
+          status: 'submitted',
+          requestedBy: userEmail,
+          notes: `Auto-generated: Short-shipment on transfer ${transfer.transferNo}`,
+          lines: {
+            create: shortShipments.map(s => ({
+              productId: s.productId,
+              productName: s.productName,
+              requestedQty: s.requestedQty - s.sentQty,
+              allocatedQty: 0,
+              outstandingQty: s.requestedQty - s.sentQty,
+              status: 'pending',
+            })),
+          },
+        },
+      });
+    }
+
+    // 5. Update Transfer Status
     const updated = await tx.erpStockTransfer.update({
       where: { id },
       data: {
@@ -97,7 +147,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       },
     });
 
-    return updated;
+    return { ...updated, backOrderCreated: shortShipments.length > 0 };
   });
 
   return ok(result);

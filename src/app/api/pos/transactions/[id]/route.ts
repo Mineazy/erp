@@ -9,7 +9,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
   const transaction = await prisma.erpPosTransaction.findUnique({
     where: { id: id },
-    include: { lines: true, payments: true, session: true },
+    include: { lines: true, payments: true, session: true, fiscalisedDoc: { select: { documentRef: true, authCode: true, qrCodeUrl: true, qrCodeData: true, deviceId: true, receiptNo: true } } },
   });
 
   if (!transaction) return notFound('Transaction not found');

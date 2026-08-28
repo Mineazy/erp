@@ -76,7 +76,12 @@ export async function GET(_request: NextRequest) {
     }
   }
 
-  const branchSummary = Array.from(branchMap.values());
+  const branchSummary = Array.from(branchMap.values()).map(b => ({
+    ...b,
+    stockQty: Number(b.stockQty),
+    value: Number(b.value),
+    productCount: Number(b.productCount),
+  }));
   
   // Calculate category summary by grouping ALL active products
   const productCategoryCounts = await prisma.erpProduct.groupBy({
@@ -106,7 +111,7 @@ export async function GET(_request: NextRequest) {
   return ok({
     totalProducts,
     totalStockQty: Number(totalStockQty),
-    totalInventoryValue,
+    totalValue: Number(totalInventoryValue),
     lowStockCount,
     outOfStockCount,
     recentMovements,

@@ -376,6 +376,7 @@ export default function ReturnsPage() {
               <div><span className="text-slate-500">Status:</span> <Badge variant={statusBadge[viewingReturn.status]?.variant || 'secondary'}>{statusBadge[viewingReturn.status]?.label || viewingReturn.status}</Badge></div>
               <div><span className="text-slate-500">Branch:</span> <span className="font-medium">{viewingReturn.branch?.name || '—'}</span></div>
             </div>
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead><tr className="border-b border-slate-200"><th className="text-left py-2 text-xs font-medium text-slate-500">Product</th><th className="text-right py-2 text-xs font-medium text-slate-500">Qty</th><th className="text-right py-2 text-xs font-medium text-slate-500">Price</th><th className="text-right py-2 text-xs font-medium text-slate-500">Total</th></tr></thead>
               <tbody>
@@ -390,6 +391,7 @@ export default function ReturnsPage() {
               </tbody>
               <tfoot><tr className="font-semibold"><td colSpan={3} className="py-2 text-right">Total</td><td className="py-2 text-right font-mono">${viewingReturn.total.toFixed(2)}</td></tr></tfoot>
             </table>
+            </div>
             <div className="flex gap-2">
               {viewingReturn.status === 'pending' && (
                 <>

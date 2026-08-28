@@ -72,12 +72,12 @@ export function Header({ collapsed, onToggleSidebar }: HeaderProps) {
     <>
       <header
         className={cn(
-          'fixed top-0 right-0 z-30 h-16 bg-white border-b border-slate-200 transition-all duration-300 flex items-center justify-between px-4 md:px-6 left-0',
+          'fixed top-0 right-0 z-30 h-16 bg-white border-b border-slate-200 transition-all duration-300 flex items-center justify-between px-3 sm:px-4 md:px-6 left-0',
           collapsed ? 'md:left-16' : 'md:left-64'
         )}
       >
         {/* Left Side */}
-        <div className="flex items-center gap-4 flex-1">
+        <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
           <button
             onClick={onToggleSidebar}
             className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
@@ -91,18 +91,18 @@ export function Header({ collapsed, onToggleSidebar }: HeaderProps) {
         </div>
 
         {/* Center */}
-        <div className="flex items-center justify-center gap-2 flex-1">
+        <div className="flex items-center justify-center gap-1 sm:gap-2 flex-1 min-w-0">
           <SyncManager />
-          <div className="hidden sm:block w-px h-6 bg-slate-200 mx-2" />
-          <FloatingChatWidget />
-          <FloatingAiChatWidget />
+          <div className="hidden sm:block w-px h-6 bg-slate-200" />
+          {user?.role !== 'fuel_attendant' && <FloatingChatWidget />}
+          {user?.role !== 'fuel_attendant' && <FloatingAiChatWidget />}
         </div>
 
         {/* Right Side */}
-        <div className="flex items-center justify-end gap-4 flex-1">
+        <div className="flex items-center justify-end gap-1 sm:gap-4 flex-1 min-w-0">
           <DropdownMenu
             trigger={
-              <div className="flex items-center gap-3 cursor-pointer hover:bg-slate-50 rounded-lg p-2 transition-colors">
+              <div className="flex items-center gap-1 sm:gap-3 cursor-pointer hover:bg-slate-50 rounded-lg p-1.5 sm:p-2 transition-colors">
                 <div className="text-right hidden sm:block">
                   <p className="text-sm font-medium text-slate-900">{user?.name || 'User'}</p>
                   <p className="text-xs text-slate-500 capitalize">{user?.role || 'User'}{user?.branchName ? ` · ${user.branchName}` : ''}</p>

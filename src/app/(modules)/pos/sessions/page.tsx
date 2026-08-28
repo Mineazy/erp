@@ -144,10 +144,6 @@ export default function SessionsPage() {
           <h2 className="text-2xl font-bold text-slate-900">POS Sessions</h2>
           <p className="text-slate-500 mt-1">Manage point of sale sessions</p>
         </div>
-        <Button onClick={openNewSession} variant="secondary">
-          <Plus className="h-4 w-4 mr-2" />
-          New Session
-        </Button>
       </div>
 
       <Card>
@@ -239,7 +235,7 @@ export default function SessionsPage() {
         open={viewDialogOpen}
         onClose={() => { setViewDialogOpen(false); setViewSession(null); setSessionTransactions([]); setTxLoading(false); }}
         title="Session Details"
-        size="lg"
+        size="3xl"
       >
         {viewSession && (
           <div className="space-y-4">

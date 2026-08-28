@@ -9,7 +9,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const item = await prisma.erpCashbook.findUnique({ where: { id: id } });
   if (!item) return notFound('Cashbook entry not found');
-  return ok(item);
+  return ok({ ...item, amount: Number(item.amount), exchangeRate: Number(item.exchangeRate) });
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -37,7 +37,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     where: { id: id },
     data: data as any,
   });
-  return ok(item);
+  return ok({ ...item, amount: Number(item.amount), exchangeRate: Number(item.exchangeRate) });
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

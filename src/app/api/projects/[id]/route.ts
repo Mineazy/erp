@@ -13,7 +13,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       manager: { select: { id: true, firstName: true, lastName: true } },
       client: { select: { id: true, name: true, code: true } },
       tasks: {
-        include: { assignee: { select: { id: true, firstName: true, lastName: true } } },
+        include: {
+          assignee: { select: { id: true, firstName: true, lastName: true } },
+          extensions: { orderBy: { createdAt: 'desc' } },
+        },
         orderBy: { createdAt: 'desc' },
       },
       expenses: {

@@ -10,7 +10,7 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
-import { Store, Search, Eye, Send, FileText } from 'lucide-react';
+import { Store, Search, Eye, CheckCircle, PackageOpen, FileText } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -22,7 +22,11 @@ export default function WarehouseBranchOrdersPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [processDialogOpen, setProcessDialogOpen] = useState(false);
+  const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [processLines, setProcessLines] = useState<{lineId: string; sentQty: string}[]>([]);
+  const [receivedLines, setReceivedLines] = useState<{lineId: string; receivedQty: string}[]>([]);
 
   const fetchData = async () => {
     try {
@@ -30,7 +34,6 @@ export default function WarehouseBranchOrdersPage() {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
       if (statusFilter) params.set('status', statusFilter);
-      // Reusing the same endpoint, it fetches orders. We could add a filter for "fromWarehouseId" if needed.
       const res = await fetch(`/api/inventory/branch-orders?${params}`);
       if (!res.ok) throw new Error('Failed to fetch');
       const json = await res.json();
@@ -44,21 +47,65 @@ export default function WarehouseBranchOrdersPage() {
 
   useEffect(() => { fetchData(); }, [search, statusFilter]);
 
-  const handleProcess = async (id: string) => {
-    if (!confirm('Are you sure you want to process this order and send it to L99 Transit?')) return;
-    
+  const handleOpenProcess = (order: any) => {
+    setSelectedOrder(order);
+    setProcessLines(order.lines.map((l: any) => ({ lineId: l.id, sentQty: String(l.quantity) })));
+    setProcessDialogOpen(true);
+  };
+
+  const handleProcessSubmit = async () => {
+    if (!selectedOrder) return;
     const tid = toast('Processing order...', 'info', 120000);
     try {
-      const res = await fetch(`/api/inventory/stock/transfers/${id}/send`, {
+      const res = await fetch(`/api/inventory/stock/transfers/${selectedOrder.id}/send`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sentLines: processLines }),
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(err || 'Failed to process');
+      }
+      const result = await res.json();
+      if (result.backOrderCreated) {
+        toast('Order processed. Back Order created for short-shipped items.', 'warning');
+      } else {
+        toast('Order processed and set to In-Transit', 'success');
+      }
+      setProcessDialogOpen(false);
+      fetchData();
+    } catch (e: any) {
+      toast(e.message, 'error');
+    } finally {
+      dismissToast(tid);
+    }
+  };
+
+  const handleOpenReceive = (order: any) => {
+    setSelectedOrder(order);
+    setReceivedLines(order.lines.map((l: any) => ({ lineId: l.id, receivedQty: l.quantity })));
+    setReceiveDialogOpen(true);
+  };
+
+  const handleReceiveSubmit = async () => {
+    if (!selectedOrder) return;
+    const tid = toast('Receiving stock...', 'info', 120000);
+    try {
+      const res = await fetch(`/api/inventory/stock/transfers/${selectedOrder.id}/receive`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          receivedLines: receivedLines.map(rl => ({ lineId: rl.lineId, receivedQty: Number(rl.receivedQty) }))
+        }),
       });
 
       if (!res.ok) {
         const error = await res.text();
-        throw new Error(error || 'Failed to process order');
+        throw new Error(error || 'Failed to receive order');
       }
 
-      toast('Order processed and sent to L99 Transit', 'success');
+      toast('Stock received successfully', 'success');
+      setReceiveDialogOpen(false);
       fetchData();
     } catch (e: any) {
       toast(e.message, 'error');
@@ -92,8 +139,8 @@ export default function WarehouseBranchOrdersPage() {
     
     doc.setFontSize(12);
     doc.text(`Order No: ${t.transferNo}`, 14, 50);
-    doc.text(`Status: ${t.status}`, 14, 57);
-    doc.text(`Date: ${new Date(t.updatedAt || t.createdAt).toLocaleString()}`, 14, 64);
+    doc.text(`Status: ${t.status.toUpperCase()}`, 14, 57);
+    doc.text(`Date Dispatched: ${new Date().toLocaleString()}`, 14, 64);
     
     doc.text(`From: ${t.fromWarehouse?.name || 'Warehouse'}`, 14, 77);
     doc.text(`To: ${t.toBranch?.name || 'Branch'}`, 14, 84);
@@ -101,11 +148,61 @@ export default function WarehouseBranchOrdersPage() {
 
     autoTable(doc, {
       startY: 105,
-      head: [['ITEMS', 'REQUESTED QTY', 'DISPATCHED QTY', 'SECURITY CHECKBOX']],
+      head: [['PRODUCT', 'REQUESTED QTY', 'SENT QTY']],
+      body: (t.lines || []).map((line: any) => [
+        `${line.productCode ? line.productCode + ' - ' : ''}${line.productName}`,
+        line.quantity,
+        line.sentQty !== null && line.sentQty !== undefined ? line.sentQty : line.quantity
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [41, 128, 185] },
+    });
+    
+    let y = (doc as any).lastAutoTable.finalY + 15;
+    
+    doc.setFontSize(14);
+    doc.text('Signatures:', 14, y);
+    doc.setFontSize(12);
+    y += 10;
+    doc.text('Dispatched By (Warehouse): _______________________  Sign: _________________  Date: _________', 14, y);
+    y += 15;
+    doc.text('Driver / Courier: _______________________  Sign: _________________  ID No: _________', 14, y);
+    y += 15;
+    doc.text('Received By (Branch): _______________________  Sign: _________________  Date: _________', 14, y);
+
+    doc.save(`DispatchNote_${t.transferNo}.pdf`);
+  };
+
+  const printGoodsReceivedNote = async (t: any) => {
+    const doc = new jsPDF();
+    
+    try {
+      const logoBase64 = await fetchImageAsBase64('/logo.png');
+      doc.addImage(logoBase64, 'PNG', 14, 10, 60, 20);
+    } catch (e) {
+      console.error('Failed to load logo', e);
+    }
+
+    doc.setFontSize(20);
+    doc.text('Goods Received Note (GRN)', 14, 40);
+    
+    doc.setFontSize(12);
+    doc.text(`Order No: ${t.transferNo}`, 14, 50);
+    doc.text(`Status: ${t.status}`, 14, 57);
+    doc.text(`Date Received: ${new Date(t.updatedAt || t.createdAt).toLocaleString()}`, 14, 64);
+    
+    doc.text(`From: ${t.fromWarehouse?.name || 'Warehouse'}`, 14, 77);
+    doc.text(`To: ${t.toBranch?.name || 'Branch'}`, 14, 84);
+    doc.text(`Requested By: ${t.requestedBy || 'N/A'}`, 14, 91);
+
+    autoTable(doc, {
+      startY: 105,
+      head: [['ITEMS', 'REQUESTED QTY', 'DISPATCHED QTY', 'RECEIVED QTY', 'SECURITY CHECKBOX']],
       body: (t.lines || []).map((line: any) => [
         line.productName,
         line.quantity,
-        line.quantity,
+        line.sentQty !== null && line.sentQty !== undefined ? line.sentQty : line.quantity,
+        line.receivedQty !== null ? line.receivedQty : line.quantity,
         ''
       ]),
       theme: 'grid',
@@ -114,21 +211,15 @@ export default function WarehouseBranchOrdersPage() {
     
     let y = (doc as any).lastAutoTable.finalY + 15;
     
-    // Add Security Signatures section
     doc.setFontSize(14);
-    doc.text('Security Clearance:', 14, y);
+    doc.text('Signatures:', 14, y);
     doc.setFontSize(12);
     y += 10;
-    doc.text('Dispatched By (Warehouse): _______________________  Sign: _________________  Date: _________', 14, y);
+    doc.text('Received By (Branch): _______________________  Sign: _________________  Date: _________', 14, y);
     y += 15;
-    doc.text('Checked By (Security):     _______________________  Sign: _________________  Date: _________', 14, y);
-    y += 15;
-    doc.text('Security Stamp:', 14, y);
-    
-    // Draw a box for the stamp
-    doc.rect(14, y + 5, 50, 30);
+    doc.text('Checked By (Manager): _______________________  Sign: _________________  Date: _________', 14, y);
 
-    doc.save(`DispatchNote_${t.transferNo}.pdf`);
+    doc.save(`GRN_${t.transferNo}.pdf`);
   };
 
   return (
@@ -160,6 +251,7 @@ export default function WarehouseBranchOrdersPage() {
               </div>
               <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full sm:w-40">
                 <option value="">All Statuses</option>
+                <option value="draft">Draft</option>
                 <option value="pending">Pending</option>
                 <option value="in_transit">In Transit</option>
                 <option value="received">Received</option>
@@ -198,6 +290,7 @@ export default function WarehouseBranchOrdersPage() {
                         <Badge className={
                           item.status === 'received' ? 'bg-emerald-100 text-emerald-800' :
                           item.status === 'pending' ? 'bg-amber-100 text-amber-800' :
+                          item.status === 'draft' ? 'bg-slate-200 text-slate-700' :
                           item.status === 'in_transit' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-800'
                         }>
                           {item.status}
@@ -208,16 +301,30 @@ export default function WarehouseBranchOrdersPage() {
                           <Eye className="h-4 w-4 mr-1 text-slate-600" />
                           View
                         </Button>
-                        {(item.status === 'pending' || item.status === 'draft') && (
-                          <Button variant="ghost" size="sm" onClick={() => handleProcess(item.id)}>
-                            <Send className="h-4 w-4 mr-1 text-mine-blue-600" />
+                        {item.status === 'pending' && (
+                          <Button variant="ghost" size="sm" onClick={() => handleOpenProcess(item)}>
+                            <CheckCircle className="h-4 w-4 mr-1 text-emerald-600" />
                             Process
                           </Button>
                         )}
-                        <Button variant="ghost" size="sm" onClick={() => printDispatchNote(item)} title="Download Dispatch Note">
-                          <FileText className="h-4 w-4 mr-1 text-emerald-600" />
-                          PDF
-                        </Button>
+                        {item.status === 'in_transit' && (
+                          <>
+                            <Button variant="ghost" size="sm" onClick={() => printDispatchNote(item)} title="Download Dispatch Note">
+                              <FileText className="h-4 w-4 mr-1 text-blue-600" />
+                              Dispatch
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleOpenReceive(item)}>
+                              <PackageOpen className="h-4 w-4 mr-1 text-emerald-600" />
+                              Receive
+                            </Button>
+                          </>
+                        )}
+                        {item.status === 'received' && (
+                          <Button variant="ghost" size="sm" onClick={() => printGoodsReceivedNote(item)} title="Download GRN">
+                            <FileText className="h-4 w-4 mr-1 text-mine-blue-600" />
+                            GRN
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))
@@ -229,13 +336,14 @@ export default function WarehouseBranchOrdersPage() {
       </Card>
 
       {/* View Order Dialog */}
-      <Dialog open={viewDialogOpen} onClose={() => setViewDialogOpen(false)} className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <Dialog open={viewDialogOpen} onClose={() => setViewDialogOpen(false)} size="5xl" className="max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-bold">View Stock Order: {selectedOrder?.transferNo}</h3>
             <Badge className={
               selectedOrder?.status === 'received' ? 'bg-emerald-100 text-emerald-800' :
               selectedOrder?.status === 'pending' ? 'bg-amber-100 text-amber-800' :
+              selectedOrder?.status === 'draft' ? 'bg-slate-200 text-slate-700' :
               selectedOrder?.status === 'in_transit' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-800'
             }>
               {selectedOrder?.status}
@@ -273,16 +381,20 @@ export default function WarehouseBranchOrdersPage() {
             <Table>
               <TableHeader className="bg-slate-50">
                 <TableRow>
+                  <TableHead>Product Code</TableHead>
                   <TableHead>Product</TableHead>
-                  <TableHead>Shipped Qty</TableHead>
+                  <TableHead>Requested Qty</TableHead>
+                  <TableHead>Sent Qty</TableHead>
                   <TableHead>Received Qty</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {selectedOrder?.lines?.map((line: any) => (
                   <TableRow key={line.id}>
+                    <TableCell className="font-mono text-xs">{line.productCode || '-'}</TableCell>
                     <TableCell>{line.productName}</TableCell>
                     <TableCell>{line.quantity}</TableCell>
+                    <TableCell>{line.sentQty !== null && line.sentQty !== undefined ? line.sentQty : '-'}</TableCell>
                     <TableCell>{line.receivedQty !== null ? line.receivedQty : '-'}</TableCell>
                   </TableRow>
                 ))}
@@ -292,6 +404,119 @@ export default function WarehouseBranchOrdersPage() {
 
           <DialogFooter className="mt-6">
             <Button variant="outline" onClick={() => setViewDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      {/* Process Order Dialog (Warehouse - enter sent quantities) */}
+      <Dialog open={processDialogOpen} onClose={() => setProcessDialogOpen(false)} size="lg">
+        <div className="p-6">
+          <h3 className="text-lg font-bold mb-1">Process Order — {selectedOrder?.transferNo}</h3>
+          <p className="text-sm text-slate-500 mb-4">Enter the actual quantity being sent for each line item. Order will be set to In-Transit.</p>
+
+          <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+            <div>
+              <p className="text-slate-500 font-medium">From Warehouse</p>
+              <p>{selectedOrder?.fromWarehouse?.name || 'N/A'}</p>
+            </div>
+            <div>
+              <p className="text-slate-500 font-medium">To Branch</p>
+              <p>{selectedOrder?.toBranch?.name || 'N/A'}</p>
+            </div>
+          </div>
+
+          <div className="border rounded-md overflow-x-auto mb-4">
+            <Table>
+              <TableHeader className="bg-slate-50">
+                <TableRow>
+                  <TableHead>Product</TableHead>
+                  <TableHead className="w-28">Requested Qty</TableHead>
+                  <TableHead className="w-28">Sent Qty *</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {selectedOrder?.lines?.map((line: any) => {
+                  const pl = processLines.find(p => p.lineId === line.id);
+                  return (
+                    <TableRow key={line.id}>
+                      <TableCell>
+                        <span className="text-xs font-mono text-slate-500">{line.productCode}</span>
+                        <span className="ml-2">{line.productName}</span>
+                      </TableCell>
+                      <TableCell className="font-mono">{Number(line.quantity)}</TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={pl?.sentQty || ''}
+                          onChange={e => {
+                            setProcessLines(processLines.map(p =>
+                              p.lineId === line.id ? { ...p, sentQty: e.target.value } : p
+                            ));
+                          }}
+                          className="w-24"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setProcessDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleProcessSubmit} className="bg-emerald-600 hover:bg-emerald-700">
+              <CheckCircle className="h-4 w-4 mr-1" /> Send &amp; Set In-Transit
+            </Button>
+          </DialogFooter>
+        </div>
+      </Dialog>
+
+      {/* Receive Order Dialog */}
+      <Dialog open={receiveDialogOpen} onClose={() => setReceiveDialogOpen(false)} className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <h3 className="text-lg font-bold mb-4">Receive Stock Order {selectedOrder?.transferNo}</h3>
+          <p className="text-slate-500 mb-4 text-sm">Please verify the quantities received. Any discrepancies will remain in the L99 Transit Warehouse for manual investigation.</p>
+          
+          <div className="border rounded-md overflow-x-auto mb-4">
+            <Table>
+              <TableHeader className="bg-slate-50">
+                <TableRow>
+                  <TableHead>Product</TableHead>
+                  <TableHead>Shipped Qty</TableHead>
+                  <TableHead className="w-32">Received Qty</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {selectedOrder?.lines.map((line: any) => (
+                  <TableRow key={line.id}>
+                    <TableCell>{line.productName}</TableCell>
+                    <TableCell>{line.quantity}</TableCell>
+                    <TableCell>
+                      <Input 
+                        type="number" 
+                        min="0" 
+                        max={line.quantity}
+                        value={receivedLines.find(rl => rl.lineId === line.id)?.receivedQty || '0'} 
+                        onChange={e => { 
+                          const updated = [...receivedLines];
+                          const idx = updated.findIndex(rl => rl.lineId === line.id);
+                          if (idx >= 0) updated[idx].receivedQty = e.target.value;
+                          setReceivedLines(updated); 
+                        }} 
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          <DialogFooter className="mt-6">
+            <Button variant="outline" onClick={() => setReceiveDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleReceiveSubmit} className="bg-emerald-600 hover:bg-emerald-700">Confirm Receipt</Button>
           </DialogFooter>
         </div>
       </Dialog>

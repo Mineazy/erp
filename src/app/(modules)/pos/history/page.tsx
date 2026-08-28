@@ -18,6 +18,7 @@ interface Transaction {
   id: string;
   transactionNumber: string;
   sessionId: string;
+  customerId: string | null;
   customerName: string;
   lines: { productName: string; quantity: number; unitPrice: number; lineTotal: number }[];
   subtotal: number;
@@ -239,7 +240,8 @@ export default function TransactionHistoryPage() {
               <TableRow>
                 <TableHead>Transaction #</TableHead>
                 <TableHead>Date & Time</TableHead>
-                <TableHead>Customer</TableHead>
+                <TableHead>Customer Name</TableHead>
+                <TableHead>Customer Type</TableHead>
                 <TableHead>Items</TableHead>
                 <TableHead>Payment Method</TableHead>
                 <TableHead>Branch</TableHead>
@@ -251,13 +253,13 @@ export default function TransactionHistoryPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-12 text-slate-400">
+                  <TableCell colSpan={10} className="text-center py-12 text-slate-400">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : transactions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-12 text-slate-400">
+                  <TableCell colSpan={10} className="text-center py-12 text-slate-400">
                     No transactions found
                   </TableCell>
                 </TableRow>
@@ -267,6 +269,11 @@ export default function TransactionHistoryPage() {
                     <TableCell className="font-mono text-xs font-medium">{tx.transactionNumber}</TableCell>
                     <TableCell className="text-sm">{new Date(tx.createdAt).toLocaleString()}</TableCell>
                     <TableCell>{tx.customerName || 'Walk-in'}</TableCell>
+                    <TableCell>
+                      <Badge variant={tx.customerId ? 'default' : 'secondary'}>
+                        {tx.customerId ? 'Loyalty' : 'Walk-in'}
+                      </Badge>
+                    </TableCell>
                     <TableCell className="font-mono text-sm">{tx.lines?.length ?? 0}</TableCell>
                     <TableCell>
                       <Badge variant="outline">
@@ -385,6 +392,7 @@ export default function TransactionHistoryPage() {
             </div>
 
             <div className="border rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-slate-50 border-b">
@@ -405,6 +413,7 @@ export default function TransactionHistoryPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
 
             <div className="space-y-1 border-t pt-3">

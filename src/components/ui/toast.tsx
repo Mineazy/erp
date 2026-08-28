@@ -91,7 +91,7 @@ export function Toaster() {
   }, []);
 
   return (
-    <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 w-80 pointer-events-none">
+    <div className="fixed top-4 right-4 left-4 sm:left-auto z-[100] flex flex-col gap-2 w-auto sm:w-80 pointer-events-none">
       {items.map((t) => (
           <div key={t.id} className="slide-in-from-right pointer-events-auto">
           <ToastItem t={t} onDone={() => dismissToast(t.id)} />

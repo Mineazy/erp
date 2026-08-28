@@ -12,7 +12,7 @@ import {
   LucideIcon, Target, Percent, ClipboardList, Warehouse, ArrowLeftRight,
   ClipboardCheck, Wrench, QrCode, BarChart3, Shield, Settings, FolderTree,
   RotateCcw, MessageCircle, AlertTriangle, TrendingUp, LineChart, Bell,
-  FileBarChart, ScrollText, Award, Crown, Handshake, Store, Briefcase, ListTodo, DollarSign, Clock,
+  FileBarChart, ScrollText, Award, Crown, Handshake, Store, Briefcase, ListTodo, DollarSign, Clock, ScanLine, Calendar, Banknote,
 } from 'lucide-react';
 import { navGroups } from '@/lib/navigation';
 import { useState } from 'react';
@@ -22,7 +22,7 @@ const iconMap: Record<string, LucideIcon> = {
   Package, ShoppingCart, Truck, Users, Building2, Target, Percent, ClipboardList,
   Warehouse, ArrowLeftRight, ClipboardCheck, Wrench, QrCode, BarChart3, Shield, Settings,
   RotateCcw, MessageCircle, AlertTriangle, TrendingUp, LineChart, Bell,
-  FileBarChart, ScrollText, FolderTree, Award, Crown, Handshake, Store, Briefcase, ListTodo, DollarSign, Clock,
+  FileBarChart, ScrollText, FolderTree, Award, Crown, Handshake, Store, Briefcase, ListTodo, DollarSign, Clock, ScanLine, Calendar, Banknote,
 };
 
 type ThemeConfig = {
@@ -70,18 +70,31 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     : navGroups
         .filter((group) => {
           if (!group.module) return true;
+          // Fuel attendants only see the Fleet module
+          if (role === 'fuel_attendant') return group.module === 'fleet';
           return canAccessModule(group.module, role, department, permissions);
         })
         .map((group) => {
-          if (!permissions?.menus) return group;
-          // Filter items based on explicit permissions
-          return {
-            ...group,
-            items: group.items.filter(item => {
+          let items = group.items;
+
+          // Fuel attendants only see the Fuel Attendant page
+          if (role === 'fuel_attendant' && group.module === 'fleet') {
+            items = items.filter(item => item.href === '/fleet/attendant');
+          }
+          // Non-fuel_attendants do NOT see the Fuel Attendant page
+          if (role !== 'fuel_attendant' && group.module === 'fleet') {
+            items = items.filter(item => item.href !== '/fleet/attendant');
+          }
+
+          // If permissions.menus is set and non-empty, restrict to only those specific items
+          if (permissions?.menus && Array.isArray(permissions.menus) && permissions.menus.length > 0) {
+            items = items.filter(item => {
               if (!group.module) return true;
               return permissions.menus.includes(item.href);
-            })
-          };
+            });
+          }
+
+          return { ...group, items };
         })
         .filter(group => group.items.length > 0);
 

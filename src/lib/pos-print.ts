@@ -1,15 +1,19 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-const fetchImageAsBase64 = async (url: string) => {
-  const response = await fetch(url);
-  const blob = await response.blob();
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+const fetchImageAsBase64 = async (url: string): Promise<string | null> => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
 };
 
 export const generateA4Invoice = async (
@@ -121,22 +125,6 @@ export const generateA4Invoice = async (
 
   finalY = (doc as any).lastAutoTable.finalY + 20;
 
-  doc.setDrawColor(203, 213, 225);
-  doc.setLineDashPattern([3, 3], 0);
-  doc.setFillColor(248, 250, 252);
-  doc.rect(14, finalY, 182, 35, 'FD');
-  
-  doc.setFontSize(10);
-  doc.setFont('courier', 'bold');
-  doc.setTextColor(15, 23, 42);
-  doc.text('FISCAL VERIFICATION DATA', 18, finalY + 8);
-  
-  doc.setFont('courier', 'normal');
-  doc.text(`Fiscal Doc ID: ${transaction.fiscalisedDocId || `FISC-TXN-${transaction.id.slice(0, 8).toUpperCase()}`}`, 18, finalY + 15);
-  doc.text(`Machine Serial: MINEAZY-POS-7742`, 18, finalY + 20);
-  doc.text(`Signature: SHA256:${transaction.id.slice(0, 16)}`, 18, finalY + 25);
-  doc.text(`Status: FISCALISED`, 18, finalY + 30);
-
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(148, 163, 184);
@@ -187,6 +175,7 @@ export const printPOSReceipt = (transaction: any) => {
           <p style="margin: 2px 0 0; font-size: 12px;">Ref: ${transaction.transactionNumber}</p>
           <p style="margin: 2px 0 0; font-size: 12px;">${new Date(transaction.createdAt).toLocaleString()}</p>
         </div>
+        ${transaction.customerName ? `<div style="padding: 4px 0; border-bottom: 1px dashed #000; font-size: 11px;"><span class="font-bold">Customer:</span> ${transaction.customerName}</div>` : ''}
         <div class="border-b">${itemsHtml}</div>
         <div class="border-b">
           <div class="flex-between">
@@ -201,11 +190,6 @@ export const printPOSReceipt = (transaction: any) => {
             <span>TOTAL:</span>
             <span>$${Number(transaction.total || 0).toFixed(2)}</span>
           </div>
-        </div>
-        <div class="border-b" style="font-size: 10px;">
-          <p class="text-center font-bold" style="margin: 0 0 4px;">FISCAL DATA</p>
-          <p style="margin: 0;">FISC-ID: ${transaction.fiscalisedDocId || 'FISC-TXN'}</p>
-          <p style="margin: 0;">SIG: SHA256:${transaction.id.slice(0, 16)}</p>
         </div>
         <div class="text-center mt-4">
           <p style="font-size: 12px; margin: 0;">Thank you for shopping!</p>

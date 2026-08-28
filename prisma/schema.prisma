@@ -214,6 +214,7 @@ model ErpAccountReceivable {
   updatedAt       DateTime   @updatedAt @map("updated_at")
   branchId        String?    @map("branch_id")
   branch          ErpBranch? @relation(fields: [branchId], references: [id])
+  installmentPlans ErpInstallmentPlan[]
 
   @@index([branchId])
   @@map("erp_accounts_receivable")
@@ -518,6 +519,7 @@ model ErpCustomer {
   isActive           Boolean      @default(true) @map("is_active")
   loyaltyCardBarcode String?      @unique @map("loyalty_card_barcode")
   loyaltyPoints      Int          @default(0) @map("loyalty_points")
+  branchId           String?      @map("branch_id")
   totalSpent         Decimal      @default(0.00) @map("total_spent") @db.Decimal(15, 2)
   cardBalance        Decimal      @default(0.00) @map("card_balance") @db.Decimal(15, 2)
   createdAt          DateTime     @default(now()) @map("created_at")
@@ -1004,6 +1006,27 @@ model ErpStockAdjustment {
   @@map("erp_stock_adjustments")
 }
 
+model ErpPriceAdjustment {
+  id            String   @id @default(uuid())
+  productId     String   @map("product_id")
+  productName   String   @map("product_name")
+  productCode   String   @map("product_code")
+  priceType     String   @map("price_type")
+  oldPrice      Decimal  @map("old_price") @db.Decimal(15, 2)
+  newPrice      Decimal  @map("new_price") @db.Decimal(15, 2)
+  changeAmount  Decimal  @map("change_amount") @db.Decimal(15, 2)
+  changePercent Decimal? @map("change_percent") @db.Decimal(8, 4)
+  reason        String?
+  batchId       String?  @map("batch_id")
+  userId        String   @map("user_id")
+  userName      String?  @map("user_name")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([productId])
+  @@index([createdAt])
+  @@map("erp_price_adjustments")
+}
+
 model ErpStockTransfer {
   id              String                 @id @default(uuid())
   transferNo      String                 @unique @map("transfer_no")
@@ -1037,7 +1060,9 @@ model ErpStockTransferLine {
   transferId  String           @map("transfer_id")
   productId   String           @map("product_id")
   productName String           @map("product_name")
+  productCode String?          @map("product_code")
   quantity    Decimal          @db.Decimal(15, 2)
+  sentQty     Decimal?         @map("sent_qty") @db.Decimal(15, 2)
   receivedQty Decimal?         @map("received_qty") @db.Decimal(15, 2)
   batchNo     String?          @map("batch_no")
   unitPrice   Decimal          @default(0.00) @map("unit_price") @db.Decimal(15, 2)
@@ -1326,17 +1351,39 @@ model ErpServiceRecord {
   serviceDate         DateTime   @map("service_date")
   serviceType         String     @map("service_type")
   description         String?
+  mechanicName        String?    @map("mechanic_name")
+  mechanicContact     String?    @map("mechanic_contact")
   odometer            Int?
   cost                Decimal    @db.Decimal(15, 2)
   vendor              String?
   nextServiceDate     DateTime?  @map("next_service_date")
   nextServiceOdometer Int?       @map("next_service_odometer")
+  serviceIntervalKm   Int?       @map("service_interval_km")
+  serviceIntervalDays Int?       @map("service_interval_days")
   notes               String?
   createdAt           DateTime   @default(now()) @map("created_at")
   vehicle             ErpVehicle @relation(fields: [vehicleId], references: [id])
+  items               ErpServiceItem[]
 
   @@index([vehicleId])
   @@map("erp_service_records")
+}
+
+model ErpServiceItem {
+  id              String          @id @default(uuid())
+  serviceRecordId String          @map("service_record_id")
+  itemName        String          @map("item_name")
+  itemType        String          @default("part") @map("item_type")
+  action          String          @default("'replaced'")
+  quantity        Int             @default(1)
+  unitCost        Decimal         @db.Decimal(15, 2)
+  totalCost       Decimal         @db.Decimal(15, 2)
+  notes           String?
+  createdAt       DateTime        @default(now()) @map("created_at")
+  serviceRecord   ErpServiceRecord @relation(fields: [serviceRecordId], references: [id])
+
+  @@index([serviceRecordId])
+  @@map("erp_service_items")
 }
 
 model ErpVehicleDispatch {
@@ -1533,8 +1580,10 @@ model ErpBranch {
   fdmsDevices            FdmsDevice[]
   fiscalisedDocuments    FiscalisedDocument[]
   taxTransactions        TaxTransaction[]
-  branchStocks           ErpBranchStock[]
-  projects               ErpProject[]
+   branchStocks           ErpBranchStock[]
+   projects               ErpProject[]
+    installmentPlans       ErpInstallmentPlan[]
+   repairJobCards         ErpRepairJobCard[]
 
   @@map("erp_branches")
 }
@@ -1682,12 +1731,14 @@ model ErpProjectTask {
   completedAt    DateTime? @map("completed_at")
   assignedToId   String?   @map("assigned_to_id")
   estimatedHours Decimal   @default(0.00) @map("estimated_hours") @db.Decimal(10, 2)
+  actualHours    Decimal?  @map("actual_hours") @db.Decimal(10, 2)
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  project  ErpProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  assignee ErpEmployee?        @relation("TaskAssignee", fields: [assignedToId], references: [id])
-  timeLogs ErpProjectTimeLog[]
+  project    ErpProject          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee   ErpEmployee?        @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  timeLogs   ErpProjectTimeLog[]
+  extensions ErpTaskExtension[]
 
   @@index([projectId])
   @@index([assignedToId])
@@ -1986,6 +2037,10 @@ model ErpFuelRequisition {
   driverName               String?    @map("driver_name")
   branch                   String?
   destination              String?
+  redeemedAt               DateTime?  @map("redeemed_at")
+  redeemedBy               String?    @map("redeemed_by")
+  dispensedQuantity        Decimal?   @map("dispensed_quantity") @db.Decimal(15, 2)
+  drawdownVoucherNo        String?    @map("drawdown_voucher_no")
   createdAt                DateTime   @default(now()) @map("created_at")
   updatedAt                DateTime   @updatedAt @map("updated_at")
   vehicle                  ErpVehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
@@ -2018,16 +2073,25 @@ model ErpBackOrder {
   orderNumber String             @unique @map("order_number")
   branchId    String             @map("branch_id")
   status      String             @default("'draft'")
+  stage       String             @default("'submitted'")
   requestedBy String             @map("requested_by")
   approvedBy  String?            @map("approved_by")
   approvedAt  DateTime?          @map("approved_at")
+  salesReviewedBy String?       @map("sales_reviewed_by")
+  salesReviewedAt DateTime?     @map("sales_reviewed_at")
+  customerRef String?            @map("customer_ref")
+  customerName String?           @map("customer_name")
+  urgency     String             @default("'normal'")
+  targetDate  DateTime?          @map("target_date")
   notes       String?
   createdAt   DateTime           @default(now()) @map("created_at")
   updatedAt   DateTime           @updatedAt @map("updated_at")
   lines       ErpBackOrderLine[]
+  activities  ErpBackOrderActivity[]
   branch      ErpBranch          @relation(fields: [branchId], references: [id])
 
   @@index([branchId])
+  @@index([stage])
   @@map("erp_back_orders")
 }
 
@@ -2039,10 +2103,311 @@ model ErpBackOrderLine {
   requestedQty   Decimal      @map("requested_qty") @db.Decimal(15, 2)
   allocatedQty   Decimal      @default(0.00) @map("allocated_qty") @db.Decimal(15, 2)
   outstandingQty Decimal      @map("outstanding_qty") @db.Decimal(15, 2)
+  purchasedQty   Decimal      @default(0) @map("purchased_qty") @db.Decimal(15, 2)
+  receivedQty    Decimal      @default(0) @map("received_qty") @db.Decimal(15, 2)
   status         String       @default("'pending'")
   notes          String?
   backOrder      ErpBackOrder @relation(fields: [backOrderId], references: [id], onDelete: Cascade)
 
   @@index([backOrderId])
   @@map("erp_back_order_lines")
+}
+
+model ErpBackOrderActivity {
+  id          String       @id @default(uuid())
+  backOrderId String       @map("back_order_id")
+  action      String
+  fromStage   String?      @map("from_stage")
+  toStage     String?      @map("to_stage")
+  performedBy String       @map("performed_by")
+  notes       String?
+  refType     String?      @map("ref_type")
+  refId       String?      @map("ref_id")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  backOrder   ErpBackOrder @relation(fields: [backOrderId], references: [id], onDelete: Cascade)
+
+  @@index([backOrderId])
+  @@index([createdAt])
+  @@map("erp_back_order_activities")
+}
+
+model HrStaff {
+  id              String      @id @default(uuid())
+  employeeCode    String      @unique @map("employee_code")
+  firstName       String      @map("first_name")
+  lastName        String      @map("last_name")
+  email           String      @unique
+  phone           String?
+  nationalId      String?     @map("national_id")
+  dateOfBirth     DateTime?   @map("date_of_birth")
+  gender          String?
+  maritalStatus   String?     @map("marital_status")
+  address         String?
+  city            String?
+  emergencyContact String?    @map("emergency_contact")
+  emergencyPhone  String?     @map("emergency_phone")
+  department      String?
+  position        String?
+  employmentType  String      @default("'full_time'") @map("employment_type")
+  hireDate        DateTime    @map("hire_date")
+  terminationDate DateTime?   @map("termination_date")
+  branchId        String?     @map("branch_id")
+  managerId       String?     @map("manager_id")
+  basicSalary     Decimal     @default(0.00) @map("basic_salary") @db.Decimal(15, 2)
+  bankName        String?     @map("bank_name")
+  bankAccount     String?     @map("bank_account")
+  isActive        Boolean     @default(true) @map("is_active")
+  notes           String?
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+  leaves          HrLeave[]
+  timesheets      HrTimesheet[]
+  loans           HrLoan[]
+  disciplines     HrDisciplinary[]
+  manager         HrStaff?    @relation("StaffManager", fields: [managerId], references: [id])
+  directReports   HrStaff[]   @relation("StaffManager")
+
+  @@index([branchId])
+  @@index([managerId])
+  @@map("hr_staff")
+}
+
+model HrLeave {
+  id              String    @id @default(uuid())
+  staffId         String    @map("staff_id")
+  leaveType       String    @map("leave_type")
+  startDate       DateTime  @map("start_date")
+  endDate         DateTime  @map("end_date")
+  days            Int
+  reason          String?
+  contactAddress  String?   @map("contact_address")
+  commutedDays    Int       @default(0) @map("commuted_days")
+  commutationStatus String  @default("'none'") @map("commutation_status")
+  status          String    @default("'pending'")
+  approvedBy      String?   @map("approved_by")
+  approvedAt      DateTime? @map("approved_at")
+  rejectionNote   String?   @map("rejection_note")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  staff           HrStaff   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([staffId])
+  @@map("hr_leaves")
+}
+
+model HrTimesheet {
+  id          String    @id @default(uuid())
+  staffId     String    @map("staff_id")
+  date        DateTime  @map("work_date")
+  clockIn     DateTime? @map("clock_in")
+  clockOut    DateTime? @map("clock_out")
+  hoursWorked Decimal?  @map("hours_worked") @db.Decimal(5, 2)
+  overtimeHours Decimal? @default(0) @map("overtime_hours") @db.Decimal(5, 2)
+  status      String    @default("'present'")
+  notes       String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  staff       HrStaff   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([staffId])
+  @@index([date])
+  @@map("hr_timesheets")
+}
+
+model HrLoan {
+  id              String    @id @default(uuid())
+  staffId         String    @map("staff_id")
+  loanType        String    @map("loan_type")
+  amount          Decimal   @db.Decimal(15, 2)
+  monthlyDeduction Decimal  @map("monthly_deduction") @db.Decimal(15, 2)
+  outstandingBalance Decimal @default(0) @map("outstanding_balance") @db.Decimal(15, 2)
+  startDate       DateTime  @map("start_date")
+  endDate         DateTime? @map("end_date")
+  reason          String?
+  status          String    @default("'pending'")
+  approvedBy      String?   @map("approved_by")
+  approvedAt      DateTime? @map("approved_at")
+  rejectionNote   String?   @map("rejection_note")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  staff           HrStaff   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([staffId])
+  @@map("hr_loans")
+}
+
+model HrDisciplinary {
+  id              String   @id @default(uuid())
+  caseNumber      String   @unique @map("case_number")
+  staffId         String   @map("staff_id")
+  incidentType    String   @map("incident_type")
+  incidentDate    DateTime @map("incident_date")
+  incidentLocation String? @map("incident_location")
+  description     String
+  witnesses       String?
+  reportedBy      String?  @map("reported_by")
+  warningLevel    String   @default("'none'") @map("warning_level")
+  status          String   @default("'open'")
+  nextHearingDate DateTime? @map("next_hearing_date")
+  nextHearingTime String?  @map("next_hearing_time")
+  nextHearingVenue String? @map("next_hearing_venue")
+  hearingNotes    String?  @map("hearing_notes")
+  resolution      String?
+  resolvedAt      DateTime? @map("resolved_at")
+  closedAt        DateTime? @map("closed_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  staff           HrStaff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  hearings        HrDisciplinaryHearing[]
+
+  @@index([staffId])
+  @@index([status])
+  @@index([nextHearingDate])
+  @@map("hr_disciplinary")
+}
+
+model HrDisciplinaryHearing {
+  id              String    @id @default(uuid())
+  caseId          String    @map("case_id")
+  hearingDate     DateTime  @map("hearing_date")
+  hearingTime     String?   @map("hearing_time")
+  venue           String?
+  verdict         String?
+  outcome         String?
+  notes           String?
+  conductedBy     String?   @map("conducted_by")
+  nextHearingDate DateTime? @map("next_hearing_date")
+  nextHearingTime String?   @map("next_hearing_time")
+  nextHearingVenue String?  @map("next_hearing_venue")
+  warningIssued   String?   @map("warning_issued")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  case            HrDisciplinary @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+  @@map("hr_disciplinary_hearings")
+}
+
+model ErpInstallmentPlan {
+  id                String   @id @default(uuid())
+  planNumber        String   @unique @map("plan_number")
+  arInvoiceId       String?  @map("ar_invoice_id")
+  customerId        String   @map("customer_id")
+  customerName      String   @map("customer_name")
+  productName       String   @map("product_name")
+  productCategory   String?  @map("product_category")
+  productDescription String? @map("product_description")
+  totalAmount       Decimal  @map("total_amount") @db.Decimal(15, 2)
+  depositAmount     Decimal  @default(0) @map("deposit_amount") @db.Decimal(15, 2)
+  balanceAmount     Decimal  @map("balance_amount") @db.Decimal(15, 2)
+  monthlyPayment    Decimal  @map("monthly_payment") @db.Decimal(15, 2)
+  numberOfMonths    Int      @map("number_of_months")
+  startDate         DateTime @map("start_date")
+  endDate           DateTime @map("end_date")
+  status            String   @default("'active'")
+  notes             String?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  branchId          String?  @map("branch_id")
+  branch            ErpBranch? @relation(fields: [branchId], references: [id])
+  payments          ErpInstallmentPayment[]
+  arInvoice         ErpAccountReceivable? @relation(fields: [arInvoiceId], references: [id])
+
+  @@index([customerId])
+  @@index([status])
+  @@index([branchId])
+  @@map("erp_installment_plans")
+}
+
+model ErpInstallmentPayment {
+  id              String   @id @default(uuid())
+  planId          String   @map("plan_id")
+  paymentDate     DateTime @map("payment_date")
+  amount          Decimal  @db.Decimal(15, 2)
+  balanceAfter    Decimal  @map("balance_after") @db.Decimal(15, 2)
+  paymentMethod   String   @default("'cash'") @map("payment_method")
+  receiptNumber   String?  @map("receipt_number")
+  reference       String?
+  notes           String?
+  receivedBy      String?  @map("received_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+  plan            ErpInstallmentPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([planId])
+  @@index([paymentDate])
+  @@map("erp_installment_payments")
+}
+
+model ErpRepairJobCard {
+  id                String               @id @default(uuid())
+  jobCardNumber     String               @unique @map("job_card_number")
+  branchId          String               @map("branch_id")
+  customerName      String               @map("customer_name")
+  customerContact   String?              @map("customer_contact")
+  productName       String               @map("product_name")
+  productCode       String?              @map("product_code")
+  serialNumber      String?              @map("serial_number")
+  faultDescription  String               @map("fault_description")
+  diagnosisNotes    String?              @map("diagnosis_notes")
+  repairCost        Decimal?             @map("repair_cost") @db.Decimal(15, 2)
+  replacementCost   Decimal?             @map("replacement_cost") @db.Decimal(15, 2)
+  status            String               @default("'open'")
+  priority          String               @default("'medium'")
+  assignedTechnician String?             @map("assigned_technician")
+  receivedDate      DateTime?            @map("received_date")
+  targetDate        DateTime?            @map("target_date")
+  completedDate     DateTime?            @map("completed_date")
+  dispatchDate      DateTime?            @map("dispatch_date")
+  paymentRef        String?              @map("payment_ref")
+  replacementProductId String?           @map("replacement_product_id")
+  replacementProductName String?         @map("replacement_product_name")
+  notes             String?
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+  activities        ErpRepairActivity[]
+  branch            ErpBranch            @relation(fields: [branchId], references: [id])
+
+  @@index([branchId])
+  @@index([status])
+  @@index([jobCardNumber])
+  @@map("erp_repair_job_cards")
+}
+
+model ErpRepairActivity {
+  id          String             @id @default(uuid())
+  jobCardId   String             @map("job_card_id")
+  action      String
+  fromStatus  String?            @map("from_status")
+  toStatus    String?            @map("to_status")
+  performedBy String             @map("performed_by")
+  notes       String?
+  createdAt   DateTime           @default(now()) @map("created_at")
+  jobCard     ErpRepairJobCard   @relation(fields: [jobCardId], references: [id], onDelete: Cascade)
+
+  @@index([jobCardId])
+  @@index([createdAt])
+  @@map("erp_repair_activities")
+}
+
+model ErpTaskExtension {
+  id                  String           @id @default(uuid())
+  taskId              String           @map("task_id")
+  originalDueDate     DateTime         @map("original_due_date")
+  newDueDate          DateTime         @map("new_due_date")
+  reason              String
+  additionalHours     Decimal?         @map("additional_hours") @db.Decimal(10, 2)
+  additionalResources String?          @map("additional_resources")
+  additionalCost      Decimal?         @map("additional_cost") @db.Decimal(15, 2)
+  status              String           @default("'pending'")
+  requestedBy         String           @map("requested_by")
+  approvedBy          String?          @map("approved_by")
+  actualHours         Decimal?         @map("actual_hours") @db.Decimal(10, 2)
+  actualCompletionDate DateTime?       @map("actual_completion_date")
+  notes               String?
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+  task                ErpProjectTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([status])
+  @@map("erp_task_extensions")
 }

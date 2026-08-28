@@ -29,6 +29,7 @@ interface Product {
   minStock?: number;
   barcode?: string;
   description?: string;
+  availableLocations?: string[];
 }
 
 interface CartItem {
@@ -133,6 +134,7 @@ export default function POSTerminalPage() {
   const [transferChangeToCard, setTransferChangeToCard] = useState(false);
   const [transferChangeToWallet, setTransferChangeToWallet] = useState(false);
   const [walkinWalletNumber, setWalkinWalletNumber] = useState('');
+  const [walkinCustomerName, setWalkinCustomerName] = useState('');
   const [paynowDialog, setPaynowDialog] = useState<{open: boolean, pollUrl: string, instructions: string, invoiceNumber: string, payload: any, status: string}>({ open: false, pollUrl: '', instructions: '', invoiceNumber: '', payload: null, status: '' });
   const [mobileOrders, setMobileOrders] = useState<any[]>([]);
   const [mobileOrdersDialogOpen, setMobileOrdersDialogOpen] = useState(false);
@@ -562,16 +564,23 @@ export default function POSTerminalPage() {
   const discount = 0;
   const total = subtotal + tax - discount;
 
-  const filteredProducts = products.filter(
-    (p) =>
-      p.isActive &&
-      (!category || p.categoryId === category) &&
-      (!search ||
-        p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.code.toLowerCase().includes(search.toLowerCase()) ||
-        (p.barcode && p.barcode.toLowerCase().includes(search.toLowerCase())) ||
-        (p.description && p.description.toLowerCase().includes(search.toLowerCase())))
-  );
+  const filteredProducts = products
+    .filter(
+      (p) =>
+        p.isActive &&
+        (!category || p.categoryId === category) &&
+        (!search ||
+          p.name.toLowerCase().includes(search.toLowerCase()) ||
+          p.code.toLowerCase().includes(search.toLowerCase()) ||
+          (p.barcode && p.barcode.toLowerCase().includes(search.toLowerCase())) ||
+          (p.description && p.description.toLowerCase().includes(search.toLowerCase())))
+    )
+    .sort((a, b) => {
+      const aStock = Number(a.stock) > 0;
+      const bStock = Number(b.stock) > 0;
+      if (aStock !== bStock) return aStock ? -1 : 1;
+      return (b.availableLocations?.length ?? 0) - (a.availableLocations?.length ?? 0);
+    });
 
   const getStockStatus = (p: Product) => {
     const stock = Number(p.stock);
@@ -656,7 +665,7 @@ export default function POSTerminalPage() {
       const payload = {
         sessionId: session.id,
         customerId: selectedCustomer?.id || undefined,
-        customerName: selectedCustomer?.name || undefined,
+        customerName: selectedCustomer?.name || walkinCustomerName || undefined,
         transferChangeToCard,
         transferChangeToWallet,
         walkinWalletNumber,
@@ -733,7 +742,8 @@ export default function POSTerminalPage() {
           id: offlineId,
           type: 'pos_payment',
           payload,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          status: 'pending'
         });
         
         toast('Offline payment saved locally', 'success');
@@ -745,12 +755,13 @@ export default function POSTerminalPage() {
           ...payload
         };
         setLastTransaction(simulatedData as any);
-        setReceiptCustomer(selectedCustomer);
+        setReceiptCustomer(selectedCustomer || (walkinCustomerName ? { name: walkinCustomerName } as any : null));
         setPaymentDialogOpen(false);
         setReceiptDialogOpen(true);
         setCart([]);
         setPayments([{ method: 'cash', amount: '', reference: '' }]);
         setSelectedCustomer(null);
+        setWalkinCustomerName('');
         setTransferChangeToCard(false);
         setTransferChangeToWallet(false);
         setWalkinWalletNumber('');
@@ -778,12 +789,13 @@ export default function POSTerminalPage() {
       dismissToast(tid);
       toast('Payment successful', 'success');
       setLastTransaction(data.data || data);
-      setReceiptCustomer(selectedCustomer);
+      setReceiptCustomer(selectedCustomer || (walkinCustomerName ? { name: walkinCustomerName } as any : null));
       setPaymentDialogOpen(false);
       setReceiptDialogOpen(true);
       setCart([]);
       setPayments([{ method: 'cash', amount: '', reference: '', currency: 'USD' }]);
       setSelectedCustomer(null);
+      setWalkinCustomerName('');
       setTransferChangeToCard(false);
       setTransferChangeToWallet(false);
       setWalkinWalletNumber('');
@@ -968,6 +980,16 @@ export default function POSTerminalPage() {
                         <p className={`text-xs mt-1 ${status.stockText}`}>
                           {status.label}
                         </p>
+                        {product.availableLocations && product.availableLocations.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {product.availableLocations.slice(0, 3).map((loc) => (
+                              <span key={loc} className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">{loc}</span>
+                            ))}
+                            {product.availableLocations.length > 3 && (
+                              <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">+{product.availableLocations.length - 3}</span>
+                            )}
+                          </div>
+                        )}
                       </button>
                     );
                   })}
@@ -1019,6 +1041,16 @@ export default function POSTerminalPage() {
                                     <p className="text-xs text-slate-500 mt-1 line-clamp-2">
                                       {(product as any).description}
                                     </p>
+                                  )}
+                                  {product.availableLocations && product.availableLocations.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1.5">
+                                      {product.availableLocations.slice(0, 4).map((loc) => (
+                                        <span key={loc} className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">{loc}</span>
+                                      ))}
+                                      {product.availableLocations.length > 4 && (
+                                        <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">+{product.availableLocations.length - 4}</span>
+                                      )}
+                                    </div>
                                   )}
                                 </div>
                                 <div className="flex items-center gap-4 flex-shrink-0">
@@ -1239,8 +1271,8 @@ export default function POSTerminalPage() {
         onClose={() => { setPaymentDialogOpen(false); setPayments([{ method: 'cash', amount: '', reference: '', currency: 'USD' }]); }}
         title="Complete Payment"
         description={`Total amount: $${total.toLocaleString()}`}
-        size="xl"
-        className="max-w-3xl"
+        size="3xl"
+        className="max-w-5xl"
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Left Column: Cart Summary & Total Due */}
@@ -1298,6 +1330,25 @@ export default function POSTerminalPage() {
               ))}
               {cart.length === 0 && (
                 <p className="text-center text-slate-400 text-xs py-4">No items in cart</p>
+              )}
+            </div>
+
+            {/* Customer Name (Optional) */}
+            <div className="border border-slate-200 rounded-lg p-3 bg-white space-y-1.5">
+              <p className="font-bold text-[10px] text-slate-500 uppercase tracking-wider">Customer Name (Optional)</p>
+              {selectedCustomer ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-slate-800">{selectedCustomer.name}</span>
+                  <span className="text-[10px] text-mine-blue-600 bg-mine-blue-50 px-1.5 py-0.5 rounded">Linked</span>
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  placeholder="Walk-in Customer"
+                  value={walkinCustomerName}
+                  onChange={(e) => setWalkinCustomerName(e.target.value)}
+                  className="w-full text-sm border border-slate-200 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-mine-blue-500 text-slate-800"
+                />
               )}
             </div>
           </div>
@@ -1681,21 +1732,6 @@ export default function POSTerminalPage() {
                   </>
                 );
               })()}
-            </div>
-          </div>
-
-          {/* Fiscalization Details */}
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 space-y-1 text-[10px] text-slate-500 font-mono">
-            <p className="font-bold text-[9px] uppercase tracking-wider text-slate-400">Fiscal Verification Data</p>
-            <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
-              <span>Fiscal Doc ID:</span>
-              <span className="text-right text-slate-700 font-semibold">{lastTransaction?.fiscalisedDocId || `FISC-TXN-${lastTransaction?.id?.slice(0, 8).toUpperCase()}`}</span>
-              <span>Machine Serial:</span>
-              <span className="text-right">MINEAZY-POS-7742</span>
-              <span>Signature:</span>
-              <span className="text-right truncate">SHA256:{lastTransaction?.id?.slice(0, 16)}</span>
-              <span>Status:</span>
-              <span className="text-right text-green-600 font-semibold uppercase">Fiscalised</span>
             </div>
           </div>
 

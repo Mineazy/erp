@@ -71,7 +71,7 @@ function ProductSearch({
     }
     const delay = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/inventory/products?search=${encodeURIComponent(query)}&limit=15`);
+        const res = await fetch(`/api/inventory/products?search=${encodeURIComponent(query)}&limit=50`);
         if (res.ok) {
           const d = await res.json();
           setResults(Array.isArray(d) ? d : (d.items || []));
@@ -478,7 +478,8 @@ export default function QuotationsPage() {
             </div>
             {voucherData.branchAddress && <p className="text-xs text-slate-400 mb-4">{voucherData.branchAddress}</p>}
             <Separator />
-            <table className="w-full mt-4 text-sm">
+            <div className="overflow-x-auto mt-4">
+            <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200">
                   <th className="text-left py-2 font-medium text-slate-600">#</th>
@@ -506,6 +507,7 @@ export default function QuotationsPage() {
                 <tr className="border-t-2 border-slate-300"><td colSpan={4} className="text-right py-2 font-bold text-slate-900">Total:</td><td className="text-right py-2 font-bold font-mono text-lg">{voucherData.currency} {voucherData.total.toFixed(2)}</td></tr>
               </tfoot>
             </table>
+            </div>
             {voucherData.terms && (
               <div className="mt-4">
                 <p className="text-xs font-medium text-slate-600">Terms & Conditions:</p>

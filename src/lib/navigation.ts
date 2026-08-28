@@ -21,6 +21,7 @@ export const navGroups = [
       { label: 'Accounts Receivable', href: '/financial/ar', icon: 'Receipt' },
       { label: 'Sales Journal', href: '/financial/sales-journal', icon: 'Book' },
       { label: 'Sales Ledger', href: '/financial/sales-ledger', icon: 'Receipt' },
+      { label: 'Installment Plans', href: '/financial/installments', icon: 'CreditCard' },
       { label: 'Accounts Payable', href: '/financial/ap', icon: 'CreditCard' },
       { label: 'Purchases Journal', href: '/financial/purchases-journal', icon: 'FileText' },
       { label: 'Purchases Ledger', href: '/financial/purchases-ledger', icon: 'BookOpen' },
@@ -130,6 +131,7 @@ export const navGroups = [
     items: [
       { label: 'Equipment', href: '/workshop/equipment', icon: 'Wrench' },
       { label: 'Work Orders', href: '/workshop/work-orders', icon: 'ClipboardList' },
+      { label: 'Returned Repairs', href: '/workshop/repairs', icon: 'RotateCcw' },
       { label: 'Reports & Analytics', href: '/workshop/reports', icon: 'FileBarChart' },
     ],
   },
@@ -139,11 +141,49 @@ export const navGroups = [
     theme: 'cyan',
     icon: 'Truck',
     items: [
+      { label: 'Dashboard', href: '/fleet/dashboard', icon: 'LayoutDashboard' },
       { label: 'Vehicles & Tracking', href: '/fleet/vehicles', icon: 'Truck' },
+      { label: 'Fuel Attendant', href: '/fleet/attendant', icon: 'ScanLine' },
       { label: 'Fuel Requisitions', href: '/fleet/requisitions', icon: 'ClipboardList' },
       { label: 'Prepaid Fuel', href: '/fleet/prepaid', icon: 'CreditCard' },
+      { label: 'Fuel Logs', href: '/fleet/fuel-logs', icon: 'Droplets' },
       { label: 'Hauling Trips', href: '/fleet/hauling', icon: 'ArrowLeftRight' },
       { label: 'Reports & Analytics', href: '/fleet/reports', icon: 'FileBarChart' },
+    ],
+  },
+  {
+    group: 'Projects',
+    module: 'projects',
+    theme: 'mine-blue',
+    icon: 'Briefcase',
+    items: [
+      { label: 'Dashboard', href: '/projects/dashboard', icon: 'LayoutDashboard' },
+      { label: 'All Projects', href: '/projects', icon: 'Briefcase' },
+      { label: 'Reports & Analytics', href: '/projects/reports', icon: 'BarChart3' },
+    ],
+  },
+  {
+    group: 'HR',
+    module: 'hr',
+    theme: 'indigo',
+    icon: 'Users',
+    items: [
+      { label: 'Staff Management', href: '/hr/staff', icon: 'Users' },
+      { label: 'Leave Applications', href: '/hr/leave', icon: 'Calendar' },
+      { label: 'Timesheets', href: '/hr/timesheets', icon: 'Clock' },
+      { label: 'Loan Applications', href: '/hr/loans', icon: 'Banknote' },
+      { label: 'Disciplinary Issues', href: '/hr/disciplinary', icon: 'ShieldAlert' },
+      { label: 'Reports & Analytics', href: '/hr/reports', icon: 'BarChart3' },
+    ],
+  },
+  {
+    group: 'Documents',
+    module: 'documents',
+    theme: 'sky',
+    icon: 'FolderTree',
+    items: [
+      { label: 'Repository', href: '/documents', icon: 'FolderTree' },
+      { label: 'Recent Files', href: '/documents/recent', icon: 'Clock' },
     ],
   },
   {
@@ -184,27 +224,6 @@ export const navGroups = [
       { label: 'Branches', href: '/admin/branches', icon: 'Building2' },
       { label: 'Settings', href: '/admin/settings', icon: 'Settings' },
       { label: 'Audit Trail', href: '/admin/audit', icon: 'ScrollText' },
-    ],
-  },
-  {
-    group: 'Projects',
-    module: 'projects',
-    theme: 'mine-blue',
-    icon: 'Briefcase',
-    items: [
-      { label: 'Dashboard', href: '/projects/dashboard', icon: 'LayoutDashboard' },
-      { label: 'All Projects', href: '/projects', icon: 'Briefcase' },
-      { label: 'Reports & Analytics', href: '/projects/reports', icon: 'BarChart3' },
-    ],
-  },
-  {
-    group: 'Documents',
-    module: 'documents',
-    theme: 'sky',
-    icon: 'FolderTree',
-    items: [
-      { label: 'Repository', href: '/documents', icon: 'FolderTree' },
-      { label: 'Recent Files', href: '/documents/recent', icon: 'Clock' },
     ],
   },
 ];
