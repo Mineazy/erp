@@ -46,5 +46,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Tauri
+src-tauri/target/
+src-tauri/Cargo.lock
+
 # misc
 *.tsbuildinfo

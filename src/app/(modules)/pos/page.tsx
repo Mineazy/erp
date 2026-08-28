@@ -421,6 +421,30 @@ export default function POSTerminalPage() {
 
   const openSession = async () => {
     try {
+      // Offline-first: if no network, create local session and queue sync
+      if (!isOnline) {
+        const offlineSession: Session = {
+          id: `offline-${Date.now()}`,
+          openedAt: new Date().toISOString(),
+          closedAt: null,
+          status: 'open',
+          totalSales: 0,
+        } as any;
+        await cacheData('session_cache', [offlineSession]);
+        await saveOfflineTransaction({
+          id: offlineSession.id,
+          type: 'pos_session',
+          payload: { openingBalance: 0, offlineId: offlineSession.id },
+          timestamp: Date.now(),
+          method: 'POST',
+          url: '/api/pos/sessions',
+          status: 'pending',
+        });
+        try { const { tauriEnqueue } = await import('@/lib/tauri-bridge'); await tauriEnqueue({ id: offlineSession.id, type: 'pos_session', url: '/api/pos/sessions', method: 'POST', payload: { openingBalance: 0 }, timestamp: Date.now() }); } catch {}
+        setSession(offlineSession);
+        toast('Offline session created - will sync when online', 'success');
+        return;
+      }
       const tid = toast('Saving session...', 'info', 120000);
       let res;
       try {
@@ -439,7 +463,9 @@ export default function POSTerminalPage() {
       const data = await res.json();
       dismissToast(tid);
       toast('Session created successfully', 'success');
-      setSession(data.data || data);
+      const sess = data.data || data;
+      setSession(sess);
+      await cacheData('session_cache', [sess]);
     } catch {
       toast('Failed to open session', 'error');
     }
@@ -743,8 +769,11 @@ export default function POSTerminalPage() {
           type: 'pos_payment',
           payload,
           timestamp: Date.now(),
-          status: 'pending'
-        });
+          status: 'pending',
+          url: '/api/pos/transactions',
+          method: 'POST',
+        } as any);
+        try { const { tauriEnqueue } = await import('@/lib/tauri-bridge'); await tauriEnqueue({ id: offlineId, type: 'pos_payment', url: '/api/pos/transactions', method: 'POST', payload, timestamp: Date.now() }); } catch {}
         
         toast('Offline payment saved locally', 'success');
         const simulatedData = {

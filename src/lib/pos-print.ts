@@ -136,8 +136,19 @@ export const generateA4Invoice = async (
   triggerExport(url, `Tax_Invoice_${transaction.transactionNumber}`, { isRestricted: true });
 };
 
-export const printPOSReceipt = (transaction: any) => {
+export const printPOSReceipt = async (transaction: any) => {
   if (!transaction) return;
+  // Tauri desktop: use native raw print if available
+  try {
+    const isTauri = typeof window !== 'undefined' && (window as any).__TAURI__ !== undefined;
+    if (isTauri) {
+      const { tauriPrintRaw } = await import('./tauri-bridge');
+      // Build ESC/POS text fallback then delegate to Rust
+      const escPosText = `Mineazy Mining Solutions\n${transaction.branch?.name || ''}\nTAX INVOICE ${transaction.transactionNumber}\n${new Date(transaction.createdAt).toLocaleString()}\n------------------------------\n${(transaction.lines||[]).map((l:any)=>`${l.productName} x${l.quantity}  $${Number(l.total).toFixed(2)}`).join('\n')}\n------------------------------\nTOTAL $${Number(transaction.total).toFixed(2)}\nThank you!\n`;
+      await tauriPrintRaw('', escPosText);
+      return;
+    }
+  } catch {}
   const printWindow = window.open('', '_blank', 'width=400,height=600');
   if (!printWindow) return;
 
