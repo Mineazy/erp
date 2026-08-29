@@ -1,6 +1,6 @@
 # Mineazy POS Desktop — Tauri Offline-First
 
-Status: scaffolded, web build verified (`npx tsc --noEmit` pass). Rust linker requires VS Build Tools on this runner — code is syntactically valid, full `tauri build` runs on Windows CI with `windows-latest + Rust stable + VS Build Tools`.
+Status: **built** — `npx tsc --noEmit` pass, `cargo check` pass, `npx tauri build` success on 2026-08-29 with VS Build Tools 18 (MSVC 14.51). Artifacts: `mineazy-pos.exe 19.6MB`, `Mineazy POS_1.0.0_x64_en-US.msi 6.9MB`, `Mineazy POS_1.0.0_x64-setup.exe 4.8MB` at `src-tauri/target/release/bundle/*`.
 
 ## Why Tauri (from prior analysis)
 - Existing PWA (`public/sw.js:1`, `src/lib/db.ts:1`, `src/components/sync-manager.tsx:1`) already queues `pos_payment` offline and replays. It still needs browser + online session open.
@@ -11,16 +11,18 @@ Status: scaffolded, web build verified (`npx tsc --noEmit` pass). Rust linker re
 ```
 src-tauri/
   Cargo.toml          # tauri 2.7 + plugins: shell, fs, http, store, sql(sqlite), autostart + rusqlite bundled
-  tauri.conf.json     # productName Mineazy POS, identifier com.mineazy.pos, window 1280x800, devUrl http://localhost:3000, frontendDist ../.next
+  tauri.conf.json     # productName Mineazy POS, identifier com.mineazy.pos, window 1280x800, devUrl http://localhost:3000, frontendDist ../dist (placeholder -> https://mineazy.com/pos)
   src/main.rs         # SQLite init (mineazy_pos.db in app_data_dir), commands: enqueue_offline/get_pending/mark_synced/mark_failed/pending_count/print_raw/get_app_version + autostart
-  icons/              # from public/logo.png
+  icons/              # PNG + proper ICO (PNG-embedded ICO 3.00)
+dist/index.html       # placeholder redirect to mineazy.com/pos (frontendDist)
 src/lib/tauri-bridge.ts   # isTauri(), tauriEnqueue(), tauriPrintRaw(), tauriPendingCount() — web fallback to window.print
 src/components/tauri-sync.tsx # polls Rust queue every 15s when online, replays fetch
 src/lib/pos-print.ts:139   # printPOSReceipt now delegates to tauriPrintRaw when __TAURI__ present
 src/app/(modules)/pos/page.tsx:422 # openSession offline-first (creates offline-xxx in session_cache + idb outbox + tauri queue); finalizeTransaction:765 also dual-queues to tauri
 src/app/providers.tsx:1    # mounts <TauriSync />
 package.json:5             # scripts tauri:dev / tauri:build / pos:desktop + dep @tauri-apps/api
-.gitignore                 # src-tauri/target, Cargo.lock
+next.config.mjs/tsconfig.json # exclude src-tauri from Next tsc/tracing (fixes RC2175 + binary .ts)
+.gitignore                 # src-tauri/target, Cargo.lock (dist forced via -f)
 ```
 
 ## Offline Flow
@@ -67,12 +69,13 @@ POS still talks to `https://mineazy.com/api/*` (`src/app/api/*`). For true islan
 - Defer loyalty/fiscal checks when offline (already optimistic), add stock oversell guard (local `branchStocks` decrement).
 - Sign MSI with `tauri signer` + updater (`bundle.createUpdaterArtifacts:true`).
 
-## Verification on this host
+## Verification on this host (2026-08-29)
 
 - `npx tsc --noEmit` — pass
 - `npx @tauri-apps/cli --version` — 2.11.4
-- `rustc 1.98.0 / cargo 1.98.0` — installed
-- `cargo check` — fails only on `link.exe not found` (expected without VS Build Tools), no Rust syntax errors
-- Icons copied from `public/logo.png`
+- `rustc 1.98.0 / cargo 1.98.0` via `stable-x86_64-pc-windows-msvc` (BuildTools 18 @ `C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Tools\MSVC\14.51.36231\bin\Hostx64\x64\link.exe`)
+- `cargo check` — pass (1 warning unused `is_base64`)
+- `npm run build` — 40s `Compiled successfully` (after `tsconfig exclude src-tauri` + `outputFileTracingExcludes`)
+- `npx tauri build` — 6m11s + 1m56s incremental → `target/release/mineazy-pos.exe 19.65 MB`, `bundle/msi/Mineazy POS_1.0.0_x64_en-US.msi 6.92 MB`, `bundle/nsis/Mineazy POS_1.0.0_x64-setup.exe 4.83 MB` (Wix 3.14, NSIS 3.11)
 
-Run `npx tauri dev` after installing VS Build Tools to see live POS with `TauriSync` pending badge.
+Run `src-tauri/target/release/mineazy-pos.exe` or install MSI/NSIS on branch POS terminal; `dist/index.html` will redirect webview to `https://mineazy.com/pos` with offline SQLite queue at `%APPDATA%/com.mineazy.pos/mineazy_pos.db`.
