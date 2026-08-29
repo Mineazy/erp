@@ -251,21 +251,37 @@ export async function POST(request: NextRequest) {
           create: { branchId: transaction.branchId, productId: l.productId, quantity: -l.quantity },
           update: { quantity: { decrement: l.quantity } },
         });
+        const movementNo = await getNextSequence(prisma, 'erpStockMovement', 'movementNo', 'MOV');
+        await prisma.erpStockMovement.create({
+          data: {
+            movementNo,
+            type: 'out',
+            productId: l.productId,
+            productName: l.productName,
+            quantity: l.quantity,
+            referenceType: 'pos',
+            referenceId: transaction.id,
+            userId: (session.user as any).email || 'unknown',
+            branchId: transaction.branchId,
+          },
+        });
+      } else {
+        // No branch attached: still create a movement log for audit, but skip branch stock update
+        const movementNo = await getNextSequence(prisma, 'erpStockMovement', 'movementNo', 'MOV');
+        await prisma.erpStockMovement.create({
+          data: {
+            movementNo,
+            type: 'out',
+            productId: l.productId,
+            productName: l.productName,
+            quantity: l.quantity,
+            referenceType: 'pos',
+            referenceId: transaction.id,
+            userId: (session.user as any).email || 'unknown',
+            branchId: null,
+          },
+        });
       }
-      const movementNo = await getNextSequence(prisma, 'erpStockMovement', 'movementNo', 'MOV');
-      await prisma.erpStockMovement.create({
-        data: {
-          movementNo,
-          type: 'out',
-          productId: l.productId,
-          productName: l.productName,
-          quantity: l.quantity,
-          referenceType: 'pos',
-          referenceId: transaction.id,
-          userId: (session.user as any).email || 'unknown',
-          branchId: (session.user as any)?.branchId || null,
-        },
-      });
     }
 
     const pmUpdates: Record<string, any> = {};
