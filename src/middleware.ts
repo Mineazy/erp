@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const PUBLIC_PATHS = ['/login', '/api/auth', '/verify', '/api/verify', '/mobile-pos'];
+const PUBLIC_PATHS = ['/login', '/api/auth', '/verify', '/api/verify', '/mobile-pos', '/downloads', '/pos/setup-guide'];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname.startsWith(p));
@@ -12,7 +12,7 @@ function isStaticAsset(pathname: string): boolean {
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon.ico') ||
     pathname.startsWith('/icon.svg') ||
-    pathname.match(/\.(ico|png|svg|jpg|jpeg|gif|css|js)$/) !== null
+    pathname.match(/\.(ico|png|svg|jpg|jpeg|gif|css|js|exe|msi|webmanifest)$/) !== null
   );
 }
 
