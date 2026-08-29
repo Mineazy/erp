@@ -3,9 +3,14 @@ import { useEffect, useState } from 'react';
 import { isTauri } from '@/lib/tauri-bridge';
 
 // When running inside Tauri, poll Rust SQLite queue and replay via http plugin
+// Fix hydration #418: isTauri() must not differ between server and client initial render
 export function TauriSync() {
   const [pending, setPending] = useState(0);
-  const tauri = isTauri();
+  const [tauri, setTauri] = useState(false);
+
+  useEffect(() => {
+    setTauri(isTauri());
+  }, []);
 
   useEffect(() => {
     if (!tauri) return;

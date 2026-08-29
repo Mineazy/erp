@@ -202,20 +202,12 @@ const buildReceiptHtml = (transaction: any) => {
 
 export const printPOSReceipt = (transaction: any) => {
   if (!transaction) return;
-  // Tauri desktop: use native raw print if available — fire-and-forget to keep web path synchronous for popup blocker
-  const isTauri = typeof window !== 'undefined' && (window as any).__TAURI__ !== undefined;
-  if (isTauri) {
-    import('./tauri-bridge').then(({ tauriPrintRaw }) => {
-      const escPosText = `Mineazy Mining Solutions\n${transaction.branch?.name || ''}\nTAX INVOICE ${transaction.transactionNumber}\n${new Date(transaction.createdAt).toLocaleString()}\n------------------------------\n${(transaction.lines||[]).map((l:any)=>`${l.productName} x${l.quantity}  $${Number(l.total).toFixed(2)}`).join('\n')}\n------------------------------\nTOTAL $${Number(transaction.total).toFixed(2)}\nThank you!\n`;
-      tauriPrintRaw('', escPosText).catch(() => {
-        // fallback to browser print if Tauri fails
-        const w = window.open('', '_blank', 'width=400,height=600');
-        if (!w) return;
-        w.document.write(buildReceiptHtml(transaction));
-        w.document.close();
-      });
-    }).catch(() => {});
-    return;
+  // Use browser print for both web and Tauri (Tauri webview supports window.print for POS 80C)
+  // Keep Tauri raw as optional future, but ensure popup is synchronous to avoid blocker
+  const wTauri = typeof window !== 'undefined' && (window as any).__TAURI__ !== undefined;
+  if (wTauri) {
+    // In Tauri, still use window.print via HTML — more reliable for 80C than raw notepad /p
+    // Fire-and-forget raw as well if needed, but primary is HTML print
   }
   const printWindow = window.open('', '_blank', 'width=400,height=600');
   if (!printWindow) {
