@@ -40,20 +40,37 @@ export function useReportExport() {
   }, [isOpen]);
 
   const handleDownloadOnly = () => {
+    // Use window.open first (preview), fallback to anchor — works in both web and Tauri WebView2
+    // Do not use Tauri shell plugin to avoid extra dep; WebView2 handles blob URLs
+    let win: Window | null = null;
     try {
-      // Use anchor to avoid popup blocker and to work in Tauri WebView2 (POS 80C)
-      const a = document.createElement('a');
-      a.href = exportUrl;
-      a.target = '_blank';
-      a.rel = 'noopener';
-      // For blob PDFs, let browser preview in new tab (no download attr)
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } catch {
-      window.open(exportUrl, '_blank');
+      win = window.open(exportUrl, '_blank', 'noopener');
+    } catch {}
+    if (!win) {
+      try {
+        const a = document.createElement('a');
+        a.href = exportUrl;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        // Fallback download if preview still blocked
+        setTimeout(() => {
+          try {
+            const dl = document.createElement('a');
+            dl.href = exportUrl;
+            dl.download = `${exportName}.pdf`;
+            document.body.appendChild(dl);
+            dl.click();
+            document.body.removeChild(dl);
+          } catch {}
+        }, 150);
+      } catch {
+        // Last resort: navigate current window (will download)
+        window.location.href = exportUrl;
+      }
     }
-    // Keep dialog open for 500ms to ensure click fires, then close
     setTimeout(() => setIsOpen(false), 300);
   };
 
@@ -123,6 +140,15 @@ export function useReportExport() {
         <p className="text-sm text-slate-600">
           How would you like to handle <strong>{exportName}</strong>?
         </p>
+        {exportUrl && exportUrl.startsWith('blob:') && (
+          <div className="border rounded-lg overflow-hidden bg-white">
+            <div className="bg-slate-50 px-3 py-2 border-b flex justify-between items-center">
+              <span className="text-xs font-medium text-slate-700">Preview</span>
+              <a href={exportUrl} target="_blank" rel="noopener" className="text-xs text-mine-blue-700 hover:underline">Open in new tab ↗</a>
+            </div>
+            <iframe src={exportUrl} className="w-full h-[400px] border-0" title="PDF Preview" />
+          </div>
+        )}
 
         <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 space-y-4">
           <div className="flex items-center space-x-2 text-slate-800 font-medium mb-2">
