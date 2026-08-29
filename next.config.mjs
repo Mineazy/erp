@@ -3,6 +3,9 @@ const nextConfig = {
   turbopack: {
     root: process.cwd(),
   },
+  outputFileTracingExcludes: {
+    '*': ['./src-tauri/**/*', './target/**/*', './src-tauri/target/**/*']
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb'
