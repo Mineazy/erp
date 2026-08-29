@@ -40,8 +40,21 @@ export function useReportExport() {
   }, [isOpen]);
 
   const handleDownloadOnly = () => {
-    window.open(exportUrl, '_blank');
-    setIsOpen(false);
+    try {
+      // Use anchor to avoid popup blocker and to work in Tauri WebView2 (POS 80C)
+      const a = document.createElement('a');
+      a.href = exportUrl;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      // For blob PDFs, let browser preview in new tab (no download attr)
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch {
+      window.open(exportUrl, '_blank');
+    }
+    // Keep dialog open for 500ms to ensure click fires, then close
+    setTimeout(() => setIsOpen(false), 300);
   };
 
   const handleSaveToDocuments = async () => {

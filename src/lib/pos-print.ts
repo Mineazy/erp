@@ -202,21 +202,50 @@ const buildReceiptHtml = (transaction: any) => {
 
 export const printPOSReceipt = (transaction: any) => {
   if (!transaction) return;
-  // Use browser print for both web and Tauri (Tauri webview supports window.print for POS 80C)
-  // Keep Tauri raw as optional future, but ensure popup is synchronous to avoid blocker
-  const wTauri = typeof window !== 'undefined' && (window as any).__TAURI__ !== undefined;
-  if (wTauri) {
-    // In Tauri, still use window.print via HTML — more reliable for 80C than raw notepad /p
-    // Fire-and-forget raw as well if needed, but primary is HTML print
+  // Use hidden iframe to avoid popup blocker and to work in Tauri WebView2 (POS 80C 80mm)
+  // window.open is unreliable in Tauri and often blocked; iframe print works everywhere
+  try {
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.visibility = 'hidden';
+    document.body.appendChild(iframe);
+    const doc = iframe.contentWindow?.document || iframe.contentDocument as any;
+    if (!doc) {
+      document.body.removeChild(iframe);
+      throw new Error('no iframe doc');
+    }
+    doc.open();
+    doc.write(buildReceiptHtml(transaction));
+    doc.close();
+    const doPrint = () => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch (e) {
+        console.error('iframe print failed', e);
+      }
+      setTimeout(() => {
+        try { document.body.removeChild(iframe); } catch {}
+      }, 1000);
+    };
+    // Give WebView2 a tick to render HTML before printing (required for 80C)
+    setTimeout(doPrint, 250);
+    return;
+  } catch (e) {
+    console.error('iframe print failed, fallback to window.open', e);
   }
+  // Fallback: window.open (for very old browsers)
   const printWindow = window.open('', '_blank', 'width=400,height=600');
   if (!printWindow) {
-    console.error('Popup blocked — please allow popups for mineazy.com to print POS receipts');
-    alert('Popup blocked. Please allow popups for mineazy.com in your browser to print receipts.');
+    alert('Popup blocked. Please allow popups for mineazy.com in your browser to print receipts. Using download fallback.');
     return;
   }
   printWindow.document.write(buildReceiptHtml(transaction));
   printWindow.document.close();
-  // Ensure print is triggered even if onload fails
   try { printWindow.focus(); } catch {}
 };
