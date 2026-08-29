@@ -161,6 +161,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Negative stock guard: allow backorder down to -10
+    const branchIdForStock = (session.user as any)?.branchId || null;
+    const NEGATIVE_LIMIT = -10;
+    if (branchIdForStock) {
+      for (const l of lineData) {
+        const stockRec: any = await prisma.erpBranchStock.findUnique({ where: { branchId_productId: { branchId: branchIdForStock, productId: l.productId } } } as any);
+        const current = stockRec ? Number(stockRec.quantity) : 0;
+        if (current - Number(l.quantity) < NEGATIVE_LIMIT) {
+          return badRequest(`Cannot sell ${l.productName}: stock ${current} would go to ${current - Number(l.quantity)}, limit is ${NEGATIVE_LIMIT}`);
+        }
+      }
+    }
+
     const transactionNumber = await getNextSequence(prisma, 'erpPosTransaction', 'transactionNumber', 'TXN');
 
     const transaction = await prisma.erpPosTransaction.create({

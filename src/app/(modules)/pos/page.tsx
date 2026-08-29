@@ -103,6 +103,13 @@ interface Customer {
   cardBalance: number;
 }
 
+const NEGATIVE_STOCK_LIMIT = -10;
+
+const canSellProduct = (product: Product, requestedQty: number) => {
+  const stock = Number(product.stock);
+  return stock - requestedQty >= NEGATIVE_STOCK_LIMIT;
+};
+
 export default function POSTerminalPage() {
   const { isOnline } = useNetwork();
   const { triggerExport, ExportDialog } = useReportExport();
@@ -409,12 +416,12 @@ export default function POSTerminalPage() {
             p.barcode?.toLowerCase() === cleanSearch)
       );
       if (exactMatch) {
-        if (Number(exactMatch.stock) > 0) {
+        if (canSellProduct(exactMatch, 1)) {
           addToCart(exactMatch);
           setSearch('');
           toast(`Added ${exactMatch.name} to cart`, 'success');
         } else {
-          toast(`${exactMatch.name} is out of stock`, 'warning');
+          toast(`${exactMatch.name} limit reached (stock ${exactMatch.stock}, limit ${NEGATIVE_STOCK_LIMIT})`, 'warning');
         }
       }
     }
@@ -505,11 +512,14 @@ export default function POSTerminalPage() {
   const addToCart = (product: Product) => {
     setCart((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
+      const newQty = existing ? existing.quantity + 1 : 1;
+      if (!canSellProduct(product, newQty)) {
+        toast(`${product.name} would exceed limit ${NEGATIVE_STOCK_LIMIT} (stock ${product.stock})`, 'error');
+        return prev;
+      }
       if (existing) {
         return prev.map((item) =>
-          item.product.id === product.id
-            ? { ...item, quantity: Math.min(item.quantity + 1, product.stock) }
-            : item
+          item.product.id === product.id ? { ...item, quantity: newQty } : item
         );
       }
       return [...prev, { product, quantity: 1 }];
@@ -517,15 +527,23 @@ export default function POSTerminalPage() {
   };
 
   const updateQuantity = (productId: string, delta: number) => {
-    setCart((prev) =>
-      prev
+    setCart((prev) => {
+      const target = prev.find((i) => i.product.id === productId);
+      if (target && delta > 0) {
+        const newQty = target.quantity + delta;
+        if (!canSellProduct(target.product, newQty)) {
+          toast(`${target.product.name} would exceed limit ${NEGATIVE_STOCK_LIMIT} (stock ${target.product.stock})`, 'error');
+          return prev;
+        }
+      }
+      return prev
         .map((item) =>
           item.product.id === productId
             ? { ...item, quantity: Math.max(0, item.quantity + delta) }
             : item
         )
-        .filter((item) => item.quantity > 0)
-    );
+        .filter((item) => item.quantity > 0);
+    });
   };
 
   const removeFromCart = (productId: string) => {
@@ -603,6 +621,9 @@ export default function POSTerminalPage() {
           (p.description && p.description.toLowerCase().includes(search.toLowerCase())))
     )
     .sort((a, b) => {
+      const aBlocked = Number(a.stock) <= NEGATIVE_STOCK_LIMIT;
+      const bBlocked = Number(b.stock) <= NEGATIVE_STOCK_LIMIT;
+      if (aBlocked !== bBlocked) return aBlocked ? 1 : -1;
       const aStock = Number(a.stock) > 0;
       const bStock = Number(b.stock) > 0;
       if (aStock !== bStock) return aStock ? -1 : 1;
@@ -612,14 +633,24 @@ export default function POSTerminalPage() {
   const getStockStatus = (p: Product) => {
     const stock = Number(p.stock);
     const minStock = Number(p.minStock ?? 0);
-    if (stock <= 0) {
+    if (stock <= NEGATIVE_STOCK_LIMIT) {
       return {
         bg: 'bg-red-50/50 hover:bg-red-50',
         border: 'border-red-200 hover:border-red-400',
         text: 'text-red-800',
         stockText: 'text-red-600 font-bold',
         badge: 'bg-red-100 text-red-800 border-red-200',
-        label: 'Not Available'
+        label: 'Limit Reached'
+      };
+    }
+    if (stock <= 0) {
+      return {
+        bg: 'bg-amber-50/50 hover:bg-amber-50',
+        border: 'border-amber-200 hover:border-amber-400',
+        text: 'text-amber-800',
+        stockText: 'text-amber-600 font-bold',
+        badge: 'bg-amber-100 text-amber-800 border-amber-200',
+        label: `Stock: ${stock} (Backorder, limit ${NEGATIVE_STOCK_LIMIT})`
       };
     }
     if (stock <= minStock) {
@@ -999,13 +1030,15 @@ export default function POSTerminalPage() {
                       <button
                         key={product.id}
                         onClick={() => addToCart(product)}
-                        disabled={Number(product.stock) <= 0}
+                        disabled={Number(product.stock) <= NEGATIVE_STOCK_LIMIT}
                         className={`text-left p-3 rounded-lg border ${status.border} ${status.bg} transition-all disabled:opacity-60 disabled:cursor-not-allowed`}
                       >
                         <div className="flex justify-between items-start gap-1">
                           <p className="font-semibold text-sm text-slate-900 truncate flex-1">{product.name}</p>
-                          {Number(product.stock) <= 0 ? (
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${status.badge}`}>OUT</span>
+                          {Number(product.stock) <= NEGATIVE_STOCK_LIMIT ? (
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${status.badge}`}>BLOCKED</span>
+                          ) : Number(product.stock) <= 0 ? (
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${status.badge}`}>BACKORDER</span>
                           ) : Number(product.stock) <= Number(product.minStock ?? 0) ? (
                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${status.badge}`}>LOW</span>
                           ) : (
@@ -1105,7 +1138,7 @@ export default function POSTerminalPage() {
                                   </div>
                                   <Button
                                     size="sm"
-                                    disabled={Number(product.stock) <= 0}
+                                    disabled={Number(product.stock) <= NEGATIVE_STOCK_LIMIT}
                                     onClick={() => addToCart(product)}
                                     className="h-8 text-xs font-semibold px-3 bg-mine-blue-800 hover:bg-mine-blue-900 text-white"
                                   >
@@ -1233,7 +1266,7 @@ export default function POSTerminalPage() {
                           <span className="w-8 text-center text-sm font-mono font-medium">{item.quantity}</span>
                           <button
                             onClick={() => updateQuantity(item.product.id, 1)}
-                            disabled={item.quantity >= item.product.stock}
+                            disabled={!canSellProduct(item.product, item.quantity + 1)}
                             className="p-1 rounded hover:bg-slate-200 text-slate-500 disabled:opacity-30"
                           >
                             <Plus className="h-3 w-3" />
@@ -1350,7 +1383,7 @@ export default function POSTerminalPage() {
                     <span className="w-6 text-center font-mono font-medium">{item.quantity}</span>
                     <button
                       onClick={() => updateQuantity(item.product.id, 1)}
-                      disabled={item.quantity >= item.product.stock}
+                      disabled={!canSellProduct(item.product, item.quantity + 1)}
                       className="p-0.5 rounded hover:bg-slate-200 text-slate-500 disabled:opacity-30"
                     >
                       <Plus className="h-3 w-3" />

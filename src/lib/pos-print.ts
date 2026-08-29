@@ -136,30 +136,14 @@ export const generateA4Invoice = async (
   triggerExport(url, `Tax_Invoice_${transaction.transactionNumber}`, { isRestricted: true });
 };
 
-export const printPOSReceipt = async (transaction: any) => {
-  if (!transaction) return;
-  // Tauri desktop: use native raw print if available
-  try {
-    const isTauri = typeof window !== 'undefined' && (window as any).__TAURI__ !== undefined;
-    if (isTauri) {
-      const { tauriPrintRaw } = await import('./tauri-bridge');
-      // Build ESC/POS text fallback then delegate to Rust
-      const escPosText = `Mineazy Mining Solutions\n${transaction.branch?.name || ''}\nTAX INVOICE ${transaction.transactionNumber}\n${new Date(transaction.createdAt).toLocaleString()}\n------------------------------\n${(transaction.lines||[]).map((l:any)=>`${l.productName} x${l.quantity}  $${Number(l.total).toFixed(2)}`).join('\n')}\n------------------------------\nTOTAL $${Number(transaction.total).toFixed(2)}\nThank you!\n`;
-      await tauriPrintRaw('', escPosText);
-      return;
-    }
-  } catch {}
-  const printWindow = window.open('', '_blank', 'width=400,height=600');
-  if (!printWindow) return;
-
+const buildReceiptHtml = (transaction: any) => {
   const itemsHtml = transaction.lines?.map((item: any) => `
     <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 2px;">
       <span>${item.productName} x${item.quantity}</span>
       <span>$${Number(item.total || item.lineTotal || (Number(item.quantity) * Number(item.unitPrice || item.price || 0)) || 0).toFixed(2)}</span>
     </div>
   `).join('') || '';
-
-  printWindow.document.write(`
+  return `
     <html>
       <head>
         <title>Receipt - ${transaction.transactionNumber}</title>
@@ -213,6 +197,34 @@ export const printPOSReceipt = async (transaction: any) => {
         </script>
       </body>
     </html>
-  `);
+  `;
+};
+
+export const printPOSReceipt = (transaction: any) => {
+  if (!transaction) return;
+  // Tauri desktop: use native raw print if available — fire-and-forget to keep web path synchronous for popup blocker
+  const isTauri = typeof window !== 'undefined' && (window as any).__TAURI__ !== undefined;
+  if (isTauri) {
+    import('./tauri-bridge').then(({ tauriPrintRaw }) => {
+      const escPosText = `Mineazy Mining Solutions\n${transaction.branch?.name || ''}\nTAX INVOICE ${transaction.transactionNumber}\n${new Date(transaction.createdAt).toLocaleString()}\n------------------------------\n${(transaction.lines||[]).map((l:any)=>`${l.productName} x${l.quantity}  $${Number(l.total).toFixed(2)}`).join('\n')}\n------------------------------\nTOTAL $${Number(transaction.total).toFixed(2)}\nThank you!\n`;
+      tauriPrintRaw('', escPosText).catch(() => {
+        // fallback to browser print if Tauri fails
+        const w = window.open('', '_blank', 'width=400,height=600');
+        if (!w) return;
+        w.document.write(buildReceiptHtml(transaction));
+        w.document.close();
+      });
+    }).catch(() => {});
+    return;
+  }
+  const printWindow = window.open('', '_blank', 'width=400,height=600');
+  if (!printWindow) {
+    console.error('Popup blocked — please allow popups for mineazy.com to print POS receipts');
+    alert('Popup blocked. Please allow popups for mineazy.com in your browser to print receipts.');
+    return;
+  }
+  printWindow.document.write(buildReceiptHtml(transaction));
   printWindow.document.close();
+  // Ensure print is triggered even if onload fails
+  try { printWindow.focus(); } catch {}
 };
