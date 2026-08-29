@@ -259,6 +259,20 @@ Updated to match Inventory Branch Orders view:
 
 ### POS Terminal
 - Branch location badges on products, products sorted by availability (in-stock first, more locations = higher rank)
+- Print to POS Printer: iframe-based `buildReceiptHtml` + 250ms render delay before `print()` (avoids popup blocker; works in Tauri WebView2, `POS 80C` system dialog selectable) — `src/lib/pos-print.ts:203`
+- Export A4 Invoice: `Download Only` now tries `window.open` → anchor `_blank` → download attr fallback; embedded iframe preview (400px) in dialog with `Open in new tab` link — `src/hooks/use-report-export.tsx:42`
+- Negative stock backorder limit `-10`: `canSellProduct` client guard `stock-qty>=-10`; server `erpBranchStock` per-line guard, blocks at exactly -10, shows `BLOCKED` badge at `<=-10`, `BACKORDER` at `<=0` — `src/app/(modules)/pos/page.tsx:1` + `route.ts:167`
+- Hydration #418: `isTauri()` now uses `useState`+`useEffect` so initial server render `null` matches client hydrate — `src/components/tauri-sync.tsx:8`
+- Public asset routing: `/downloads` and `/pos/setup-guide` public; `isStaticAsset` serves `exe|msi` without session cookie — `src/middleware.ts:4`
+
+### Recent POS Fixes (2026)
+- `b14c4c4`: Consistent branch stock deduction + movement log — always create `erpStockMovement` per line; `erpBranchStock.upsert` only when `branchId` exists, matching the negative-stock guard scope
+- `eae5996`: Robust PDF preview — iframe preview inside Export dialog + anchor+window.open+download fallback for `handleDownloadOnly`; no Tauri shell dep (fixes TS2307)
+- `71e28cd`: iframe print for POS 80C + anchor PDF preview — replaces `window.open` popup with hidden iframe that renders `buildReceiptHtml`, 250ms delay before `print()`, fallback to `window.open` with alert; `buildReceiptHtml` helper reused
+- `24825b2`: Hydration #418 fix — `useState`+`useEffect` pattern so `isTauri()` initial render matches server (`null`) then hydrates to `<div>`
+- `9ab8701`: Negative stock `-10` — client `canSellProduct` guard + server `erpBranchStock` per-line guard, allows sales until stock reaches exactly -10, then blocks; `BLOCKED`/`BACKORDER` badges
+- `9ebcc77`: Public assets — `/downloads` and `/pos/setup-guide` added to `PUBLIC_PATHS`; `isStaticAsset` adds `exe|msi` so downloads serve 200 without session cookie
+- `9ebcc77`: Desktop Client loads remote `https://mineazy.com/pos` via `dist/index.html:1` redirect, so web POS fixes auto-load without Tauri rebuild
 
 ### CRM Customers
 - Branch-specific with branchId, API with getBranchFilter, UI branch selector
