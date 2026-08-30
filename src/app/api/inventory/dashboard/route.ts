@@ -2,11 +2,16 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession, unauthorized, ok, getBranchFilter } from '@/lib/api';
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const branchFilter = getBranchFilter(session) || {};
+  const url = new URL(request.url);
+  const queryBranchId = url.searchParams.get('branchId') || undefined;
+  
+  // Use query branchId if provided (admin override), otherwise fall back to session filter
+  const sessionBranchFilter = getBranchFilter(session) || {};
+  const branchFilter = queryBranchId ? { branchId: queryBranchId } : sessionBranchFilter;
 
   const [stockAgg, recentMovements, branches, totalProducts] = await Promise.all([
     prisma.erpBranchStock.aggregate({ 
