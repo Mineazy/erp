@@ -12,14 +12,29 @@ export default function InventoryOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
   const [branchId, setBranchId] = useState('');
+  const [branches, setBranches] = useState<{value: string, label: string}[]>();
 
   useEffect(() => {
+    fetchBranches();
     fetchDashboard();
   }, []);
 
   useEffect(() => {
     fetchDashboard();
   }, [branchId]);
+
+  const fetchBranches = async () => {
+    try {
+      const res = await fetch('/api/admin/branches');
+      if (res.ok) {
+        const result = await res.json();
+        const opts = result.items ? result.items.map((b: any) => ({ value: b.id, label: b.name })) : [];
+        setBranches([{ value: '', label: 'Overall (All Branches)' }, ...opts]);
+      }
+    } catch (e) {
+      console.error('Failed to fetch branches', e);
+    }
+  };
 
   const fetchDashboard = async () => {
     setLoading(true);
@@ -70,10 +85,7 @@ export default function InventoryOverviewPage() {
           <Select
             value={branchId}
             onChange={(e) => setBranchId(e.target.value)}
-            options={[
-              { value: '', label: 'Overall (All Branches)' },
-              ...(branchSummary.map((b: any) => ({ value: b.id, label: b.branch })) || [])
-            ]}
+            options={branches}
             placeholder="Filter by Branch"
             className="w-full bg-white shadow-sm"
           />
