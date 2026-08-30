@@ -276,6 +276,7 @@ Updated to match Inventory Branch Orders view:
 
 ### Inventory Overview Branch Filter
 - `8309118`: Branch filter on `Inventory Overview` page now respects `?branchId=` query parameter. API `/api/inventory/dashboard` reads the param and overrides session filter when provided (admin override), otherwise falls back to `getBranchFilter(session)`. The page's `Select` component sends the selected branch ID, enabling users to isolate inventory by branch.
+- `5ff6da1`: Branch filter dropdown now functional - Inventory Overview page fetches branches upfront from `/api/admin/branches` on mount (matching Sales page pattern), so the Select component has valid options immediately on load instead of waiting for dashboard data. Users can now select any branch from the dropdown to filter inventory by branch, regardless of which branch they're signed into.
 
 ### CRM Customers
 - Branch-specific with branchId, API with getBranchFilter, UI branch selector
