@@ -274,6 +274,9 @@ Updated to match Inventory Branch Orders view:
 - `9ebcc77`: Public assets — `/downloads` and `/pos/setup-guide` added to `PUBLIC_PATHS`; `isStaticAsset` adds `exe|msi` so downloads serve 200 without session cookie
 - `9ebcc77`: Desktop Client loads remote `https://mineazy.com/pos` via `dist/index.html:1` redirect, so web POS fixes auto-load without Tauri rebuild
 
+### Inventory Overview Branch Filter
+- `8309118`: Branch filter on `Inventory Overview` page now respects `?branchId=` query parameter. API `/api/inventory/dashboard` reads the param and overrides session filter when provided (admin override), otherwise falls back to `getBranchFilter(session)`. The page's `Select` component sends the selected branch ID, enabling users to isolate inventory by branch.
+
 ### CRM Customers
 - Branch-specific with branchId, API with getBranchFilter, UI branch selector
 - Top 3/Top 5 analytics, auto-generated Customer Code/Loyalty Card Barcode
