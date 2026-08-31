@@ -12,7 +12,7 @@ export default function InventoryOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
   const [branchId, setBranchId] = useState('');
-  const [branches, setBranches] = useState<{value: string, label: string}[]>();
+  const [branches, setBranches] = useState<{value: string, label: string}[]>([]);
 
   useEffect(() => {
     fetchBranches();
