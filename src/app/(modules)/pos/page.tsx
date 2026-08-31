@@ -146,7 +146,7 @@ export default function POSTerminalPage() {
   const [mobileOrders, setMobileOrders] = useState<any[]>([]);
   const [mobileOrdersDialogOpen, setMobileOrdersDialogOpen] = useState(false);
   const [linkedMobileOrderId, setLinkedMobileOrderId] = useState<string | null>(null);
-  const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
+  
 
   // Debounced customer search
   useEffect(() => {
@@ -913,16 +913,6 @@ export default function POSTerminalPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <div className="hidden lg:flex items-center gap-2 mr-2 pr-2 border-r">
-            <Button variant="outline" onClick={() => setDownloadDialogOpen(true)} className="gap-2">
-              <Download className="h-4 w-4" />
-              Mineazy POS Client
-            </Button>
-            <a href="/pos/setup-guide" target="_blank" className="text-xs text-mine-blue-700 hover:underline font-medium">Setup Guide</a>
-          </div>
-          <Button variant="outline" onClick={() => setDownloadDialogOpen(true)} className="lg:hidden gap-2">
-            <Download className="h-4 w-4" />
-          </Button>
           <Button variant="outline" onClick={() => window.open('/mobile-pos/index.html', '_blank')}>
             <Smartphone className="h-4 w-4 mr-2" />
             Mobile POS
@@ -1940,53 +1930,6 @@ export default function POSTerminalPage() {
         <DialogFooter>
           <Button variant="outline" onClick={() => setCloseSessionDialogOpen(false)}>Cancel</Button>
           <Button onClick={closeSession} disabled={!actualCashInput}>Confirm & Close</Button>
-        </DialogFooter>
-      </Dialog>
-      {/* POS Desktop Download */}
-      <Dialog open={downloadDialogOpen} onClose={() => setDownloadDialogOpen(false)} title="Mineazy POS Client">
-        <div className="space-y-4">
-          <div className="bg-mine-blue-50 border border-mine-blue-200 rounded-lg p-3 flex gap-3">
-            <Download className="h-5 w-5 text-mine-blue-700 mt-0.5" />
-            <div>
-              <p className="text-sm font-semibold text-mine-blue-900">Offline POS for Windows 10/11 (x64)</p>
-              <p className="text-xs text-slate-600 mt-1">Tauri desktop — SQLite offline queue, ESC/POS, autostart. Same POS, works 8h+ without internet. v1.0.0 • 19.6 MB exe, 6.9 MB MSI, 4.8 MB Setup.</p>
-            </div>
-          </div>
-          <div className="grid gap-3">
-            <a href="/downloads/Mineazy-POS-Setup.exe" download className="flex items-center justify-between p-3 rounded-lg border border-slate-200 hover:border-mine-blue-300 hover:bg-mine-blue-50 transition-colors">
-              <div>
-                <p className="text-sm font-semibold text-slate-900">Setup.exe — Recommended</p>
-                <p className="text-xs text-slate-500">NSIS installer • 4.8 MB • One-click, auto desktop shortcut</p>
-              </div>
-              <Download className="h-5 w-5 text-mine-blue-700" />
-            </a>
-            <a href="/downloads/Mineazy-POS.msi" download className="flex items-center justify-between p-3 rounded-lg border border-slate-200 hover:border-mine-blue-300 hover:bg-mine-blue-50 transition-colors">
-              <div>
-                <p className="text-sm font-semibold text-slate-900">MSI Installer — For IT/Admin</p>
-                <p className="text-xs text-slate-500">Windows Installer • 6.9 MB • Silent deploy / Group Policy</p>
-              </div>
-              <Download className="h-5 w-5 text-mine-blue-700" />
-            </a>
-            <a href="/downloads/Mineazy-POS-1.0.0-x64.msi" download className="flex items-center justify-between p-3 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
-              <div>
-                <p className="text-sm font-medium text-slate-700">Alternative: Versioned MSI</p>
-                <p className="text-xs text-slate-500">Mineazy-POS-1.0.0-x64.msi • same as above, versioned filename</p>
-              </div>
-              <Download className="h-4 w-4 text-slate-500" />
-            </a>
-          </div>
-          <div className="flex items-center gap-2 text-xs">
-            <a href="/pos/setup-guide" target="_blank" className="text-mine-blue-700 hover:underline font-medium inline-flex items-center gap-1">
-              <LayoutGrid className="h-3 w-3" /> Step-by-step Windows Setup Guide →
-            </a>
-            <span className="text-slate-400">•</span>
-            <a href="/POS_DESKTOP.md" target="_blank" className="text-slate-500 hover:underline">Technical docs</a>
-          </div>
-          <p className="text-xs text-slate-400">After install, DB at %APPDATA%\com.mineazy.pos\mineazy_pos.db — queue syncs on reconnect. Web POS at https://mineazy.com/pos still works.</p>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setDownloadDialogOpen(false)}>Close</Button>
-          <a href="/pos/setup-guide" target="_blank" className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-mine-blue-800 text-white hover:bg-mine-blue-900 h-9 px-4">Open Setup Guide</a>
         </DialogFooter>
       </Dialog>
       {ExportDialog}

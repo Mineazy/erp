@@ -10,7 +10,7 @@ import { Select } from '@/components/ui/select';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogFooter } from '@/components/ui/dialog';
-import { Settings, Plus, Search, Edit2, Trash2, RefreshCw, Save } from 'lucide-react';
+import { Settings, Plus, Search, Edit2, Trash2, RefreshCw, Save, Download, LayoutGrid, CloudDownload, FileText } from 'lucide-react';
 
 interface Setting {
   id: string;
