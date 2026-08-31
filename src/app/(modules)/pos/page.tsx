@@ -1362,6 +1362,40 @@ export default function POSTerminalPage() {
               )}
             </div>
 
+            {/* Discount Input */}
+            <div className="border border-slate-200 rounded-lg p-3 bg-white space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Discount</label>
+                {discount > 0 && (
+                  <button
+                    onClick={() => setDiscount(0)}
+                    className="text-[10px] text-red-500 hover:text-red-700"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-slate-500">$</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  max={subtotal}
+                  value={discount || ''}
+                  onChange={(e) => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
+                  className="flex-1 text-right font-mono text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:ring-2 focus:ring-mine-blue-500"
+                  placeholder="0.00"
+                />
+              </div>
+              {discount > 0 && (
+                <div className="flex justify-between text-xs text-green-600">
+                  <span>Discount applied</span>
+                  <span className="font-mono">-${discount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+              )}
+            </div>
+
             {/* Cart Items Summary & Edit Controls */}
             <div className="border border-slate-200 rounded-lg p-3 space-y-2 bg-white max-h-[300px] overflow-y-auto shadow-inner">
               <p className="font-bold text-[10px] text-slate-500 uppercase tracking-wider mb-1">Cart Items Summary</p>
