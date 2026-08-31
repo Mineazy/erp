@@ -231,6 +231,62 @@ export default function SettingsPage() {
           <Button onClick={handleSave}>{editingSetting ? 'Update' : 'Create'}</Button>
         </DialogFooter>
       </Dialog>
+
+      {/* POS Client Download Section */}
+      <Card className="bg-white border-slate-200 shadow-sm mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Download className="h-4 w-4 text-mine-blue-600" /> POS Client Download
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="bg-mine-blue-50 border border-mine-blue-200 rounded-lg p-3 flex gap-3">
+              <Download className="h-4 w-4 text-mine-blue-700" />
+              <div>
+                <p className="text-sm font-semibold text-mine-blue-900">Offline POS for Windows 10/11 (x64)</p>
+                <p className="text-xs text-slate-600">Tauri desktop — SQLite offline queue, ESC/POS, autostart. Same POS, works offline. v1.0.0 • 19.6 MB exe, 6.9 MB MSI, 4.8 MB Setup.</p>
+              </div>
+            </div>
+
+            <div className="grid gap-3">
+              <a href="/downloads/Mineazy-POS-Setup.exe" download className="flex items-center justify-between p-3 rounded-lg border border-slate-200 hover:border-mine-blue-300 hover:bg-mine-blue-50 transition-colors">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Setup.exe — Recommended</p>
+                  <p className="text-xs text-slate-500">NSIS installer • 4.8 MB • One-click, auto desktop shortcut</p>
+                </div>
+                <Download className="h-4 w-4 text-mine-blue-700" />
+              </a>
+
+              <a href="/downloads/Mineazy-POS.msi" download className="flex items-center justify-between p-3 rounded-lg border border-slate-200 hover:border-mine-blue-300 hover:bg-mine-blue-50 transition-colors">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">MSI Installer — For IT/Admin</p>
+                  <p className="text-xs text-slate-500">Windows Installer • 6.9 MB • Silent deploy / Group Policy</p>
+                </div>
+                <Download className="h-4 w-4 text-mine-blue-700" />
+              </a>
+
+              <a href="/downloads/Mineazy-POS-1.0.0-x64.msi" download className="flex items-center justify-between p-3 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
+                <div>
+                  <p className="text-sm font-medium text-slate-700">Alternative: Versioned MSI</p>
+                  <p className="text-xs text-slate-500">Mineazy-POS-1.0.0-x64.msi • same as above, versioned filename</p>
+                </div>
+                <Download className="h-3 w-3 text-slate-500" />
+              </a>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs">
+              <a href="/pos/setup-guide" target="_blank" className="text-mine-blue-700 hover:underline font-medium inline-flex items-center gap-1">
+                <LayoutGrid className="h-3 w-3" /> Step-by-step Windows Setup Guide
+              </a>
+              <span className="text-slate-400">&bull;</span>
+              <a href="/POS_DESKTOP.md" target="_blank" className="text-slate-500 hover:underline">Technical docs</a>
+            </div>
+
+            <p className="text-xs text-slate-400">After install, DB at %APPDATA%\com.mineazy.pos\mineazy_pos.db — queue syncs on reconnect. Web POS at https://mineazy.com/pos still works.</p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

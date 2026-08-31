@@ -146,7 +146,8 @@ export default function POSTerminalPage() {
   const [mobileOrders, setMobileOrders] = useState<any[]>([]);
   const [mobileOrdersDialogOpen, setMobileOrdersDialogOpen] = useState(false);
   const [linkedMobileOrderId, setLinkedMobileOrderId] = useState<string | null>(null);
-  
+  const [discount, setDiscount] = useState(0);
+
 
   // Debounced customer search
   useEffect(() => {
@@ -550,7 +551,7 @@ export default function POSTerminalPage() {
     setCart((prev) => prev.filter((item) => item.product.id !== productId));
   };
 
-  const clearCart = () => setCart([]);
+  const clearCart = () => { setCart([]); setDiscount(0); };
 
   const formatTimeRemaining = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -606,7 +607,6 @@ export default function POSTerminalPage() {
   const selectedTax = taxes.find(t => t.id === selectedTaxId);
   const taxRate = selectedTax ? Number(selectedTax.rate) / 100 : 0;
   const tax = subtotal * taxRate;
-  const discount = 0;
   const total = subtotal + tax - discount;
 
   const filteredProducts = products
@@ -827,6 +827,7 @@ export default function POSTerminalPage() {
         setTransferChangeToWallet(false);
         setWalkinWalletNumber('');
         setLinkedMobileOrderId(null);
+        setDiscount(0);
         setProcessingPayment(false);
         return;
       }
@@ -861,6 +862,7 @@ export default function POSTerminalPage() {
       setTransferChangeToWallet(false);
       setWalkinWalletNumber('');
       setLinkedMobileOrderId(null);
+      setDiscount(0);
       setProcessingPayment(false);
       
       // Refetch products to update inventory display
@@ -1299,6 +1301,18 @@ export default function POSTerminalPage() {
                       </select>
                     </div>
                     <span className="font-mono">${tax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm text-slate-600">
+                    <span>Discount ($)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={discount || ''}
+                      onChange={(e) => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
+                      className="w-24 text-right font-mono border border-slate-200 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-mine-blue-500"
+                      placeholder="0.00"
+                    />
                   </div>
                   {discount > 0 && (
                     <div className="flex justify-between text-sm text-green-600">
