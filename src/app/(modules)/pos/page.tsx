@@ -147,6 +147,7 @@ export default function POSTerminalPage() {
   const [mobileOrdersDialogOpen, setMobileOrdersDialogOpen] = useState(false);
   const [linkedMobileOrderId, setLinkedMobileOrderId] = useState<string | null>(null);
   const [discount, setDiscount] = useState(0);
+  const [discountPercent, setDiscountPercent] = useState(0);
 
 
   // Debounced customer search
@@ -551,7 +552,7 @@ export default function POSTerminalPage() {
     setCart((prev) => prev.filter((item) => item.product.id !== productId));
   };
 
-  const clearCart = () => { setCart([]); setDiscount(0); };
+  const clearCart = () => { setCart([]); setDiscount(0); setDiscountPercent(0); };
 
   const formatTimeRemaining = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
@@ -828,6 +829,7 @@ export default function POSTerminalPage() {
         setWalkinWalletNumber('');
         setLinkedMobileOrderId(null);
         setDiscount(0);
+        setDiscountPercent(0);
         setProcessingPayment(false);
         return;
       }
@@ -863,6 +865,7 @@ export default function POSTerminalPage() {
       setWalkinWalletNumber('');
       setLinkedMobileOrderId(null);
       setDiscount(0);
+      setDiscountPercent(0);
       setProcessingPayment(false);
       
       // Refetch products to update inventory display
@@ -1302,22 +1305,45 @@ export default function POSTerminalPage() {
                     </div>
                     <span className="font-mono">${tax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
-                  <div className="flex justify-between items-center text-sm text-slate-600">
-                    <span>Discount ($)</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={discount || ''}
-                      onChange={(e) => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
-                      className="w-24 text-right font-mono border border-slate-200 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-mine-blue-500"
-                      placeholder="0.00"
-                    />
+                  <div className="flex justify-between items-center text-sm text-slate-600 gap-2">
+                    <span className="whitespace-nowrap">Discount</span>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value={discountPercent || ''}
+                        onChange={(e) => {
+                          const pct = Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
+                          setDiscountPercent(pct);
+                          setDiscount(Math.round(subtotal * pct) / 100);
+                        }}
+                        className="w-14 text-right font-mono border border-slate-200 rounded px-1.5 py-1 text-xs outline-none focus:ring-1 focus:ring-mine-blue-500"
+                        placeholder="0"
+                      />
+                      <span className="text-xs text-slate-400">%</span>
+                      <span className="text-xs text-slate-300">|</span>
+                      <span className="text-xs text-slate-400">$</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={discount || ''}
+                        onChange={(e) => {
+                          const amt = Math.max(0, parseFloat(e.target.value) || 0);
+                          setDiscount(amt);
+                          setDiscountPercent(subtotal > 0 ? Math.round((amt / subtotal) * 10000) / 100 : 0);
+                        }}
+                        className="w-20 text-right font-mono border border-slate-200 rounded px-1.5 py-1 text-xs outline-none focus:ring-1 focus:ring-mine-blue-500"
+                        placeholder="0.00"
+                      />
+                    </div>
                   </div>
                   {discount > 0 && (
                     <div className="flex justify-between text-sm text-green-600">
-                      <span>Discount</span>
-                      <span className="font-mono">-${discount.toLocaleString()}</span>
+                      <span>Discount{discountPercent > 0 ? ` (${discountPercent}%)` : ''}</span>
+                      <span className="font-mono">-${discount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-base font-bold text-slate-900 pt-1.5 border-t border-slate-200">
@@ -1368,7 +1394,7 @@ export default function POSTerminalPage() {
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Discount</label>
                 {discount > 0 && (
                   <button
-                    onClick={() => setDiscount(0)}
+                    onClick={() => { setDiscount(0); setDiscountPercent(0); }}
                     className="text-[10px] text-red-500 hover:text-red-700"
                   >
                     Clear
@@ -1376,21 +1402,45 @@ export default function POSTerminalPage() {
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-sm text-slate-500">$</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  max={subtotal}
-                  value={discount || ''}
-                  onChange={(e) => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
-                  className="flex-1 text-right font-mono text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:ring-2 focus:ring-mine-blue-500"
-                  placeholder="0.00"
-                />
+                <div className="flex items-center gap-1 flex-1">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={discountPercent || ''}
+                    onChange={(e) => {
+                      const pct = Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
+                      setDiscountPercent(pct);
+                      setDiscount(Math.round(subtotal * pct) / 100);
+                    }}
+                    className="w-16 text-right font-mono text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:ring-2 focus:ring-mine-blue-500"
+                    placeholder="0"
+                  />
+                  <span className="text-sm text-slate-400">%</span>
+                </div>
+                <span className="text-slate-300">|</span>
+                <div className="flex items-center gap-1 flex-1">
+                  <span className="text-sm text-slate-500">$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    max={subtotal}
+                    value={discount || ''}
+                    onChange={(e) => {
+                      const amt = Math.max(0, parseFloat(e.target.value) || 0);
+                      setDiscount(amt);
+                      setDiscountPercent(subtotal > 0 ? Math.round((amt / subtotal) * 10000) / 100 : 0);
+                    }}
+                    className="flex-1 text-right font-mono text-sm border border-slate-200 rounded px-2 py-1.5 outline-none focus:ring-2 focus:ring-mine-blue-500"
+                    placeholder="0.00"
+                  />
+                </div>
               </div>
               {discount > 0 && (
                 <div className="flex justify-between text-xs text-green-600">
-                  <span>Discount applied</span>
+                  <span>Discount applied{discountPercent > 0 ? ` (${discountPercent}%)` : ''}</span>
                   <span className="font-mono">-${discount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               )}

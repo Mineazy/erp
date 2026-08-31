@@ -102,12 +102,15 @@ export const generateA4Invoice = async (
   const taxAmount = Number(transaction.taxAmount || 0);
   const total = Number(transaction.total || 0);
 
+  const discount = Number(transaction.discount || 0);
+
   autoTable(doc, {
     startY: finalY,
     margin: { left: 120 },
     body: [
       ['Subtotal (Excl. VAT):', `$${subtotal.toFixed(2)}`],
       ['VAT Amount:', `$${taxAmount.toFixed(2)}`],
+      ...(discount > 0 ? [['Discount:', `-$${discount.toFixed(2)}`]] : []),
       ['Total Amount:', `$${total.toFixed(2)}`]
     ],
     theme: 'plain',
@@ -116,9 +119,13 @@ export const generateA4Invoice = async (
       0: { fontStyle: 'bold' }
     },
     didParseCell: (data) => {
-      if (data.row.index === 2) {
+      const totalRowIndex = discount > 0 ? 3 : 2;
+      if (data.row.index === totalRowIndex) {
         data.cell.styles.fontStyle = 'bold';
         data.cell.styles.fontSize = 14;
+      }
+      if (discount > 0 && data.row.index === 2) {
+        data.cell.styles.textColor = [34, 197, 94];
       }
     }
   });
@@ -181,6 +188,12 @@ const buildReceiptHtml = (transaction: any) => {
             <span>Tax:</span>
             <span>$${Number(transaction.taxAmount || 0).toFixed(2)}</span>
           </div>
+          ${Number(transaction.discount || 0) > 0 ? `
+          <div class="flex-between" style="color: green;">
+            <span>Discount:</span>
+            <span>-$${Number(transaction.discount).toFixed(2)}</span>
+          </div>
+          ` : ''}
           <div class="flex-between font-bold mt-4" style="font-size: 16px;">
             <span>TOTAL:</span>
             <span>$${Number(transaction.total || 0).toFixed(2)}</span>
