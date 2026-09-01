@@ -265,6 +265,52 @@ Updated to match Inventory Branch Orders view:
 - Hydration #418: `isTauri()` now uses `useState`+`useEffect` so initial server render `null` matches client hydrate — `src/components/tauri-sync.tsx:8`
 - Public asset routing: `/downloads` and `/pos/setup-guide` public; `isStaticAsset` serves `exe|msi` without session cookie — `src/middleware.ts:4`
 
+### POS Discount (Percentage + Dollar Amount)
+- **State**: `discount` (dollar amount) + `discountPercent` (percentage) — both stay in sync
+- **Dual input** in both cart sidebar and Complete Payment dialog: `[ % ] | $ [ amount ]`
+- Changing % auto-calculates $ (`subtotal × %`); changing $ auto-calculates % (`$ / subtotal × 100`)
+- **Clear button** resets both fields to 0
+- **Discount resets** on payment success (both offline and online) and cart clear
+- **API payload**: `discount` field sent to `/api/pos/transactions` (line 738)
+- **Thermal receipt** (`src/lib/pos-print.ts:183`): conditional green "Discount: -$X.XX" row between Tax and Total
+- **A4 PDF invoice** (`src/lib/pos-print.ts:105`): conditional green "Discount: -$X.XX" row in totals table; total row index adjusts when discount present
+- **On-screen receipt dialog**: shows discount row when `lastTransaction.discount > 0`
+
+### Financial Report APIs (All 6 Stub APIs Implemented)
+- **Balance Sheet** (`/api/financial/balance-sheet`): Assets (current/fixed), liabilities (current/long-term), equity from chart of accounts + journal lines. Balance check (assets = liabilities + equity). Accepts `?date=` param.
+- **Income Statement** (`/api/financial/income-statement`): Revenue, COGS, gross profit, operating expenses, finance charges, other income, tax, net profit with margin percentages. Accepts `?startDate=&endDate=`.
+- **Cashflow Statement** (`/api/financial/cashflow-statement`): Operating/investing/financing activities from cashbook entries with inflow/outflow breakdown, opening/closing cash balance. Accepts `?startDate=&endDate=`.
+- **Age Analysis** (`/api/financial/age-analysis`): AR/AP aging by 30/60/90+ day buckets with percentage breakdowns. Accepts `?date=&type=debtors|creditors|both`.
+- **Statement of Changes in Equity** (`/api/financial/statement-of-changes-in-equity`): Opening equity + profit for period - dividends + other movements = closing equity. Accepts `?startDate=&endDate=`.
+- **Multi-Currency VAT** (`/api/financial/multicurrency-vat-reporting`): VAT collected/recoverable in USD/ZWD/ZAR with exchange rates from `currency_rates` table, total in USD. Accepts `?startDate=&endDate=`.
+- All APIs follow the same pattern: `getSession()` → `unauthorized()` guard → Prisma queries → `ok(data)`
+- Reference implementation: `src/app/api/financial/reports/route.ts` (aggregates journal lines by account type)
+
+### Branch Directory (Enhanced Branches Management)
+- **Page**: `/admin/branches` — upgraded from minimal CRUD table to full Branch Directory
+- **Summary cards**: Total Branches, Active (green), Inactive (gray), Cities count
+- **Full table** (9 columns): Code, Name, Address, City, Country, Phone, Email, Status, Actions
+- **Search**: filters by name, code, city, or address
+- **Branch Details Dialog**: click any row → icon, name, code, status badge, full address (MapPin), phone, email, Close/Edit buttons
+- **Create/Edit Dialog**: Code, Name, Address, City, Country, Phone, Email
+- **Prisma model**: `ErpBranch` — code (unique), name, address, city, country, phone, email, isActive, timestamps
+
+### Admin Settings — POS Client Download
+- **Page**: `/admin/settings` — POS Client Download section added at bottom
+- **3 download cards**: Setup.exe (recommended, 4.8MB), MSI (IT/Admin, 6.9MB), Versioned MSI
+- **Setup Guide link**: `/pos/setup-guide` (public page)
+- **Technical docs link**: `/POS_DESKTOP.md`
+- **Download files** in `public/downloads/`: `Mineazy-POS-Setup.exe`, `Mineazy-POS.msi`, `Mineazy-POS-1.0.0-x64.msi`
+- Middleware `PUBLIC_PATHS` includes `/downloads` and `/pos/setup-guide`
+
+### Branch Filtering (Sales Management + Inventory Overview)
+- Both pages have branch dropdown fetching from `/api/admin/branches` on mount
+- Selecting a branch sends `?branchId=<id>` to respective API
+- **Sales Management** (`/inventory/sales-management`): KPI cards (Total Sales, Gross Profit, Transactions, Avg Basket) + charts (Monthly, Quarterly, Half-Yearly, Yearly) + branch breakdown pie chart (hidden when specific branch selected)
+- **Inventory Overview** (`/inventory/overview`): KPI cards (Products, Stock Qty, Value, Low Stock, Out of Stock, Recent Movements) + Stock by Branch table + Stock by Category
+- **APIs**: `/api/sales/dashboard` and `/api/inventory/dashboard` both accept `?branchId=` query param, override session filter when provided, fall back to `getBranchFilter(session)` when not
+- **Access control**: Admin/Manager can select any branch or "All Branches"; regular users locked to their assigned branch by backend
+
 ### Recent POS Fixes (2026)
 - `b14c4c4`: Consistent branch stock deduction + movement log — always create `erpStockMovement` per line; `erpBranchStock.upsert` only when `branchId` exists, matching the negative-stock guard scope
 - `eae5996`: Robust PDF preview — iframe preview inside Export dialog + anchor+window.open+download fallback for `handleDownloadOnly`; no Tauri shell dep (fixes TS2307)
@@ -273,10 +319,6 @@ Updated to match Inventory Branch Orders view:
 - `9ab8701`: Negative stock `-10` — client `canSellProduct` guard + server `erpBranchStock` per-line guard, allows sales until stock reaches exactly -10, then blocks; `BLOCKED`/`BACKORDER` badges
 - `9ebcc77`: Public assets — `/downloads` and `/pos/setup-guide` added to `PUBLIC_PATHS`; `isStaticAsset` adds `exe|msi` so downloads serve 200 without session cookie
 - `9ebcc77`: Desktop Client loads remote `https://mineazy.com/pos` via `dist/index.html:1` redirect, so web POS fixes auto-load without Tauri rebuild
-
-### Inventory Overview Branch Filter
-- `8309118`: Branch filter on `Inventory Overview` page now respects `?branchId=` query parameter. API `/api/inventory/dashboard` reads the param and overrides session filter when provided (admin override), otherwise falls back to `getBranchFilter(session)`. The page's `Select` component sends the selected branch ID, enabling users to isolate inventory by branch.
-- `5ff6da1`: Branch filter dropdown now functional - Inventory Overview page fetches branches upfront from `/api/admin/branches` on mount (matching Sales page pattern), so the Select component has valid options immediately on load instead of waiting for dashboard data. Users can now select any branch from the dropdown to filter inventory by branch, regardless of which branch they're signed into.
 
 ### CRM Customers
 - Branch-specific with branchId, API with getBranchFilter, UI branch selector
